@@ -20,6 +20,7 @@
 - Local development uses `http://localhost:3000`.
 - QA/staging, when introduced, uses a separate hostname and separate secrets/database.
 - Production deployment requires CI, QA, security, database, and payment readiness gates.
+- **Product-owner confirmation (2026-08-20):** `psp.hoahub.tech` is correctly mapped to the PSP Website application.
 
 ## 3. Official Branding
 
@@ -225,6 +226,7 @@ All applicable chapter-owned entities carry explicit chapter scope, including:
 - Posts/comments
 - Announcements/events
 - Positions/officer assignments
+- Committees/committee memberships
 - Assessments/rates
 - Ledger entries
 - Payments/receipts
@@ -288,16 +290,18 @@ Core entities include:
 - MembershipHistory
 - ChapterPosition
 - OfficerAssignment
+- Committee / CommitteeMembership
 - Post / PostImage / Comment
 - Announcement
 - Event
+- Notification
 - AssessmentType / AssessmentRate / Assessment
 - MemberLedgerEntry
 - Payment / PaymentTransaction / Receipt
 - Certificate
 - AuditLog
 
-Add Committee/CommitteeMembership and Notification entities when those modules are implemented.
+Committee and Notification entities are implemented and are part of the current production-oriented MVP baseline.
 
 ## 11. Financial Invariants
 
@@ -312,11 +316,34 @@ Add Committee/CommitteeMembership and Notification entities when those modules a
 ## 12. Development & Deployment Rules
 
 - Read this `AGENTS.md` before every implementation change.
-- Keep `main` releasable; use feature/fix branches and CI.
+- Read `docs/STATUS.md` before planning work; it is the authoritative operational delivery status ledger.
+- Keep `main` releasable; use feature/fix/docs branches and CI.
 - No production secrets in source control.
 - Use Node.js 22+ for build/runtime unless the approved production environment requires a later compatible LTS.
-- Run Prisma validation, schema application against CI MySQL, seed checks, strict TypeScript, production build, and runtime dependency audit in CI.
-- Production database is separate from development/QA.
+- Run Prisma validation, schema application against CI MySQL, seed checks, strict TypeScript, production build, runtime/security smoke tests, cross-chapter isolation tests, and runtime dependency audit in CI where applicable.
+- Production database is separate from development/QA and from HOAHub.
 - Production deployment target is `https://psp.hoahub.tech` on Hostinger.
 - Production PayMongo live credentials are not enabled until test-mode E2E passes.
-- Run post-deployment `/api/health` and E2E smoke checks before declaring release complete.
+- Run post-deployment `/api/health` and E2E smoke checks before declaring a release complete.
+- Production startup must not destructively reseed customized roles/permissions/data on every restart. Baseline initialization is idempotent and full seed runs only when the required baseline is absent.
+
+## 13. Knowledge Base Maintenance — Definition of Done
+
+Documentation is part of every material task. A code/configuration/deployment task is not fully complete until the relevant knowledge base is reconciled.
+
+After every material task:
+
+1. Update `AGENTS.md` when a business rule, architecture rule, security invariant, hosting rule, payment rule, data-isolation rule, or delivery process changes.
+2. Update `docs/STATUS.md` with the completed/pending state and evidence.
+3. Update the applicable detailed document (`BRD.md`, `ARCHITECTURE.md`, `DATA_MODEL.md`, `DEPLOYMENT.md`, `IMPLEMENTATION_PLAN.md`, `PAYMENTS.md`, `REGISTRATION.md`, `SECURITY.md`, or `UI_UX.md`).
+4. Do not leave phase checklists or deployment status stale after implementation or validation has changed.
+5. Do not rely on chat history as the authoritative project state when repository documentation can be updated.
+6. Never mark credential-dependent or production-runtime validation complete without evidence or explicit product-owner confirmation of the relevant fact.
+
+## 14. Current Delivery Baseline — 2026-08-20
+
+- Production-oriented MVP application modules are implemented in the repository: identity, registration, membership, chapter administration, Member PWA, community, announcements/events, finance/ledger, PayMongo integration code, receipts, certificates/QR verification, reports, audit, committees, and notifications.
+- Cross-chapter isolation is enforced server-side and has automated CI negative tests.
+- PR #5 production bootstrap hardening passed PSP CI #253 and was merged into `main` on 2026-08-20 at merge commit `c00a511f2a1420e4de8c7befeef6d44c68a87ff7`.
+- Product owner confirmed `psp.hoahub.tech` is correctly mapped to the PSP Website application.
+- Remaining release work is external production validation requiring live runtime/integration evidence (for example SMTP delivery, PayMongo test-mode E2E, production health/QR/PWA checks, and backup/rollback confirmation). See `docs/STATUS.md` for the authoritative current checklist.
