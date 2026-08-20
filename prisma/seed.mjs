@@ -75,10 +75,25 @@ const assessmentTypes = [
 ];
 
 async function main() {
-  await prisma.organization.upsert({
+  const organization = await prisma.organization.upsert({
     where: { code: "PSP_PH" },
     update: { name: "Psi Sigma Phi Philippines Inc." },
     create: { code: "PSP_PH", name: "Psi Sigma Phi Philippines Inc." },
+  });
+
+  await prisma.chapters.upsert({
+    where: { code: "RHO_ALPHA_DLP" },
+    update: {
+      organizationId: organization.id,
+      name: "Rho Alpha De Las Piñas",
+      status: "ACTIVE",
+    },
+    create: {
+      organizationId: organization.id,
+      code: "RHO_ALPHA_DLP",
+      name: "Rho Alpha De Las Piñas",
+      status: "ACTIVE",
+    },
   });
 
   for (const [code, name] of permissions) {
@@ -125,7 +140,7 @@ async function main() {
     });
   }
 
-  console.log("PSP baseline data seeded.");
+  console.log("PSP baseline data seeded, including Rho Alpha De Las Piñas.");
 }
 
 main()
