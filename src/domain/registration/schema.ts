@@ -33,6 +33,12 @@ export const membershipRegistrationSchema = z.object({
   pspBirthdayCode: requiredTrimmedString("PSP Birthday Code", 100),
   birthDate: requiredDate("Date of Birth"),
   chapterId: z.string().trim().min(1, "Chapter is required.").max(191),
+  applicationAcknowledged: z.literal(true, {
+    error: "Application acknowledgement is required.",
+  }),
+  privacyAcknowledged: z.literal(true, {
+    error: "Data privacy acknowledgement is required.",
+  }),
   // Hidden honeypot. Real applicants never populate this field.
   website: z.string().max(0).optional(),
 });
