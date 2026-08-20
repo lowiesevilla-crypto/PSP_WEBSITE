@@ -53,10 +53,10 @@ export default async function LoginPage() {
               Ψ Σ Φ
             </p>
             <h1 style={{ margin: "5px 0 4px", fontSize: "1.8rem", color: "#151515" }}>
-              Member Sign In
+              PSP Account Sign In
             </h1>
             <p style={{ margin: 0, color: "#746b5b" }}>
-              Psi Sigma Phi Philippines Inc.
+              Members and authorized administrators use this secure sign-in.
             </p>
           </div>
         </div>

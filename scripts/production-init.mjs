@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { PrismaClient } from "@prisma/client";
 
 function run(scriptPath) {
   const result = spawnSync(process.execPath, [scriptPath], {
@@ -11,8 +12,63 @@ function run(scriptPath) {
   }
 }
 
-console.log("Initializing PSP production baseline...");
-run("prisma/seed.mjs");
+async function ensureProductionBaseline() {
+  const prisma = new PrismaClient();
+
+  try {
+    let organization = await prisma.organization.findUnique({
+      where: { code: "PSP_PH" },
+      select: { id: true },
+    });
+
+    if (!organization) {
+      organization = await prisma.organization.create({
+        data: {
+          code: "PSP_PH",
+          name: "Psi Sigma Phi Philippines Inc.",
+        },
+        select: { id: true },
+      });
+      console.log("Created PSP national organization baseline.");
+    }
+
+    const rhoAlpha = await prisma.chapters.findUnique({
+      where: { code: "RHO_ALPHA_DLP" },
+      select: { id: true },
+    });
+
+    if (!rhoAlpha) {
+      await prisma.chapters.create({
+        data: {
+          organizationId: organization.id,
+          code: "RHO_ALPHA_DLP",
+          name: "Rho Alpha De Las Piñas",
+          status: "ACTIVE",
+        },
+      });
+      console.log("Created Rho Alpha De Las Piñas chapter baseline.");
+    }
+
+    const systemAdminRole = await prisma.role.findUnique({
+      where: { code: "SYSTEM_ADMIN" },
+      select: { id: true },
+    });
+
+    return Boolean(systemAdminRole);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+console.log("Checking PSP production baseline...");
+const baselineReady = await ensureProductionBaseline();
+
+if (!baselineReady) {
+  console.log("System role baseline is missing; running one-time PSP seed initialization.");
+  run("prisma/seed.mjs");
+} else {
+  console.log("PSP baseline already exists; full seed skipped.");
+}
 
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
 const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
