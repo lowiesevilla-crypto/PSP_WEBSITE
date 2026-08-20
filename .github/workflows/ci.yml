@@ -1,0 +1,67 @@
+name: PSP CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate application
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: mysql://psp:psp@127.0.0.1:3306/psp_platform
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      APP_ENV: test
+      AUTH_SECRET: ci-only-placeholder-secret-not-for-production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Upload generated dependency lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Remove development-only packages
+        run: npm prune --omit=dev
+
+      - name: Produce production dependency audit
+        run: npm audit --omit=dev --json > runtime-audit.json || true
+
+      - name: Enforce runtime dependency audit
+        run: node scripts/check-runtime-audit.mjs
