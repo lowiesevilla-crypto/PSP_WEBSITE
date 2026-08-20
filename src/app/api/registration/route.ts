@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const PRIVACY_NOTICE_VERSION = "2026-08-20-v1";
+
 const activeApplicationStatuses = [
   "SUBMITTED",
   "UNDER_REVIEW",
@@ -67,7 +69,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "VALIDATION_ERROR",
-        message: "Please review the registration information.",
+        message: "Please review the registration information and required acknowledgements.",
         fields: parsed.error.flatten().fieldErrors,
       },
       { status: 400 },
@@ -142,24 +144,58 @@ export async function POST(request: Request) {
     );
   }
 
-  const application = await prisma.membershipApplication.create({
-    data: {
-      chapterId: input.chapterId,
-      firstName: input.firstName,
-      middleName: input.middleName,
-      lastName: input.lastName,
-      suffix: input.suffix,
-      email: input.email,
-      mobile: input.mobile,
-      birthDate: input.birthDate,
-      address: input.address,
-      status: "SUBMITTED",
-    },
-    select: {
-      id: true,
-      status: true,
-      submittedAt: true,
-    },
+  const application = await prisma.$transaction(async (tx) => {
+    const created = await tx.membershipApplication.create({
+      data: {
+        chapterId: input.chapterId,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        middleInitial: input.middleInitial,
+        address: input.address,
+        email: input.email,
+        mobile: input.mobile,
+        dateSurvive: input.dateSurvive,
+        surviveLocation: input.surviveLocation,
+        pspBirthdayCode: input.pspBirthdayCode,
+        birthDate: input.birthDate,
+        status: "SUBMITTED",
+      },
+      select: {
+        id: true,
+        status: true,
+        submittedAt: true,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        chapterId: input.chapterId,
+        action: "MEMBERSHIP_APPLICATION_SUBMITTED",
+        entityType: "MembershipApplication",
+        entityId: created.id,
+        metadataJson: {
+          source: "PUBLIC_REGISTRATION",
+          applicationAcknowledged: input.applicationAcknowledged,
+        },
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        chapterId: input.chapterId,
+        action: "DATA_PRIVACY_NOTICE_ACKNOWLEDGED",
+        entityType: "MembershipApplication",
+        entityId: created.id,
+        metadataJson: {
+          source: "PUBLIC_REGISTRATION",
+          privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+          acknowledged: input.privacyAcknowledged,
+          acknowledgedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return created;
   });
 
   return NextResponse.json(
