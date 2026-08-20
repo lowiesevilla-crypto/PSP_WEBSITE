@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireCurrentMember } from "@/lib/member/current-member";
+import { CertificateAction } from "@/components/certificates/certificate-action";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,8 @@ export default async function CertificatePage() {
             </div>
           ) : (
             <div style={{ marginTop: 22 }}>
-              <p style={{ color: "#6b665c", lineHeight: 1.6 }}>No valid certificate has been issued yet. Use the button below to issue your current digital membership certificate.</p>
-              <form action="/api/member/certificates" method="post">
-                <button className="btn btn-primary" type="submit">Issue My Certificate</button>
-              </form>
-              <p style={{ fontSize: ".82rem", color: "#746b5b" }}>If your browser displays the API result, return here and refresh. The certificate is created only once while a valid certificate exists.</p>
+              <p style={{ color: "#6b665c", lineHeight: 1.6 }}>No valid certificate has been issued yet. Issue your current digital membership certificate below.</p>
+              <CertificateAction />
             </div>
           )}
 
