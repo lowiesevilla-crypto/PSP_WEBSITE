@@ -25,6 +25,8 @@ export const membershipRegistrationSchema = z.object({
       message: "Birth date is invalid.",
     }),
   address: optionalTrimmedString(500),
+  // Hidden honeypot. Real applicants never populate this field.
+  website: z.string().max(0).optional(),
 });
 
 export type MembershipRegistrationInput = z.input<
