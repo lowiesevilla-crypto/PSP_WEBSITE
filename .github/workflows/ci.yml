@@ -49,6 +49,22 @@ jobs:
         with:
           node-version: 22
 
+      - name: Reject committed high-risk secret patterns
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RIE --exclude-dir=.git --exclude='*.md' --exclude='.env.example' '(sk_live_[A-Za-z0-9]+|sk_test_[A-Za-z0-9]+|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' .; then
+            echo 'High-risk secret-like material detected in source.' >&2
+            exit 1
+          fi
+
+      - name: Verify security header configuration
+        shell: bash
+        run: |
+          grep -q 'X-Content-Type-Options' next.config.ts
+          grep -q 'Referrer-Policy' next.config.ts
+          grep -q 'X-Frame-Options' next.config.ts
+
       - name: Install dependencies
         run: npm install
 
@@ -73,11 +89,11 @@ jobs:
         run: npm run seed
 
       - name: Validate System Admin bootstrap
+        run: npm run bootstrap-admin
         env:
           BOOTSTRAP_ADMIN_EMAIL: ci-system-admin@example.invalid
           BOOTSTRAP_ADMIN_PASSWORD: ci-only-bootstrap-password-2026
           BOOTSTRAP_ADMIN_NAME: CI System Admin
-        run: npm run bootstrap-admin
 
       - name: Typecheck
         run: npm run typecheck
