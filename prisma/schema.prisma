@@ -91,47 +91,47 @@ model Organization {
 }
 
 model Chapters {
-  id           String        @id @default(cuid())
-  organizationId String
-  code         String        @unique
-  name         String
-  description  String?       @db.Text
-  foundingDate DateTime?
-  address      String?       @db.Text
-  email        String?
-  phone        String?
-  logoUrl      String?
-  status       ChapterStatus @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  organizationId  String
+  code             String        @unique
+  name             String
+  description      String?       @db.Text
+  foundingDate     DateTime?
+  address          String?       @db.Text
+  email            String?
+  phone            String?
+  logoUrl          String?
+  status           ChapterStatus @default(ACTIVE)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  members      Member[]
-  applications MembershipApplication[]
-  roleAssignments UserRoleAssignment[]
-  positions    ChapterPosition[]
-  posts        Post[]
-  announcements Announcement[]
-  events       Event[]
-  assessmentRates AssessmentRate[]
-  assessments  Assessment[]
-  ledgerEntries MemberLedgerEntry[]
-  payments     Payment[]
-  certificates Certificate[]
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members          Member[]
+  applications     MembershipApplication[]
+  roleAssignments  UserRoleAssignment[]
+  positions        ChapterPosition[]
+  posts            Post[]
+  announcements    Announcement[]
+  events           Event[]
+  assessmentRates  AssessmentRate[]
+  assessments      Assessment[]
+  ledgerEntries    MemberLedgerEntry[]
+  payments         Payment[]
+  certificates     Certificate[]
 
   @@index([organizationId, status])
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String?
-  displayName  String
-  status       UserStatus @default(INVITED)
+  id              String     @id @default(cuid())
+  email           String     @unique
+  passwordHash    String?
+  displayName     String
+  status          UserStatus @default(INVITED)
   emailVerifiedAt DateTime?
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   member          Member?
   roleAssignments UserRoleAssignment[]
@@ -191,58 +191,64 @@ model UserRoleAssignment {
 }
 
 model MembershipApplication {
-  id          String            @id @default(cuid())
-  chapterId   String
-  email       String
-  mobile      String?
-  firstName   String
-  middleName  String?
-  lastName    String
-  suffix      String?
-  birthDate   DateTime?
-  address     String?           @db.Text
+  id              String            @id @default(cuid())
+  chapterId       String
+  firstName       String
+  lastName        String
+  middleInitial   String?
+  address         String?           @db.Text
+  email           String
+  mobile          String?
+  dateSurvive     DateTime?
+  surviveLocation String?           @db.Text
+  pspBirthdayCode String?
+  birthDate       DateTime?
   profilePhotoUrl String?
-  status      ApplicationStatus @default(SUBMITTED)
-  submittedAt DateTime          @default(now())
-  reviewedAt  DateTime?
-  reviewNotes String?           @db.Text
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  status          ApplicationStatus @default(SUBMITTED)
+  submittedAt     DateTime          @default(now())
+  reviewedAt      DateTime?
+  reviewNotes     String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   chapter Chapters @relation(fields: [chapterId], references: [id], onDelete: Restrict)
 
   @@index([chapterId, status])
   @@index([email])
+  @@index([pspBirthdayCode])
 }
 
 model Member {
-  id             String           @id @default(cuid())
-  userId         String           @unique
-  chapterId      String
-  membershipNo   String           @unique
-  firstName      String
-  middleName     String?
-  lastName       String
-  suffix         String?
-  mobile         String?
-  birthDate      DateTime?
-  address        String?          @db.Text
-  profilePhotoUrl String?
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  chapterId        String
+  membershipNo     String           @unique
+  firstName        String
+  lastName         String
+  middleInitial    String?
+  address          String?          @db.Text
+  mobile           String?
+  dateSurvive      DateTime?
+  surviveLocation  String?          @db.Text
+  pspBirthdayCode  String?
+  birthDate        DateTime?
+  profilePhotoUrl  String?
   membershipStatus MembershipStatus @default(ACTIVE)
-  joinedAt       DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  joinedAt         DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  chapter        Chapters  @relation(fields: [chapterId], references: [id], onDelete: Restrict)
-  history        MembershipHistory[]
+  user               User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  chapter            Chapters  @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  history            MembershipHistory[]
   officerAssignments OfficerAssignment[]
-  ledgerEntries  MemberLedgerEntry[]
-  payments       Payment[]
-  certificates   Certificate[]
+  ledgerEntries      MemberLedgerEntry[]
+  payments           Payment[]
+  certificates       Certificate[]
 
   @@index([chapterId, membershipStatus])
   @@index([lastName, firstName])
+  @@index([pspBirthdayCode])
 }
 
 model MembershipHistory {
@@ -262,15 +268,15 @@ model MembershipHistory {
 }
 
 model ChapterPosition {
-  id          String   @id @default(cuid())
-  chapterId   String
-  name        String
-  code        String
-  level       Int      @default(0)
-  parentId    String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  chapterId String
+  name      String
+  code      String
+  level     Int      @default(0)
+  parentId  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   chapter     Chapters @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   assignments OfficerAssignment[]
@@ -295,33 +301,33 @@ model OfficerAssignment {
 }
 
 model Post {
-  id          String        @id @default(cuid())
+  id           String        @id @default(cuid())
   authorUserId String
-  chapterId   String?
-  audience    AudienceScope
-  body        String        @db.Text
-  isPinned    Boolean       @default(false)
-  isHidden    Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  chapterId    String?
+  audience     AudienceScope
+  body         String        @db.Text
+  isPinned     Boolean       @default(false)
+  isHidden     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  author      User      @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
-  chapter     Chapters? @relation(fields: [chapterId], references: [id], onDelete: Restrict)
-  images      PostImage[]
-  comments    Comment[]
+  author   User      @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  chapter  Chapters? @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  images   PostImage[]
+  comments Comment[]
 
   @@index([chapterId, createdAt])
   @@index([audience, createdAt])
 }
 
 model PostImage {
-  id        String   @id @default(cuid())
-  postId    String
+  id         String   @id @default(cuid())
+  postId     String
   storageKey String
-  url       String
-  mimeType  String
-  sizeBytes Int
-  createdAt DateTime @default(now())
+  url        String
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -344,17 +350,17 @@ model Comment {
 }
 
 model Announcement {
-  id          String        @id @default(cuid())
-  chapterId   String?
-  audience    AudienceScope
-  title       String
-  body        String        @db.Text
-  imageUrl    String?
-  startsAt    DateTime?
-  expiresAt   DateTime?
-  isPinned    Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id        String        @id @default(cuid())
+  chapterId String?
+  audience  AudienceScope
+  title     String
+  body      String        @db.Text
+  imageUrl  String?
+  startsAt  DateTime?
+  expiresAt DateTime?
+  isPinned  Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   chapter Chapters? @relation(fields: [chapterId], references: [id], onDelete: Restrict)
 
@@ -422,7 +428,7 @@ model Assessment {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  chapter        Chapters      @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  chapter        Chapters       @relation(fields: [chapterId], references: [id], onDelete: Restrict)
   assessmentType AssessmentType @relation(fields: [assessmentTypeId], references: [id], onDelete: Restrict)
   ledgerEntries  MemberLedgerEntry[]
   payments       Payment[]
@@ -443,10 +449,10 @@ model MemberLedgerEntry {
   occurredAt   DateTime        @default(now())
   createdAt    DateTime        @default(now())
 
-  chapter    Chapters   @relation(fields: [chapterId], references: [id], onDelete: Restrict)
-  member     Member     @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  chapter    Chapters    @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Restrict)
   assessment Assessment? @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
-  payment    Payment?   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  payment    Payment?    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
   @@index([chapterId, memberId, occurredAt])
   @@index([paymentId])
@@ -467,27 +473,27 @@ model Payment {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  chapter        Chapters       @relation(fields: [chapterId], references: [id], onDelete: Restrict)
-  member         Member         @relation(fields: [memberId], references: [id], onDelete: Restrict)
-  assessment     Assessment?    @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
-  transactions   PaymentTransaction[]
-  ledgerEntries  MemberLedgerEntry[]
-  receipt         Receipt?
+  chapter       Chapters            @relation(fields: [chapterId], references: [id], onDelete: Restrict)
+  member        Member              @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  assessment    Assessment?         @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  transactions  PaymentTransaction[]
+  ledgerEntries MemberLedgerEntry[]
+  receipt       Receipt?
 
   @@index([chapterId, status, createdAt])
   @@index([memberId, createdAt])
 }
 
 model PaymentTransaction {
-  id             String   @id @default(cuid())
-  paymentId      String
-  gatewayEventId String?  @unique
+  id              String   @id @default(cuid())
+  paymentId       String
+  gatewayEventId  String?  @unique
   gatewayObjectId String?
-  eventType      String?
-  rawStatus      String?
-  payloadHash    String?
-  processedAt    DateTime?
-  createdAt      DateTime @default(now())
+  eventType       String?
+  rawStatus       String?
+  payloadHash     String?
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
@@ -526,16 +532,16 @@ model Certificate {
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  actorUserId String?
-  chapterId   String?
-  action      String
-  entityType  String
-  entityId    String?
-  beforeJson  Json?
-  afterJson   Json?
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  chapterId    String?
+  action       String
+  entityType   String
+  entityId     String?
+  beforeJson   Json?
+  afterJson    Json?
   metadataJson Json?
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
