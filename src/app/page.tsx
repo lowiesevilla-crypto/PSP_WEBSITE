@@ -45,7 +45,7 @@ export default function HomePage() {
       <header className="topbar">
         <div className="container nav">
           <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
-            <img src="/brand/psp-logo.png" alt="Psi Sigma Phi Philippines Inc. seal" />
+            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi Philippines Inc. seal" />
             <span className="brand-copy">
               <small>Ψ Σ Φ</small>
               <span>Psi Sigma Phi Philippines Inc.</span>
@@ -101,7 +101,7 @@ export default function HomePage() {
           <div className="hero-visual" aria-label="Psi Sigma Phi official seal">
             <div className="hero-orbit" aria-hidden="true" />
             <div className="seal-card">
-              <img src="/brand/psp-logo.png" alt="Official Psi Sigma Phi Philippines Inc. seal" />
+              <img src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi Philippines Inc. seal" />
             </div>
             <div className="platform-chip">
               <strong>National → Chapter → Member</strong>
@@ -147,7 +147,7 @@ export default function HomePage() {
           <div className="member-preview">
             <div className="member-card">
               <div className="member-card-top">
-                <img src="/brand/psp-logo.png" alt="Psi Sigma Phi seal" />
+                <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
                 <span className="member-card-status">ACTIVE MEMBER</span>
               </div>
               <div className="member-card-name">Juan Dela Cruz</div>
