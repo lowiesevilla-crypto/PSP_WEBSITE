@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Psi Sigma Phi app icon">
+  <rect width="512" height="512" rx="112" fill="#000000"/>
+  <circle cx="256" cy="256" r="205" fill="#FEC009"/>
+  <circle cx="256" cy="256" r="177" fill="#090909" stroke="#FFFFFF" stroke-width="5"/>
+  <circle cx="256" cy="256" r="154" fill="none" stroke="#FEC009" stroke-width="5"/>
+  <text x="256" y="245" text-anchor="middle" fill="#FEC009" font-size="93" font-family="Georgia, serif" font-weight="700">ΨΣΦ</text>
+  <text x="256" y="300" text-anchor="middle" fill="#FFFFFF" font-size="27" font-family="Arial, sans-serif" font-weight="700" letter-spacing="5">PHILIPPINES</text>
+  <text x="256" y="350" text-anchor="middle" fill="#FEC009" font-size="34" font-family="Georgia, serif" font-weight="700">1992</text>
+</svg>
