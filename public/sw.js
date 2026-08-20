@@ -1,5 +1,5 @@
 const CACHE_NAME = "psp-shell-v1";
-const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/brand/psp-logo.png"];
+const SHELL_ASSETS = ["/", "/manifest.webmanifest", "/brand/psp-logo.jpg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
