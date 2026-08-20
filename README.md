@@ -7,6 +7,7 @@ Mobile-first installable Progressive Web Application (PWA) and administration pl
 - Host: Hostinger
 - Canonical URL: `https://psp.hoahub.tech`
 - Repository: `lowiesevilla-crypto/PSP_WEBSITE`
+- Domain mapping: confirmed by the product owner on 2026-08-20
 
 ## Technology
 
@@ -19,7 +20,7 @@ Mobile-first installable Progressive Web Application (PWA) and administration pl
 - PWA manifest + service worker
 - Server-side RBAC and chapter scoping
 - Hostinger SMTP adapter
-- PayMongo Hosted Checkout v2 integration target
+- PayMongo Hosted Checkout v2 integration
 
 ## Development
 
@@ -33,7 +34,7 @@ Mobile-first installable Progressive Web Application (PWA) and administration pl
 
 ## CI Validation
 
-GitHub Actions validates the project against MySQL 8.4:
+GitHub Actions validates the project against MySQL 8.4, including:
 
 - Prisma schema validation
 - Prisma Client generation
@@ -42,6 +43,8 @@ GitHub Actions validates the project against MySQL 8.4:
 - secure System Administrator bootstrap
 - strict TypeScript typecheck
 - production Next.js build
+- runtime/security smoke checks
+- cross-chapter isolation negative tests
 - production runtime dependency audit gate
 
 ## Registration
@@ -73,25 +76,31 @@ Registration creates an application only. Official membership and a platform mem
 - Online membership registration and approval
 - Installable Member PWA
 - Multi-chapter membership administration
-- Configurable chapter organization/officers
+- Configurable chapter organization/officers/committees
 - Community posts/images/comments/announcements
 - National/chapter events
 - Chapter-specific dues and assessments
-- Member ledger and statements
-- PayMongo online payments
+- Member ledger and payment history
+- PayMongo Hosted Checkout v2 online payments
 - Digital receipts
 - QR-verifiable membership certificates
 - National/Chapter reporting and audit
+- Notifications
 
 ## Knowledge Base
 
-**Read [`AGENTS.md`](./AGENTS.md) before any implementation, schema, security, payment, UI, or deployment change.** Detailed requirements and runbooks live under `docs/`.
+**Read [`AGENTS.md`](./AGENTS.md) before any implementation, schema, security, payment, UI, documentation, or deployment change.**
+
+Then read **[`docs/STATUS.md`](./docs/STATUS.md)** for the authoritative current delivery status and pending production validation gates. Detailed requirements and runbooks live under `docs/`.
+
+Documentation updates are part of Definition of Done for material work. Do not rely on chat history as the authoritative status when repository documentation can be reconciled.
 
 ## Branching
 
 - `main` — integrated/release-ready code
 - `feature/*` — new functionality
 - `fix/*` — defect remediation
+- `docs/*` — documentation/status reconciliation
 - `chore/*` — technical housekeeping
 
 ## Brand
