@@ -18,7 +18,22 @@ jobs:
   validate:
     name: Validate application
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: psp_platform
+          MYSQL_USER: psp
+          MYSQL_PASSWORD: psp
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     env:
       DATABASE_URL: mysql://psp:psp@127.0.0.1:3306/psp_platform
       NEXT_PUBLIC_APP_URL: http://localhost:3000
@@ -50,6 +65,19 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Apply schema to CI MySQL
+        run: npx prisma db push --skip-generate
+
+      - name: Seed PSP baseline
+        run: npm run seed
+
+      - name: Validate System Admin bootstrap
+        env:
+          BOOTSTRAP_ADMIN_EMAIL: ci-system-admin@example.invalid
+          BOOTSTRAP_ADMIN_PASSWORD: ci-only-bootstrap-password-2026
+          BOOTSTRAP_ADMIN_NAME: CI System Admin
+        run: npm run bootstrap-admin
 
       - name: Typecheck
         run: npm run typecheck
