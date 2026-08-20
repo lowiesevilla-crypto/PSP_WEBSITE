@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAuthContext, hasPermission } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { notifyUser } from "@/lib/notifications/service";
+import { checkCertificateEligibility } from "@/lib/certificates/eligibility";
 
 const issueSchema = z.object({ memberId: z.string().min(1) });
 const revokeSchema = z.object({ certificateId: z.string().min(1), reason: z.string().trim().min(3).max(1000) });
@@ -21,14 +22,16 @@ export async function POST(request: Request) {
   const member = await prisma.member.findUnique({ where: { id: parsed.data.memberId }, select: { id: true, userId: true, chapterId: true, membershipStatus: true } });
   if (!member) return NextResponse.json({ message: "Member not found." }, { status: 404 });
   if (!hasPermission(context, "certificates.manage", member.chapterId)) return NextResponse.json({ message: "Certificate management permission required." }, { status: 403 });
-  if (member.membershipStatus !== "ACTIVE") return NextResponse.json({ message: "Only active members can receive a certificate." }, { status: 400 });
 
   const existing = await prisma.certificate.findFirst({ where: { memberId: member.id, status: "VALID" } });
   if (existing) return NextResponse.json({ certificate: existing, created: false });
 
+  const eligibility = await checkCertificateEligibility(member);
+  if (!eligibility.eligible) return NextResponse.json({ message: eligibility.reason }, { status: 403, headers: { "Cache-Control": "no-store" } });
+
   const certificate = await prisma.$transaction(async (tx) => {
     const created = await tx.certificate.create({ data: { memberId: member.id, chapterId: member.chapterId, certificateNumber: certificateNumber(), verificationToken: randomBytes(24).toString("base64url") } });
-    await tx.auditLog.create({ data: { actorUserId: context.user.id, chapterId: member.chapterId, action: "CERTIFICATE_ISSUED_ADMIN", entityType: "Certificate", entityId: created.id, metadataJson: { memberId: member.id, certificateNumber: created.certificateNumber } } });
+    await tx.auditLog.create({ data: { actorUserId: context.user.id, chapterId: member.chapterId, action: "CERTIFICATE_ISSUED_ADMIN", entityType: "Certificate", entityId: created.id, metadataJson: { memberId: member.id, certificateNumber: created.certificateNumber, currentDuesRequired: process.env.CERTIFICATE_REQUIRE_CURRENT_DUES === "true" } } });
     return created;
   });
   await notifyUser({ userId: member.userId, type: "CERTIFICATE", title: "Membership certificate issued", body: `Certificate ${certificate.certificateNumber} is now available.`, href: "/certificate" });
