@@ -72,8 +72,8 @@ export async function POST(request: Request) {
     });
 
     if (!startsAt || startsAt <= new Date()) {
-      if (chapterId) await notifyChapterMembers({ chapterId, type: "ANNOUNCEMENT", title: input.title, body: input.body.slice(0, 280), href: "/announcements" });
-      else await notifyAllActiveMembers({ type: "ANNOUNCEMENT", title: input.title, body: input.body.slice(0, 280), href: "/announcements" });
+      if (chapterId) await notifyChapterMembers({ chapterId, type: "GENERAL", title: input.title, body: input.body.slice(0, 280), href: "/announcements" });
+      else await notifyAllActiveMembers({ type: "GENERAL", title: input.title, body: input.body.slice(0, 280), href: "/announcements" });
     }
 
     return NextResponse.json({ announcement }, { status: 201 });
