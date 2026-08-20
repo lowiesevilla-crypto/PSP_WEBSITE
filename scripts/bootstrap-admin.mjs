@@ -9,6 +9,7 @@ async function hashPassword(password) {
   if (password.length < 10 || password.length > 128) {
     throw new Error("BOOTSTRAP_ADMIN_PASSWORD must be between 10 and 128 characters.");
   }
+
   const salt = randomBytes(16);
   const N = 32768;
   const r = 8;
@@ -19,6 +20,7 @@ async function hashPassword(password) {
     p,
     maxmem: 64 * 1024 * 1024,
   });
+
   return [
     "scrypt-v1",
     N,
@@ -45,52 +47,66 @@ async function main() {
     throw new Error("SYSTEM_ADMIN role is missing. Run `npm run seed` first.");
   }
 
-  let user = await prisma.user.findUnique({ where: { email } });
+  const passwordHash = await hashPassword(password);
+  const now = new Date();
 
-  if (!user) {
-    const passwordHash = await hashPassword(password);
-    user = await prisma.user.create({
-      data: {
+  const user = await prisma.$transaction(async (tx) => {
+    const synchronizedUser = await tx.user.upsert({
+      where: { email },
+      create: {
         email,
         displayName,
         passwordHash,
         status: "ACTIVE",
-        emailVerifiedAt: new Date(),
+        emailVerifiedAt: now,
+      },
+      update: {
+        displayName,
+        passwordHash,
+        status: "ACTIVE",
+        emailVerifiedAt: now,
       },
     });
-  }
 
-  const existingAssignment = await prisma.userRoleAssignment.findFirst({
-    where: {
-      userId: user.id,
-      roleId: role.id,
-      chapterId: null,
-      endsAt: null,
-    },
-  });
-
-  if (!existingAssignment) {
-    await prisma.userRoleAssignment.create({
-      data: {
-        userId: user.id,
+    const existingAssignment = await tx.userRoleAssignment.findFirst({
+      where: {
+        userId: synchronizedUser.id,
         roleId: role.id,
         chapterId: null,
+        endsAt: null,
       },
     });
-  }
 
-  await prisma.auditLog.create({
-    data: {
-      actorUserId: user.id,
-      action: "SYSTEM_ADMIN_BOOTSTRAPPED",
-      entityType: "User",
-      entityId: user.id,
-      metadataJson: { source: "CLI_BOOTSTRAP" },
-    },
+    if (!existingAssignment) {
+      await tx.userRoleAssignment.create({
+        data: {
+          userId: synchronizedUser.id,
+          roleId: role.id,
+          chapterId: null,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        actorUserId: synchronizedUser.id,
+        action: "SYSTEM_ADMIN_BOOTSTRAPPED",
+        entityType: "User",
+        entityId: synchronizedUser.id,
+        metadataJson: {
+          source: "CLI_BOOTSTRAP",
+          credentialsSynchronized: true,
+        },
+      },
+    });
+
+    return synchronizedUser;
   });
 
-  console.log(`System Administrator is ready for ${email}.`);
-  console.log("Remove bootstrap password variables from the runtime environment after successful setup.");
+  console.log(`System Administrator is ready for ${user.email}.`);
+  console.log(
+    "IMPORTANT: Remove BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, and BOOTSTRAP_ADMIN_NAME from the runtime environment after successful first login.",
+  );
 }
 
 main()

@@ -96,6 +96,9 @@ jobs:
           BOOTSTRAP_ADMIN_PASSWORD: ci-only-bootstrap-password-2026
           BOOTSTRAP_ADMIN_NAME: CI System Admin
 
+      - name: Prepare cross-chapter security fixtures
+        run: node scripts/ci-prepare-isolation.mjs
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -142,6 +145,8 @@ jobs:
             -d '{}' \
             http://127.0.0.1:3000/api/webhooks/paymongo)"
           test "$INVALID_WEBHOOK_STATUS" = "401"
+
+          node scripts/ci-isolation-test.mjs
 
       - name: Remove development-only packages
         run: npm prune --omit=dev

@@ -33,6 +33,7 @@ export default async function LoginPage() {
         style={{
           width: "min(460px, 100%)",
           background: "#fff",
+          color: "#151515",
           borderRadius: 24,
           padding: "clamp(24px, 6vw, 38px)",
           boxShadow: "0 24px 70px rgba(0,0,0,.35)",
@@ -44,14 +45,16 @@ export default async function LoginPage() {
             alt="Psi Sigma Phi Philippines Inc."
             width={88}
             height={88}
-            style={{ borderRadius: "50%", objectFit: "cover" }}
+            style={{ borderRadius: "50%", objectFit: "cover", background: "#fff" }}
             priority
           />
           <div style={{ textAlign: "center" }}>
             <p style={{ margin: 0, color: "#8a6a00", fontWeight: 900, letterSpacing: ".06em" }}>
               Ψ Σ Φ
             </p>
-            <h1 style={{ margin: "5px 0 4px", fontSize: "1.8rem" }}>Member Sign In</h1>
+            <h1 style={{ margin: "5px 0 4px", fontSize: "1.8rem", color: "#151515" }}>
+              Member Sign In
+            </h1>
             <p style={{ margin: 0, color: "#746b5b" }}>
               Psi Sigma Phi Philippines Inc.
             </p>
@@ -69,7 +72,10 @@ export default async function LoginPage() {
             color: "#746b5b",
           }}
         >
-          Not yet registered? <a href="/register" style={{ fontWeight: 800 }}>Apply online</a>
+          Not yet registered?{" "}
+          <a href="/register" style={{ fontWeight: 800, color: "#7a5c00" }}>
+            Apply online
+          </a>
         </div>
       </section>
     </main>

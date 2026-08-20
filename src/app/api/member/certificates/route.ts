@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCurrentMember } from "@/lib/member/current-member";
+import { checkCertificateEligibility } from "@/lib/certificates/eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,11 @@ export async function POST() {
     });
     if (existing) return NextResponse.json({ certificate: existing, created: false });
 
+    const eligibility = await checkCertificateEligibility(member);
+    if (!eligibility.eligible) {
+      return NextResponse.json({ message: eligibility.reason }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const certificate = await tx.certificate.create({
         data: {
@@ -70,7 +76,10 @@ export async function POST() {
           action: "CERTIFICATE_ISSUED_SELF_SERVICE",
           entityType: "Certificate",
           entityId: certificate.id,
-          metadataJson: { certificateNumber: certificate.certificateNumber },
+          metadataJson: {
+            certificateNumber: certificate.certificateNumber,
+            currentDuesRequired: process.env.CERTIFICATE_REQUIRE_CURRENT_DUES === "true",
+          },
         },
       });
 
