@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-08-20 23:24 PHT  
+**Status timestamp:** 2026-08-20 23:47 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`
@@ -30,6 +30,21 @@ The remaining work is primarily production operational validation that depends o
 
 - `psp.hoahub.tech` is correctly mapped to the PSP Website application. **COMPLETE — owner confirmed 2026-08-20.**
 - PSP remains a separate application/database/runtime from HOAHub.
+
+## Active Production Incident — Admin Login
+
+**Status: IN PROGRESS / NOT COMPLETE**
+
+The product owner reports that the configured production System Administrator still cannot sign in.
+
+Evidence and current findings as of 2026-08-20 23:47 PHT:
+
+- Hostinger screenshot supplied by the product owner shows the PSP application environment-variable page with `NEXT_PUBLIC_APP_URL`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`, and `BOOTSTRAP_ADMIN_NAME` configured.
+- `AUTH_SECRET` is not visible in the supplied environment-variable list. The application requires `AUTH_SECRET` to be configured with at least 32 characters before it can create signed authentication sessions.
+- `DATABASE_URL` is also not visible in the supplied environment-variable list; it may be provisioned separately by Hostinger and must be verified without exposing credentials.
+- Bootstrap variables must remain configured until a successful production admin login is confirmed.
+- Required next evidence: production restart/deployment log showing `Synchronizing configured PSP System Administrator` and `System Administrator is ready`, followed by a successful admin login.
+- Do not mark this incident complete until the System Administrator successfully reaches the `/admin` portal in production.
 
 ## Completed Application Scope
 
@@ -143,7 +158,7 @@ The remaining work is primarily production operational validation that depends o
 The following are intentionally **not** marked complete from repository evidence alone:
 
 1. Dedicated production MySQL backup/rollback strategy confirmation.
-2. Production environment-variable review in Hostinger without exposing secrets.
+2. Production environment-variable review in Hostinger without exposing secrets, including admin-login incident resolution.
 3. Production `/api/health` verification from an environment with live DNS/network access.
 4. Production SMTP delivery test for activation/recovery email.
 5. PWA install/responsive smoke test on representative Android/iOS devices.
