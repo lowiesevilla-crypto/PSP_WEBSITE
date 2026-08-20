@@ -39,6 +39,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       APP_ENV: test
       AUTH_SECRET: ci-only-placeholder-secret-not-for-production
+      PAYMONGO_WEBHOOK_SECRET: ci-only-paymongo-webhook-secret
 
     steps:
       - name: Checkout
@@ -100,6 +101,47 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: Production runtime and security smoke
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm run start > /tmp/psp-next.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            kill "$APP_PID" 2>/dev/null || true
+            echo '--- PSP server log ---'
+            cat /tmp/psp-next.log || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then
+              break
+            fi
+            sleep 2
+          done
+
+          curl --fail --silent http://127.0.0.1:3000/api/health
+          curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/register > /dev/null
+
+          CROSS_SITE_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -X POST \
+            -H 'Origin: https://malicious.example' \
+            -H 'Sec-Fetch-Site: cross-site' \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            http://127.0.0.1:3000/api/auth/login)"
+          test "$CROSS_SITE_STATUS" = "403"
+
+          INVALID_WEBHOOK_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            http://127.0.0.1:3000/api/webhooks/paymongo)"
+          test "$INVALID_WEBHOOK_STATUS" = "401"
 
       - name: Remove development-only packages
         run: npm prune --omit=dev
