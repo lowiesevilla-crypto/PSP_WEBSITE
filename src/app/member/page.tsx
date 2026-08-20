@@ -17,7 +17,7 @@ export default function MemberDashboardPage() {
       <header className="app-topbar">
         <div className="container app-nav">
           <Link className="app-brand" href="/">
-            <img src="/brand/psp-logo.png" alt="Psi Sigma Phi seal" />
+            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
             <span>PSP Philippines</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -34,7 +34,7 @@ export default function MemberDashboardPage() {
 
       <div className="container app-main">
         <div className="app-greeting">
-          <p>Thursday · Member Portal</p>
+          <p>Member Portal</p>
           <h1>Welcome back, Brod Juan.</h1>
         </div>
 
@@ -42,7 +42,7 @@ export default function MemberDashboardPage() {
           <section>
             <div className="member-card">
               <div className="member-card-top">
-                <img src="/brand/psp-logo.png" alt="Psi Sigma Phi seal" />
+                <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
                 <span className="member-card-status">ACTIVE MEMBER</span>
               </div>
               <div className="member-card-name">Juan Dela Cruz</div>
