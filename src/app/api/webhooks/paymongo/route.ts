@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     include: {
       chapter: { select: { code: true } },
       member: { select: { userId: true, membershipNo: true } },
+      receipt: { select: { receiptNumber: true } },
     },
   });
 
