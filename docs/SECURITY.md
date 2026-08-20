@@ -1,59 +1,109 @@
-# Security & Privacy Baseline
+# PSP Security & Privacy Baseline
 
-## Scope
+## Authorization Model
 
-This document implements the security requirements in `AGENTS.md` for the Psi Sigma Phi Philippines Inc. Digital Membership Platform.
+Every protected operation is authorized server-side using:
 
-## Core Controls
+`Authenticated User + Permission + Chapter Scope + Record Ownership (when applicable)`
 
-- HTTPS only in production.
-- Server-side authentication and authorization.
-- Secure, HTTP-only, SameSite cookies for session identifiers.
-- Passwords hashed with an adaptive password hashing algorithm; plaintext passwords are never stored or logged.
-- Zod validation at API trust boundaries.
-- Origin/CSRF checks for state-changing browser requests.
-- Rate limiting for login, registration, password reset, and public verification endpoints.
-- Chapter-scoped authorization for all chapter-owned records.
-- IDOR/BOLA tests for cross-chapter resources.
-- Sensitive and financial actions recorded in `AuditLog`.
-- No PayMongo secret, SMTP password, database credential, private signing key, or production secret in source control.
-- Uploaded media must be validated for allowed type, size, and storage location before persistence.
-- Financial and identity responses use `Cache-Control: no-store`.
+Role names alone are not authorization. National-scoped assignments may authorize approved cross-chapter actions. Chapter-scoped assignments authorize only the exact chapter.
+
+## Identity
+
+- Passwords are never stored in plaintext.
+- Current implementation uses memory-bounded scrypt with per-password random salts.
+- Session cookies are signed, HTTP-only, SameSite-protected, and secure in production.
+- Session payload contains a password-hash fingerprint so password activation/reset invalidates older sessions.
+- Login, activation, recovery, and privileged state changes are auditable.
+- Abuse-prone auth flows are rate-limited using server-side audit-event state.
+- Forgot-password responses avoid account enumeration.
+
+## Registration Privacy
+
+The registration flow collects only the approved business fields recorded in `AGENTS.md`.
+
+Final submission requires two separate acknowledgements:
+
+1. application accuracy/review acknowledgement
+2. Data Privacy Notice acknowledgement
+
+The server validates both and records the acknowledged notice version/timestamp. Current privacy notice version: `2026-08-20-v1`.
+
+## Chapter Isolation
+
+Chapter isolation is enforced in APIs and server-rendered pages. Never accept a client-supplied chapter identifier without confirming the caller's permission/scope.
+
+Negative scenarios that must fail include:
+
+- Chapter Admin retrieving another chapter's applicant/member by ID
+- Chapter Finance retrieving another chapter's assessment/payment
+- Chapter content moderator editing another chapter's post/event
+- member retrieving another chapter's private media
+- export/report endpoints bypassing chapter scope
+
+## State-Changing Requests
+
+- Validate content type and input schema.
+- Apply origin/CSRF protections appropriate to cookie-authenticated browser requests.
+- Re-check authorization at the server boundary.
+- Never trust hidden UI controls as a security mechanism.
+
+## Secrets
+
+Server-only secrets include database password, `AUTH_SECRET`, SMTP password, PayMongo secret API key, PayMongo webhook signing secret, initial bootstrap administrator password, and future storage access credentials.
+
+No server secret may use a `NEXT_PUBLIC_` prefix.
+
+## PayMongo
+
+- Create checkout from the server only.
+- Use idempotency keys on create requests.
+- Browser redirect is not proof of payment.
+- Verify `Paymongo-Signature` against the raw request body before parsing.
+- Use HMAC-SHA256 and timing-safe comparison.
+- Enforce webhook timestamp tolerance.
+- Process `checkout_session.payment.paid` idempotently.
+- Do not double-create ledger entries or receipts on retries.
+- Test mode must pass before live credentials are enabled.
+
+## File Uploads
+
+Community/event images require authenticated authorization, maximum size, MIME allowlist, magic-byte validation, randomized storage keys, no executable types, private persistent storage, authorization-aware delivery for member-only content, and no user-controlled filesystem paths.
 
 ## Dependency Security
 
-CI performs Prisma validation, TypeScript validation, production build, and a production dependency audit.
+CI validates Prisma, applies the schema against MySQL, seeds baseline records, validates System Admin bootstrap, runs strict TypeScript, builds production output, and performs a production runtime dependency audit.
 
-As of 2026-08-20, npm reports `GHSA-ggr8-5vv4-36mx` through Prisma's CLI/config development toolchain (`prisma`, `@prisma/config`, `deepmerge-ts`). The Prisma CLI is a development/migration tool and is not required by the deployed runtime. The CI gate therefore allows only this named development-tool chain while continuing to fail for any other HIGH or CRITICAL runtime finding. The exception must be removed when the upstream toolchain is patched.
+The documented Prisma CLI development-tool advisory exception must never be treated as a runtime exception. Remove it when the upstream toolchain is patched.
 
-## Privacy
+## HTTP Security
 
-The platform is designed to support Philippine privacy obligations through:
+Production requires HTTPS. Responses use controls including `X-Content-Type-Options: nosniff`, strict referrer policy, anti-framing controls, and restrictive permissions policy. Sensitive API responses use `Cache-Control: no-store` where applicable.
 
-- Purpose limitation and data minimization.
-- Chapter-scoped least privilege.
-- Limited public certificate verification fields.
-- Privacy-safe reports and exports.
-- Retention-aware archival rather than silent deletion of auditable records.
-- No exposure of member contact data to ordinary public users.
+## Data Protection
 
-## Payment Security
+Design supports Philippine privacy obligations through purpose limitation, data minimization, notices/acknowledgements, access control, auditability, retention discipline, restricted exports, and incident-response readiness. Personal member contact information is not public by default.
 
-- PayMongo secret keys are server-only.
-- Browser redirects are not authoritative payment confirmation.
-- Payment webhooks are processed idempotently.
-- Gateway references and internal references are retained.
-- Financial history is append/trace oriented; posted records are not silently deleted.
-- Refunds/reversals create auditable financial events.
+## Financial Integrity
+
+- Financial history is traceable and non-destructive.
+- Historical assessments are not rewritten when current rates change.
+- Payment success requires trusted server/webhook confirmation.
+- Refunds/reversals/adjustments are explicit records.
+- Finance permissions are independent from ordinary chapter content/member administration.
 
 ## Production Gate
 
-Before production deployment:
+Before release:
 
-1. CI must be green.
-2. Cross-chapter authorization tests must pass.
-3. No production secrets may exist in Git history.
-4. Hostinger HTTPS/TLS must be active for `https://psp.hoahub.tech`.
-5. Production database backup/restore must be verified.
-6. PayMongo test-mode E2E must pass before live credentials are enabled.
-7. Production smoke testing must be controlled and recorded.
+- CI green
+- MySQL schema/seed/bootstrap checks pass
+- strict TypeScript/build pass
+- runtime dependency audit passes
+- chapter-scope negative tests pass
+- registration/privacy E2E passes
+- authentication/activation/recovery E2E passes
+- PayMongo test-mode signature/idempotency tests pass
+- no secrets in source
+- production database backup/rollback plan confirmed
+- HTTPS active on `https://psp.hoahub.tech`
