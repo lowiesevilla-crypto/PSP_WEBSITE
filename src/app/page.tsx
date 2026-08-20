@@ -147,7 +147,7 @@ export default function HomePage() {
           <div className="member-preview">
             <div className="member-card">
               <div className="member-card-top">
-                <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
+                <img src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi seal" />
                 <span className="member-card-status">ACTIVE MEMBER</span>
               </div>
               <div className="member-card-name">Juan Dela Cruz</div>
@@ -158,7 +158,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <small>Chapter</small>
-                  <strong>Sample Chapter</strong>
+                  <strong>Rho Alpha De Las Piñas</strong>
                 </div>
               </div>
             </div>
