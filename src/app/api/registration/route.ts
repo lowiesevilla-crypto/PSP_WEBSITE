@@ -12,7 +12,41 @@ const activeApplicationStatuses = [
   "APPROVED",
 ] as const;
 
+function isAllowedOrigin(request: Request) {
+  const requestOrigin = request.headers.get("origin");
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!requestOrigin || !configuredAppUrl) return true;
+
+  try {
+    return requestOrigin === new URL(configuredAppUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
+  if (!isAllowedOrigin(request)) {
+    return NextResponse.json(
+      {
+        error: "ORIGIN_NOT_ALLOWED",
+        message: "This registration request is not allowed from the current origin.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return NextResponse.json(
+      {
+        error: "UNSUPPORTED_MEDIA_TYPE",
+        message: "Membership registration requires a JSON request.",
+      },
+      { status: 415 },
+    );
+  }
+
   let body: unknown;
 
   try {
