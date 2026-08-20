@@ -10,9 +10,16 @@
 - Runtime: Node.js 22+
 - Database: dedicated PSP MySQL database, separate from HOAHub
 
+## Current Deployment Status — 2026-08-20
+
+- `psp.hoahub.tech` is **correctly mapped to the PSP Website application** — product-owner confirmed.
+- The former HOAHub routing/mapping concern is therefore **RESOLVED** unless a future regression is observed.
+- Production bootstrap restart behavior has been hardened and merged through PR #5 after PSP CI #253 passed.
+- Remaining deployment work is live operational validation: production health, SMTP delivery, PayMongo test-mode E2E, live certificate QR verification, PWA/device smoke, and backup/rollback evidence. See `STATUS.md`.
+
 ## Release Preconditions
 
-Do not publish a release until:
+Do not declare a production release complete until:
 
 - release commit CI is green
 - Prisma schema validates and applies against CI MySQL
@@ -26,6 +33,7 @@ Do not publish a release until:
 - no real secrets exist in GitHub
 - production database backup/rollback plan is confirmed
 - PayMongo test-mode E2E passes before live credentials are enabled
+- production email, PWA, certificate, and health smoke checks pass
 
 ## One-Time Hostinger Setup
 
@@ -47,11 +55,15 @@ In hPanel:
 12. Deploy.
 13. Enable automatic redeployment from `main` only after the release process is stable.
 
-### Existing `psp.hoahub.tech` HOAHub Redirect / Routing Conflict
+## Domain Mapping / Routing
 
-If `https://psp.hoahub.tech` opens or redirects to the existing HOAHub website, the hostname is not yet routed to the PSP application. Treat this as a deployment blocker, not an application-code redirect.
+### Current state
 
-In Hostinger/DNS configuration:
+`https://psp.hoahub.tech` is confirmed by the product owner to be correctly mapped to the PSP Website application as of 2026-08-20.
+
+### Regression recovery only
+
+If `https://psp.hoahub.tech` later opens or redirects to the existing HOAHub website, treat that as a Hostinger/DNS routing regression, not an application-code redirect.
 
 1. Inspect the current DNS record for `psp` and identify which Hostinger website/application it targets.
 2. Inspect the existing `hoahub.tech` application for wildcard/custom-domain mappings such as `*.hoahub.tech` or an explicit `psp.hoahub.tech` alias.
@@ -64,7 +76,7 @@ In Hostinger/DNS configuration:
    `"service":"psi-sigma-phi-digital-platform"`.
 9. Confirm the landing page is PSP-branded and no longer redirects to HOAHub.
 
-Never solve this conflict by adding a code redirect inside HOAHub; the two applications must remain independently routed.
+Never solve a routing conflict by adding a code redirect inside HOAHub; the two applications must remain independently routed.
 
 ## Production Environment Variables
 
@@ -91,7 +103,7 @@ STORAGE_ROOT=<persistent-private-storage-path>
 
 `CERTIFICATE_REQUIRE_CURRENT_DUES` is an operational policy switch. `false` allows any active member to obtain a certificate. `true` also requires the member's authoritative ledger balance to be current/non-positive. The setting does not rewrite existing certificate history.
 
-Optional bootstrap variables are used only for initial System Administrator creation and must be removed immediately afterward:
+Optional bootstrap variables are used only for initial/recovery System Administrator synchronization and must be removed after their intended use:
 
 ```text
 BOOTSTRAP_ADMIN_EMAIL=
@@ -109,11 +121,21 @@ Initial greenfield release:
 
 1. Set production `DATABASE_URL` in Hostinger environment variables.
 2. Apply the approved Prisma schema.
-3. Run `npm run seed` to create idempotent organization/roles/permissions/assessment types.
+3. Run the approved baseline initialization/seed process.
 4. Bootstrap the first System Administrator with temporary environment values.
-5. Remove bootstrap password variables immediately.
+5. Remove bootstrap password variables after successful initialization.
 
 `prisma db push` may be used only for the first greenfield production creation before member/financial records exist. Once production data exists, all schema changes require reviewed Prisma migrations and backups.
+
+### Production restart initialization behavior
+
+PR #5 hardened production startup initialization:
+
+- the PSP national organization is created only if absent;
+- the Rho Alpha De Las Piñas baseline chapter is created only if absent;
+- the full baseline seed runs only when the required `SYSTEM_ADMIN` role baseline is missing;
+- the configured bootstrap administrator is synchronized only while `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` are present;
+- production restarts must not overwrite customized permission or operational data through unconditional reseeding.
 
 ## PayMongo
 
@@ -138,7 +160,8 @@ The browser success redirect is never authoritative payment confirmation.
 ## Domain & HTTPS
 
 - `psp.hoahub.tech` is the canonical production origin.
-- HTTPS must be active before login, member activation, PayMongo, or certificate QR verification are enabled.
+- Hostname mapping is confirmed complete by the product owner as of 2026-08-20.
+- HTTPS must be active before login, member activation, PayMongo, or certificate QR verification are treated as production-ready.
 - HTTP should redirect to HTTPS.
 - Do not use a temporary Hostinger domain in production callbacks, emails, receipts, or QR codes.
 
@@ -168,6 +191,8 @@ The browser success redirect is never authoritative payment confirmation.
 12. PayMongo test checkout/signed webhook succeeds before live mode.
 13. Certificate QR verification resolves under `psp.hoahub.tech`.
 
+Do not infer these smoke checks from source code. Record evidence in `STATUS.md` as each is completed.
+
 ## Rollback
 
 - Keep the last known-good Git release SHA.
@@ -187,4 +212,4 @@ Use Hostinger deployment/runtime logs and resource monitoring. Investigate:
 - storage exhaustion
 - dependency vulnerability alerts
 
-A release is not complete until post-deployment smoke checks pass.
+A release is not complete until post-deployment smoke checks pass and the knowledge base is updated.
