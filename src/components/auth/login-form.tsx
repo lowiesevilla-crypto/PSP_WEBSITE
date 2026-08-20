@@ -60,43 +60,45 @@ export function LoginForm() {
     }
   }
 
+  const fieldStyle = {
+    minHeight: 50,
+    border: "1px solid #ded7c7",
+    borderRadius: 12,
+    padding: "11px 13px",
+    fontSize: "1rem",
+    color: "#151515",
+    background: "#ffffff",
+    caretColor: "#151515",
+    outlineColor: "#fec009",
+  } as const;
+
   return (
-    <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
-      <label style={{ display: "grid", gap: 7 }}>
-        <span style={{ fontWeight: 800 }}>Email</span>
+    <form onSubmit={submit} style={{ display: "grid", gap: 16, color: "#151515" }}>
+      <label style={{ display: "grid", gap: 7, color: "#151515" }}>
+        <span style={{ fontWeight: 800, color: "#151515" }}>Email</span>
         <input
           type="email"
           inputMode="email"
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+          placeholder="name@example.com"
           required
-          style={{
-            minHeight: 50,
-            border: "1px solid #ded7c7",
-            borderRadius: 12,
-            padding: "11px 13px",
-            fontSize: "1rem",
-          }}
+          style={fieldStyle}
         />
       </label>
 
-      <label style={{ display: "grid", gap: 7 }}>
-        <span style={{ fontWeight: 800 }}>Password</span>
+      <label style={{ display: "grid", gap: 7, color: "#151515" }}>
+        <span style={{ fontWeight: 800, color: "#151515" }}>Password</span>
         <input
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
+          placeholder="Enter your password"
           required
           maxLength={128}
-          style={{
-            minHeight: 50,
-            border: "1px solid #ded7c7",
-            borderRadius: 12,
-            padding: "11px 13px",
-            fontSize: "1rem",
-          }}
+          style={fieldStyle}
         />
       </label>
 
@@ -124,7 +126,10 @@ export function LoginForm() {
         {submitting ? "Signing in…" : "Sign In"}
       </button>
 
-      <a href="/forgot-password" style={{ textAlign: "center", fontWeight: 700 }}>
+      <a
+        href="/forgot-password"
+        style={{ textAlign: "center", fontWeight: 800, color: "#7a5c00" }}
+      >
         Forgot password?
       </a>
     </form>
