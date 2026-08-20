@@ -11,26 +11,30 @@ interface ChapterOption {
 
 interface RegistrationState {
   firstName: string;
-  middleName: string;
   lastName: string;
-  suffix: string;
+  middleInitial: string;
+  address: string;
   email: string;
   mobile: string;
+  dateSurvive: string;
+  surviveLocation: string;
+  pspBirthdayCode: string;
   birthDate: string;
-  address: string;
   chapterId: string;
   website: string;
 }
 
 const initialState: RegistrationState = {
   firstName: "",
-  middleName: "",
   lastName: "",
-  suffix: "",
+  middleInitial: "",
+  address: "",
   email: "",
   mobile: "",
+  dateSurvive: "",
+  surviveLocation: "",
+  pspBirthdayCode: "",
   birthDate: "",
-  address: "",
   chapterId: "",
   website: "",
 };
@@ -56,12 +60,24 @@ const labelTextStyle: CSSProperties = {
   fontSize: ".86rem",
 };
 
+const acknowledgementStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 11,
+  padding: 16,
+  border: "1px solid #e1dac8",
+  borderRadius: 15,
+  background: "#fffcf4",
+  lineHeight: 1.55,
+};
+
 export function RegistrationWizard() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<RegistrationState>(initialState);
   const [chapters, setChapters] = useState<ChapterOption[]>([]);
   const [chaptersLoading, setChaptersLoading] = useState(true);
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [applicationAcknowledged, setApplicationAcknowledged] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
@@ -76,9 +92,7 @@ export function RegistrationWizard() {
           headers: { Accept: "application/json" },
         });
 
-        if (!response.ok) {
-          throw new Error("Unable to load chapters.");
-        }
+        if (!response.ok) throw new Error("Unable to load chapters.");
 
         const payload = (await response.json()) as { chapters?: ChapterOption[] };
         setChapters(payload.chapters ?? []);
@@ -109,14 +123,32 @@ export function RegistrationWizard() {
   }
 
   function validateCurrentStep() {
-    if (step === 1 && (!form.firstName.trim() || !form.lastName.trim())) {
-      setError("First name and last name are required.");
-      return false;
+    if (step === 1) {
+      if (!form.firstName.trim() || !form.lastName.trim()) {
+        setError("First Name and Last Name are required.");
+        return false;
+      }
+      if (!form.address.trim()) {
+        setError("Address is required.");
+        return false;
+      }
     }
 
-    if (step === 2 && !form.email.trim()) {
-      setError("A valid email address is required for your application.");
-      return false;
+    if (step === 2) {
+      const requiredValues = [
+        form.email,
+        form.mobile,
+        form.dateSurvive,
+        form.surviveLocation,
+        form.pspBirthdayCode,
+        form.birthDate,
+      ];
+      if (requiredValues.some((value) => !value.trim())) {
+        setError(
+          "Email, Mobile No., Date Survive, Location, PSP Birthday Code, and Date of Birth are required.",
+        );
+        return false;
+      }
     }
 
     if (step === 3 && !form.chapterId) {
@@ -141,10 +173,13 @@ export function RegistrationWizard() {
   async function submitApplication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!acknowledged) {
-      setError(
-        "Please confirm that the information is accurate and acknowledge the membership review process.",
-      );
+    if (!applicationAcknowledged) {
+      setError("Please confirm that the membership application information is accurate.");
+      return;
+    }
+
+    if (!privacyAcknowledged) {
+      setError("Please acknowledge the Data Privacy Notice before submitting.");
       return;
     }
 
@@ -158,7 +193,11 @@ export function RegistrationWizard() {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          applicationAcknowledged,
+          privacyAcknowledged,
+        }),
       });
 
       const payload = (await response.json()) as {
@@ -258,10 +297,10 @@ export function RegistrationWizard() {
           >
             <strong>Step {step} of 4</strong>
             <span style={{ color: "#776e5e", fontSize: ".82rem" }}>
-              {step === 1 && "Personal Information"}
-              {step === 2 && "Contact Information"}
+              {step === 1 && "Member Information"}
+              {step === 2 && "PSP Membership Information"}
               {step === 3 && "Chapter Selection"}
-              {step === 4 && "Review & Submit"}
+              {step === 4 && "Review & Acknowledgement"}
             </span>
           </div>
           <div
@@ -296,112 +335,136 @@ export function RegistrationWizard() {
         />
 
         {step === 1 ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-              gap: 14,
-            }}
-          >
-            <label style={labelStyle}>
-              <span style={labelTextStyle}>First Name *</span>
-              <input
-                value={form.firstName}
-                onChange={(event) => update("firstName", event.target.value)}
-                autoComplete="given-name"
-                maxLength={100}
-                required
-                style={fieldStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              <span style={labelTextStyle}>Middle Name</span>
-              <input
-                value={form.middleName}
-                onChange={(event) => update("middleName", event.target.value)}
-                autoComplete="additional-name"
-                maxLength={100}
-                style={fieldStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              <span style={labelTextStyle}>Last Name *</span>
-              <input
-                value={form.lastName}
-                onChange={(event) => update("lastName", event.target.value)}
-                autoComplete="family-name"
-                maxLength={100}
-                required
-                style={fieldStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              <span style={labelTextStyle}>Suffix</span>
-              <input
-                value={form.suffix}
-                onChange={(event) => update("suffix", event.target.value)}
-                maxLength={30}
-                placeholder="Jr., III"
-                style={fieldStyle}
-              />
-            </label>
-            <label style={labelStyle}>
-              <span style={labelTextStyle}>Birth Date</span>
-              <input
-                type="date"
-                value={form.birthDate}
-                onChange={(event) => update("birthDate", event.target.value)}
-                style={fieldStyle}
-              />
-            </label>
-          </div>
-        ) : null}
-
-        {step === 2 ? (
           <div style={{ display: "grid", gap: 14 }}>
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
                 gap: 14,
               }}
             >
               <label style={labelStyle}>
-                <span style={labelTextStyle}>Email Address *</span>
+                <span style={labelTextStyle}>First Name *</span>
                 <input
-                  type="email"
-                  inputMode="email"
-                  value={form.email}
-                  onChange={(event) => update("email", event.target.value)}
-                  autoComplete="email"
-                  maxLength={254}
+                  value={form.firstName}
+                  onChange={(event) => update("firstName", event.target.value)}
+                  autoComplete="given-name"
+                  maxLength={100}
                   required
                   style={fieldStyle}
                 />
               </label>
               <label style={labelStyle}>
-                <span style={labelTextStyle}>Mobile Number</span>
+                <span style={labelTextStyle}>Last Name *</span>
                 <input
-                  type="tel"
-                  inputMode="tel"
-                  value={form.mobile}
-                  onChange={(event) => update("mobile", event.target.value)}
-                  autoComplete="tel"
-                  maxLength={30}
-                  placeholder="09XX XXX XXXX"
+                  value={form.lastName}
+                  onChange={(event) => update("lastName", event.target.value)}
+                  autoComplete="family-name"
+                  maxLength={100}
+                  required
+                  style={fieldStyle}
+                />
+              </label>
+              <label style={labelStyle}>
+                <span style={labelTextStyle}>MI</span>
+                <input
+                  value={form.middleInitial}
+                  onChange={(event) => update("middleInitial", event.target.value)}
+                  autoComplete="additional-name"
+                  maxLength={10}
+                  placeholder="M.I."
                   style={fieldStyle}
                 />
               </label>
             </div>
             <label style={labelStyle}>
-              <span style={labelTextStyle}>Address</span>
+              <span style={labelTextStyle}>Address *</span>
               <textarea
                 value={form.address}
                 onChange={(event) => update("address", event.target.value)}
                 autoComplete="street-address"
                 maxLength={500}
                 rows={4}
+                required
                 style={{ ...fieldStyle, resize: "vertical", paddingTop: 13 }}
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+              gap: 14,
+            }}
+          >
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>Email *</span>
+              <input
+                type="email"
+                inputMode="email"
+                value={form.email}
+                onChange={(event) => update("email", event.target.value)}
+                autoComplete="email"
+                maxLength={254}
+                required
+                style={fieldStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>Mobile No. *</span>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={form.mobile}
+                onChange={(event) => update("mobile", event.target.value)}
+                autoComplete="tel"
+                maxLength={30}
+                placeholder="09XX XXX XXXX"
+                required
+                style={fieldStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>Date Survive *</span>
+              <input
+                type="date"
+                value={form.dateSurvive}
+                onChange={(event) => update("dateSurvive", event.target.value)}
+                required
+                style={fieldStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>Location *</span>
+              <input
+                value={form.surviveLocation}
+                onChange={(event) => update("surviveLocation", event.target.value)}
+                maxLength={250}
+                required
+                style={fieldStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>PSP Birthday Code *</span>
+              <input
+                value={form.pspBirthdayCode}
+                onChange={(event) => update("pspBirthdayCode", event.target.value)}
+                maxLength={100}
+                required
+                style={fieldStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span style={labelTextStyle}>Date of Birth *</span>
+              <input
+                type="date"
+                value={form.birthDate}
+                onChange={(event) => update("birthDate", event.target.value)}
+                required
+                style={fieldStyle}
               />
             </label>
           </div>
@@ -410,7 +473,7 @@ export function RegistrationWizard() {
         {step === 3 ? (
           <div style={{ display: "grid", gap: 15 }}>
             <label style={labelStyle}>
-              <span style={labelTextStyle}>Requested Chapter *</span>
+              <span style={labelTextStyle}>Select Chapter *</span>
               <select
                 value={form.chapterId}
                 onChange={(event) => update("chapterId", event.target.value)}
@@ -455,8 +518,8 @@ export function RegistrationWizard() {
             >
               <strong>Chapter selection is subject to review.</strong>
               <div style={{ marginTop: 4, color: "#6f6450", fontSize: ".9rem" }}>
-                Selecting a chapter does not automatically assign membership. The chapter
-                association becomes official only after the authorized approval process.
+                Selecting a chapter does not automatically establish membership. Chapter
+                membership becomes official only after the authorized approval process.
               </div>
             </div>
           </div>
@@ -471,36 +534,49 @@ export function RegistrationWizard() {
                 gap: 12,
               }}
             >
-              <ReviewItem label="Name" value={[form.firstName, form.middleName, form.lastName, form.suffix].filter(Boolean).join(" ")} />
+              <ReviewItem
+                label="Name"
+                value={[form.firstName, form.middleInitial, form.lastName].filter(Boolean).join(" ")}
+              />
+              <ReviewItem label="Address" value={form.address} />
               <ReviewItem label="Email" value={form.email} />
-              <ReviewItem label="Mobile" value={form.mobile || "Not provided"} />
-              <ReviewItem label="Birth Date" value={form.birthDate || "Not provided"} />
+              <ReviewItem label="Mobile No." value={form.mobile} />
+              <ReviewItem label="Date Survive" value={form.dateSurvive} />
+              <ReviewItem label="Location" value={form.surviveLocation} />
+              <ReviewItem label="PSP Birthday Code" value={form.pspBirthdayCode} />
+              <ReviewItem label="Date of Birth" value={form.birthDate} />
               <ReviewItem label="Chapter" value={selectedChapter?.name ?? "Not selected"} />
-              <ReviewItem label="Address" value={form.address || "Not provided"} />
             </div>
 
-            <label
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 11,
-                padding: 16,
-                border: "1px solid #e1dac8",
-                borderRadius: 15,
-                background: "#fffcf4",
-                lineHeight: 1.55,
-              }}
-            >
+            <label style={acknowledgementStyle}>
               <input
                 type="checkbox"
-                checked={acknowledged}
-                onChange={(event) => setAcknowledged(event.target.checked)}
+                checked={applicationAcknowledged}
+                onChange={(event) => setApplicationAcknowledged(event.target.checked)}
                 style={{ width: 20, height: 20, marginTop: 2, accentColor: "#fec009" }}
               />
               <span>
                 I confirm that the information I provided is accurate. I understand that this
                 submission creates a membership application for review and does not by itself
                 establish active membership in Psi Sigma Phi Philippines Inc.
+              </span>
+            </label>
+
+            <label style={acknowledgementStyle}>
+              <input
+                type="checkbox"
+                checked={privacyAcknowledged}
+                onChange={(event) => setPrivacyAcknowledged(event.target.checked)}
+                style={{ width: 20, height: 20, marginTop: 2, accentColor: "#fec009" }}
+              />
+              <span>
+                I acknowledge that I have read and understood the{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
+                  Data Privacy Notice
+                </a>{" "}
+                and understand how my personal data will be collected, used, protected, retained,
+                and processed for legitimate Psi Sigma Phi Philippines Inc. membership and chapter
+                administration purposes.
               </span>
             </label>
           </div>
@@ -550,9 +626,12 @@ export function RegistrationWizard() {
           ) : (
             <button
               type="submit"
-              disabled={submitting || !acknowledged}
+              disabled={submitting || !applicationAcknowledged || !privacyAcknowledged}
               className="btn btn-primary"
-              style={{ opacity: submitting || !acknowledged ? 0.6 : 1 }}
+              style={{
+                opacity:
+                  submitting || !applicationAcknowledged || !privacyAcknowledged ? 0.6 : 1,
+              }}
             >
               {submitting ? "Submitting…" : "Submit Application"}
             </button>
@@ -575,7 +654,7 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
       }}
     >
       <small style={{ display: "block", marginBottom: 5, color: "#776e5e" }}>{label}</small>
-      <strong style={{ overflowWrap: "anywhere" }}>{value}</strong>
+      <strong style={{ overflowWrap: "anywhere" }}>{value || "Not provided"}</strong>
     </div>
   );
 }
