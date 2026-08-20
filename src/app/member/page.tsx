@@ -4,17 +4,14 @@ import { getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/components/auth/logout-button";
 
-export const metadata = {
-  title: "Member Dashboard",
-};
-
+export const metadata = { title: "Member Dashboard" };
 export const dynamic = "force-dynamic";
 
 const actions = [
-  ["₱", "Payments", "/member/payments"],
-  ["QR", "My Certificate", "/member/certificate"],
-  ["EV", "Events", "/member/events"],
-  ["◎", "Community", "/member/community"],
+  ["₱", "Payments", "/payments"],
+  ["QR", "My Certificate", "/certificate"],
+  ["EV", "Events", "/events"],
+  ["◎", "Community", "/community"],
 ];
 
 export default async function MemberDashboardPage() {
@@ -25,19 +22,14 @@ export default async function MemberDashboardPage() {
   const now = new Date();
   const member = await prisma.member.findUnique({
     where: { id: context.user.member.id },
-    include: {
-      chapter: { select: { id: true, code: true, name: true } },
-    },
+    include: { chapter: { select: { id: true, code: true, name: true } } },
   });
   if (!member) redirect("/login");
 
-  const [announcement, event, certificate] = await Promise.all([
+  const [announcement, event, certificate, unreadNotifications] = await Promise.all([
     prisma.announcement.findFirst({
       where: {
-        OR: [
-          { audience: "NATIONAL" },
-          { audience: "CHAPTER", chapterId: member.chapterId },
-        ],
+        OR: [{ audience: "NATIONAL" }, { audience: "CHAPTER", chapterId: member.chapterId }],
         AND: [
           { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
           { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
@@ -49,11 +41,9 @@ export default async function MemberDashboardPage() {
     prisma.event.findFirst({
       where: {
         isPublished: true,
+        status: "PUBLISHED",
         startsAt: { gte: now },
-        OR: [
-          { audience: "NATIONAL" },
-          { audience: "CHAPTER", chapterId: member.chapterId },
-        ],
+        OR: [{ audience: "NATIONAL" }, { audience: "CHAPTER", chapterId: member.chapterId }],
       },
       orderBy: { startsAt: "asc" },
       select: { id: true, title: true, startsAt: true, venue: true },
@@ -63,6 +53,7 @@ export default async function MemberDashboardPage() {
       orderBy: { issuedAt: "desc" },
       select: { id: true, certificateNumber: true },
     }),
+    prisma.notification.count({ where: { userId: context.user.id, readAt: null } }),
   ]);
 
   const initials = [member.firstName[0], member.lastName[0]].filter(Boolean).join("").toUpperCase();
@@ -76,24 +67,18 @@ export default async function MemberDashboardPage() {
             <span>PSP Philippines</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <Link href="/notifications" style={{ fontSize: ".82rem", textDecoration: "none", color: "#6b665c" }}>
+              Notifications{unreadNotifications ? ` (${unreadNotifications})` : ""}
+            </Link>
             <span style={{ fontSize: ".82rem", color: "#6b665c" }}>{context.user.displayName}</span>
-            <div
-              aria-label="Member avatar"
-              style={{ width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: "50%", background: "#fec009", fontWeight: 900 }}
-            >
-              {initials}
-            </div>
+            <div aria-label="Member avatar" style={{ width: 38, height: 38, display: "grid", placeItems: "center", borderRadius: "50%", background: "#fec009", fontWeight: 900 }}>{initials}</div>
             <LogoutButton />
           </div>
         </div>
       </header>
 
       <div className="container app-main">
-        <div className="app-greeting">
-          <p>Member Portal</p>
-          <h1>Welcome back, {member.firstName}.</h1>
-        </div>
-
+        <div className="app-greeting"><p>Member Portal</p><h1>Welcome back, {member.firstName}.</h1></div>
         <div className="app-grid">
           <section>
             <div className="member-card">
@@ -101,47 +86,25 @@ export default async function MemberDashboardPage() {
                 <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
                 <span className="member-card-status">{member.membershipStatus} MEMBER</span>
               </div>
-              <div className="member-card-name">
-                {[member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ")}
-              </div>
+              <div className="member-card-name">{[member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ")}</div>
               <div className="member-card-meta">
-                <div>
-                  <small>Membership No.</small>
-                  <strong>{member.membershipNo}</strong>
-                </div>
-                <div>
-                  <small>Primary Chapter</small>
-                  <strong>{member.chapter.name}</strong>
-                </div>
+                <div><small>Membership No.</small><strong>{member.membershipNo}</strong></div>
+                <div><small>Primary Chapter</small><strong>{member.chapter.name}</strong></div>
               </div>
             </div>
 
             <div className="quick-actions" aria-label="Quick actions">
-              {actions.map(([icon, label, href]) => (
-                <Link className="quick-action" href={href} key={label}>
-                  <span>{icon}</span>
-                  <span>{label}</span>
-                </Link>
-              ))}
+              {actions.map(([icon, label, href]) => <Link className="quick-action" href={href} key={label}><span>{icon}</span><span>{label}</span></Link>)}
             </div>
 
             <div className="app-panel" style={{ marginTop: 18 }}>
               <h2>Latest Update</h2>
               {announcement ? (
                 <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                  <div style={{ width: 46, height: 46, flex: "0 0 auto", display: "grid", placeItems: "center", borderRadius: 14, background: "#151515", color: "#fec009", fontWeight: 900 }}>
-                    Ψ
-                  </div>
-                  <div>
-                    <strong>{announcement.title}</strong>
-                    <p style={{ margin: "6px 0 0", color: "#6b665c", lineHeight: 1.55 }}>
-                      {announcement.body}
-                    </p>
-                  </div>
+                  <div style={{ width: 46, height: 46, flex: "0 0 auto", display: "grid", placeItems: "center", borderRadius: 14, background: "#151515", color: "#fec009", fontWeight: 900 }}>Ψ</div>
+                  <div><strong>{announcement.title}</strong><p style={{ margin: "6px 0 0", color: "#6b665c", lineHeight: 1.55 }}>{announcement.body}</p></div>
                 </div>
-              ) : (
-                <p style={{ color: "#6b665c" }}>No active announcements at this time.</p>
-              )}
+              ) : <p style={{ color: "#6b665c" }}>No active announcements at this time.</p>}
             </div>
           </section>
 
@@ -153,34 +116,20 @@ export default async function MemberDashboardPage() {
                 <div><dt style={{ color: "#746b5b" }}>Date Survive</dt><dd style={{ margin: 0, fontWeight: 800 }}>{member.dateSurvive ? member.dateSurvive.toLocaleDateString("en-PH") : "—"}</dd></div>
                 <div><dt style={{ color: "#746b5b" }}>Location</dt><dd style={{ margin: 0, fontWeight: 800 }}>{member.surviveLocation || "—"}</dd></div>
               </dl>
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                <Link href="/profile" className="btn" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Profile</Link>
+                <Link href="/chapter" className="btn" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>My Chapter</Link>
+              </div>
             </div>
 
             <div className="app-panel">
               <h2>Upcoming Event</h2>
-              {event ? (
-                <>
-                  <strong>{event.title}</strong>
-                  <p style={{ color: "#6b665c", lineHeight: 1.55 }}>
-                    {event.startsAt.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}
-                    {event.venue ? ` · ${event.venue}` : ""}
-                  </p>
-                  <Link className="btn" href={`/member/events#${event.id}`} style={{ width: "100%", border: "1px solid #ddd5c1", background: "#fff" }}>View Event</Link>
-                </>
-              ) : (
-                <p style={{ color: "#6b665c" }}>No upcoming published event.</p>
-              )}
+              {event ? <><strong>{event.title}</strong><p style={{ color: "#6b665c", lineHeight: 1.55 }}>{event.startsAt.toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" })}{event.venue ? ` · ${event.venue}` : ""}</p><Link className="btn" href={`/events#${event.id}`} style={{ width: "100%", border: "1px solid #ddd5c1", background: "#fff" }}>View Event</Link></> : <p style={{ color: "#6b665c" }}>No upcoming published event.</p>}
             </div>
 
             <div className="app-panel">
               <h2>Membership Certificate</h2>
-              {certificate ? (
-                <>
-                  <p style={{ color: "#6b665c", lineHeight: 1.55 }}>Certificate {certificate.certificateNumber} is valid and available.</p>
-                  <Link className="btn" href="/member/certificate" style={{ width: "100%", color: "white", background: "#151515" }}>Open Certificate</Link>
-                </>
-              ) : (
-                <p style={{ color: "#6b665c", lineHeight: 1.55 }}>No active membership certificate has been issued yet.</p>
-              )}
+              {certificate ? <><p style={{ color: "#6b665c", lineHeight: 1.55 }}>Certificate {certificate.certificateNumber} is valid and available.</p><Link className="btn" href="/certificate" style={{ width: "100%", color: "white", background: "#151515" }}>Open Certificate</Link></> : <><p style={{ color: "#6b665c", lineHeight: 1.55 }}>No active membership certificate has been issued yet.</p><Link className="btn" href="/certificate" style={{ width: "100%", color: "white", background: "#151515" }}>Issue Certificate</Link></>}
             </div>
           </aside>
         </div>
@@ -188,10 +137,10 @@ export default async function MemberDashboardPage() {
 
       <nav className="app-bottom-nav" aria-label="Member mobile navigation">
         <Link className="active" href="/member">Home</Link>
-        <Link href="/member/community">Community</Link>
-        <Link href="/member/events">Events</Link>
-        <Link href="/member/payments">Payments</Link>
-        <Link href="/member/more">More</Link>
+        <Link href="/community">Community</Link>
+        <Link href="/events">Events</Link>
+        <Link href="/payments">Payments</Link>
+        <Link href="/profile">More</Link>
       </nav>
     </main>
   );
