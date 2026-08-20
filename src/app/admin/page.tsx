@@ -1,3 +1,4 @@
+import { ApplicationStatus, Prisma } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
@@ -19,6 +20,13 @@ const adminPermissions = new Set([
   "reports.view",
 ]);
 
+const pendingApplicationStatuses: ApplicationStatus[] = [
+  ApplicationStatus.SUBMITTED,
+  ApplicationStatus.UNDER_REVIEW,
+  ApplicationStatus.CORRECTION_REQUIRED,
+  ApplicationStatus.PENDING_REQUIREMENTS,
+];
+
 export default async function AdminDashboardPage() {
   const context = await getAuthContext();
   if (!context) redirect("/login");
@@ -31,15 +39,16 @@ export default async function AdminDashboardPage() {
   const chapterScope = authorizedChapterIds(context, "chapters.view");
   const applicationScope = authorizedChapterIds(context, "applications.view");
 
-  const chapterWhere = chapterScope === null
-    ? undefined
-    : { id: { in: chapterScope } };
-  const applicationWhere = applicationScope === null
-    ? { status: { in: ["SUBMITTED", "UNDER_REVIEW", "CORRECTION_REQUIRED", "PENDING_REQUIREMENTS"] as const } }
-    : {
-        chapterId: { in: applicationScope },
-        status: { in: ["SUBMITTED", "UNDER_REVIEW", "CORRECTION_REQUIRED", "PENDING_REQUIREMENTS"] as const },
-      };
+  const chapterWhere: Prisma.ChaptersWhereInput | undefined =
+    chapterScope === null ? undefined : { id: { in: chapterScope } };
+
+  const applicationWhere: Prisma.MembershipApplicationWhereInput =
+    applicationScope === null
+      ? { status: { in: pendingApplicationStatuses } }
+      : {
+          chapterId: { in: applicationScope },
+          status: { in: pendingApplicationStatuses },
+        };
 
   const [chapterCount, pendingApplications, activeMembers] = await Promise.all([
     prisma.chapters.count({ where: chapterWhere }),
