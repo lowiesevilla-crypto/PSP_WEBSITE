@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const requiredTrimmedString = (label: string, max: number) =>
+  z.string().trim().min(1, `${label} is required.`).max(max);
+
 const optionalTrimmedString = (max: number) =>
   z
     .string()
@@ -8,23 +11,28 @@ const optionalTrimmedString = (max: number) =>
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined));
 
-export const membershipRegistrationSchema = z.object({
-  chapterId: z.string().trim().min(1).max(191),
-  firstName: z.string().trim().min(1).max(100),
-  middleName: optionalTrimmedString(100),
-  lastName: z.string().trim().min(1).max(100),
-  suffix: optionalTrimmedString(30),
-  email: z.string().trim().toLowerCase().email().max(254),
-  mobile: optionalTrimmedString(30),
-  birthDate: z
+const requiredDate = (label: string) =>
+  z
     .string()
     .trim()
-    .optional()
-    .transform((value) => (value ? new Date(`${value}T00:00:00.000Z`) : undefined))
-    .refine((value) => !value || !Number.isNaN(value.getTime()), {
-      message: "Birth date is invalid.",
-    }),
-  address: optionalTrimmedString(500),
+    .min(1, `${label} is required.`)
+    .transform((value) => new Date(`${value}T00:00:00.000Z`))
+    .refine((value) => !Number.isNaN(value.getTime()), {
+      message: `${label} is invalid.`,
+    });
+
+export const membershipRegistrationSchema = z.object({
+  firstName: requiredTrimmedString("First name", 100),
+  lastName: requiredTrimmedString("Last name", 100),
+  middleInitial: optionalTrimmedString(10),
+  address: requiredTrimmedString("Address", 500),
+  email: z.string().trim().toLowerCase().email().max(254),
+  mobile: requiredTrimmedString("Mobile number", 30),
+  dateSurvive: requiredDate("Date Survive"),
+  surviveLocation: requiredTrimmedString("Location", 250),
+  pspBirthdayCode: requiredTrimmedString("PSP Birthday Code", 100),
+  birthDate: requiredDate("Date of Birth"),
+  chapterId: z.string().trim().min(1, "Chapter is required.").max(191),
   // Hidden honeypot. Real applicants never populate this field.
   website: z.string().max(0).optional(),
 });
