@@ -1,69 +1,72 @@
 # AGENTS.md — Psi Sigma Phi Philippines Inc. Digital Platform
 
-> **Mandatory project knowledge base for all AI-assisted and human development work in this repository.**
->
-> Before making any code, schema, UI, security, payment, deployment, or documentation change, read this file first. If implementation and this document conflict, stop and reconcile the conflict before proceeding. Update this file whenever an approved architectural or business decision materially changes.
+> **Mandatory project knowledge base.** Every AI agent and developer must read this file before changing code, schema, UI, security, payments, deployment, or documentation. Update it whenever an approved business or architecture decision changes.
 
 ## 1. Project Identity
 
-**Project:** Psi Sigma Phi Philippines Inc. Digital Membership Platform  
-**Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
-**Project type:** New greenfield application; it is separate from HOAHub and must not share HOAHub tenant data, database, secrets, deployment, or production resources.  
-**Product form:** Mobile-first installable Progressive Web Application (PWA) plus responsive public website, Member Portal, Chapter Administration Portal, and National/System Administration Portal.
+- **Project:** Psi Sigma Phi Philippines Inc. Digital Membership Platform
+- **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`
+- **Project type:** Greenfield application; completely separate from HOAHub application data, database, secrets, and runtime.
+- **Product form:** Public website + installable mobile-first PWA + Member Portal + Chapter Admin Portal + National/System Admin Portal.
+- **Organization hierarchy:** `National Organization → Chapter → Officers/Committees → Members`
 
-The platform is intended to become the official digital membership ecosystem for Psi Sigma Phi Philippines Inc., supporting the hierarchy:
+## 2. Production Hosting & URL
 
-`National Organization → Chapter → Chapter Officers/Committees → Members`
+- **Production hosting target:** Hostinger
+- **Official production URL:** `https://psp.hoahub.tech`
+- This URL is the canonical production origin for the application unless the product owner explicitly changes it.
+- Production PWA metadata, email links, PayMongo success/cancel URLs, PayMongo webhook configuration, certificate QR verification links, receipt links, and public verification URLs must use `https://psp.hoahub.tech`.
+- Do not publish to a different production hostname without explicit approval.
+- Local development uses `http://localhost:3000`.
+- QA/staging, when introduced, must use a separate hostname and separate secrets/database.
+- Production deployment requires explicit approval after QA/security checks. Do not auto-deploy production merely because code was committed.
 
-## 2. Official Branding
+## 3. Official Branding
 
-Use the official Psi Sigma Phi Philippines Inc. seal supplied by the product owner as the primary brand mark.
+Use the official Psi Sigma Phi Philippines Inc. seal supplied by the product owner as the primary mark.
 
-Approved design direction:
+Approved palette:
 
-- Primary fraternity gold: `#FEC009`
+- Gold: `#FEC009`
 - Black: `#000000`
 - Charcoal: `#151515`
 - White: `#FFFFFF`
-- Use darker gold variants only where needed for accessible contrast.
-- Style: premium, prestigious, modern, professional, fraternity/sorority identity; avoid playful consumer-app styling.
-- Greek identity may use `Ψ Σ Φ` where appropriate.
 
-The UI must remain accessible and legible. Never sacrifice contrast, form clarity, or touch usability to preserve decorative branding.
+Design direction: premium, prestigious, modern, professional fraternity/sorority identity. Greek identity may use `Ψ Σ Φ`. Maintain accessible contrast and touch usability.
 
-## 3. Core Product Scope
+## 4. Core Product Scope
 
-### Public website
+### Public Website
 
 - Home / organization landing page
 - About / history / mission / vision
-- Chapter directory (public data only)
-- Public activities and events
+- Public chapter directory
+- Public activities/events
 - Membership information
-- Online registration entry point
+- Online registration
 - Member login
 - Contact information
 
 ### Membership
 
-- Online applicant registration
+- Online application
 - Chapter selection
-- Applicant review and approval
+- Applicant review/approval
 - Member activation
-- Secure login and recovery
-- Member profile
+- Secure login/recovery
+- Profile
 - Unique membership number
-- Membership status and history
-- Chapter assignment and controlled transfer history
+- Membership status/history
+- Chapter assignment and transfer history
 
-Applicant approval is required before a person becomes an official active member. Registration must never auto-create an approved member.
+**Registration never automatically creates an active member.** Approval is required.
 
-### Chapter management
+### Chapter Management
 
-- System Admin can create, activate, deactivate, suspend, and archive chapters.
-- Each chapter has independent organization structure, officers, positions, committees, members, events, announcements, assessments, and financial reporting.
-- Chapter organization structures are configurable; do not hardcode a single hierarchy for all chapters.
-- Officer assignments must preserve historical terms and dates.
+- System Admin creates/activates/deactivates/suspends/archives chapters.
+- Each chapter may have different officers, positions, committees, members, events, announcements, contribution rates, assessments, and reports.
+- Organization structures are configurable; never hardcode one structure for all chapters.
+- Officer assignments must retain term history.
 
 ### Community
 
@@ -71,244 +74,224 @@ Applicant approval is required before a person becomes an official active member
 - Image uploads
 - Comments
 - Chapter-only and National/all-member visibility
-- Official announcements
+- Announcements
 - Content moderation
 - Events
 
 ### Finance
 
-- Chapter-specific monthly dues/fund amounts
-- National dues where configured
+- Chapter-specific monthly dues/fund
+- National dues when configured
 - Special assessments
 - Event contributions
 - Membership fees
-- Donations / other collections when approved
+- Donations/other approved collections
 - Member ledger
-- Balances and payment history
+- Balances/payment history
 - Digital receipts
 - Reconciliation
 
-Contribution values are configurable and effective-dated. Changing the current dues amount must never rewrite historical billing.
+Rates are configurable and **effective-dated**. Changing a current rate must never alter historical assessments.
 
 ### PayMongo
 
-Use PayMongo for online payments, following secure server-side integration practices.
+Use PayMongo for online payments.
 
-Non-negotiable payment rules:
+Non-negotiable controls:
 
-- Never expose PayMongo secret keys to the client.
-- Browser redirects are not authoritative proof of payment.
-- Confirm payment server-side using trusted PayMongo state/webhook handling.
-- Webhook/event processing must be idempotent.
+- Secret keys are server-only.
+- Browser redirect is not proof of successful payment.
+- Confirm payment using trusted server-side PayMongo state/webhook processing.
+- Webhook/event processing is idempotent.
 - Store internal transaction reference and PayMongo reference.
-- Do not silently delete posted financial history.
-- Payment corrections, reversals, refunds, and reconciliation changes must remain traceable.
+- Never silently delete posted financial history.
+- Refunds, reversals, corrections, and reconciliation changes remain traceable.
+- Production callback/webhook URLs use the `https://psp.hoahub.tech` origin.
 
 ### Certificates
 
 - Eligible members can download Certificate of Membership.
-- Certificate contains member name, member number, chapter, certificate number, issue date, authorized signatories, and official seal as applicable.
-- Unique certificate number required.
-- QR verification required.
-- Public verification exposes only minimal appropriate information.
-- Certificates can be Valid, Revoked, Superseded, or Expired if expiry is later introduced.
-- Revocation must retain historical records.
+- Include member name, member number, chapter, unique certificate number, issue date, signatories, and official seal as applicable.
+- QR verification is mandatory.
+- Public verification exposes only minimal appropriate data.
+- Statuses may include Valid, Revoked, Superseded, and Expired if expiry is enabled.
+- Revocation never destroys historical records.
+- Production QR verification must resolve under `https://psp.hoahub.tech`.
 
-## 4. PWA & Responsive Requirements
+## 5. PWA & Responsive Requirements
 
-The member experience is **mobile-first** and must be installable as a PWA.
+The member experience is **mobile-first and installable as a PWA**.
 
-Mandatory capabilities:
+Mandatory:
 
 - Web app manifest
 - Service worker
-- Standalone install experience where supported
+- Standalone install where supported
 - Android installation support
-- iPhone/iPad Add to Home Screen guidance
-- PWA app icon and branded install identity
-- Responsive layouts from small mobile to wide desktop
-- Portrait and landscape support
-- Safe-area handling for notches and gesture bars
+- iPhone/iPad Add-to-Home-Screen guidance
+- Branded app icon
+- Responsive mobile/tablet/laptop/desktop layouts
+- Portrait/landscape support
+- Safe-area handling
 - Touch-friendly controls
 - No uncontrolled horizontal overflow
 - Mobile-friendly tables/cards
-- Payment and registration flows must be fully usable from a phone
 
-Supported experience targets:
+Reference viewport ranges:
 
-- Mobile: < 768px
-- Tablet: 768–1023px
-- Laptop: 1024–1439px
-- Desktop/wide: >= 1440px
+- Mobile: `<768px`
+- Tablet: `768–1023px`
+- Laptop: `1024–1439px`
+- Desktop/wide: `>=1440px`
 
-Treat these as design guidance, not hard device assumptions. Use fluid responsive layouts.
+These are guidance, not rigid device assumptions.
 
-Core workflows that MUST work completely on mobile:
+Core flows that must work fully on mobile:
 
 - Registration
-- Account activation/login/recovery
-- Dashboard
-- Profile
+- Activation/login/recovery
+- Dashboard/profile
 - Chapter/officer view
-- Announcements
-- Events
-- Create post and upload image
-- Comment
-- View dues/balances
-- Pay through PayMongo
-- Payment receipt/history
+- Announcements/events
+- Post/image upload/comment
+- Dues/balance/payment
+- Receipt/history
 - Certificate view/download/verification
 - Notifications
 
-Offline/cached mode must never create false payment or ledger states. Financial writes require live server connectivity.
+Offline/cache behavior must never create false financial state. Financial writes require live server connectivity.
 
-## 5. Roles and Authorization Model
+## 6. Roles & Authorization
 
 Initial role families:
 
-- System / National Administrator
+- System/National Administrator
 - National Officer
 - Chapter Administrator
 - Chapter Officer
-- Chapter Treasurer / Finance role
-- Content / Moderation role where configured
+- Chapter Treasurer/Finance
+- Content/Moderation role when configured
 - Member
 - Applicant
 
-Permissions are configurable and scoped. Avoid role-name-only authorization.
+Permissions are configurable and scoped. Avoid authorization based only on role names.
 
 Authorization model:
 
-`Authenticated User + Role + Permission + Chapter Scope + Record Ownership (when relevant)`
+`Authenticated User + Role + Permission + Chapter Scope + Record Ownership (when applicable)`
 
-Critical rule: authorization MUST be enforced on the server. Hiding a button in the UI is not authorization.
+Authorization must be enforced server-side. UI hiding is not authorization.
 
-Chapter users must never obtain unauthorized data belonging to another chapter through UI, API, URL manipulation, exports, search, reporting, object IDs, or file access.
+Chapter users must never obtain another chapter's restricted information via UI, API, URL manipulation, exports, search, reports, object IDs, or files. National cross-chapter access requires explicit National/System permission.
 
-National cross-chapter visibility is granted only to authorized National/System roles.
+## 7. Data Isolation
 
-## 6. Data Isolation
+All applicable chapter-owned entities carry explicit chapter scope, including:
 
-All chapter-owned operational entities must carry an explicit chapter scope when appropriate, including:
+- Members/applications
+- Posts/comments
+- Announcements/events
+- Positions/officer assignments
+- Assessments/rates
+- Ledger entries
+- Payments/receipts
+- Certificates
+- Reports/configuration
 
-- Members
-- Membership applications
-- Posts/comments where scoped
-- Announcements
-- Events
-- Organization positions and officer assignments
-- Assessments
-- Member ledger entries
-- Payments and receipts
-- Reports
-- Chapter configuration
+Never trust a client-supplied `chapterId` without verifying authenticated authority. Prefer central scope/service helpers over ad-hoc filters.
 
-Never trust a client-supplied `chapterId` without verifying the authenticated user's authority for that chapter.
+## 8. Security Baseline
 
-Prefer service-layer repository/query helpers that always require resolved scope rather than scattering ad hoc `chapterId` filters throughout UI code.
-
-## 7. Security Baseline
-
-Mandatory practices:
+Mandatory:
 
 - HTTPS in production
-- Secure password hashing; never store plaintext passwords
+- Strong password hashing; no plaintext passwords
 - Server-side session/auth validation
-- CSRF protections appropriate to the chosen auth/session design
-- Secure cookies when cookie-based sessions are used
+- Appropriate CSRF protection
+- Secure cookies for cookie sessions
 - Input validation at trust boundaries
-- Output encoding / XSS protections
-- Rate limiting on login, recovery, registration, public verification, and abuse-prone endpoints
-- IDOR/BOLA protections
+- XSS/output safety
+- Rate limiting for login, recovery, registration, verification, abuse-prone APIs
+- IDOR/BOLA protection
 - Least-privilege RBAC
-- File type, extension, size, and content validation
-- Safe image handling
-- Do not serve arbitrary uploaded executable content
-- Secrets via environment/secret store only
-- Audit privileged and financial actions
-- Do not log passwords, access tokens, payment secrets, or unnecessary personal data
-- Protect privacy in reports/exports
-- Backups and restoration procedures required before production launch
+- Secure file type/size/content validation
+- No arbitrary executable uploads
+- Secrets only via environment/secret store
+- Audit privileged/financial actions
+- Never log passwords, tokens, PayMongo secrets, or unnecessary personal data
+- Privacy-safe exports/reports
+- Backups and tested recovery before production
 
-The platform must be designed with Philippine data privacy obligations in mind, including data minimization, purpose limitation, access control, retention, and appropriate notices/consent.
+Design for Philippine privacy obligations: purpose limitation, data minimization, access control, retention, appropriate notices/consent, and incident handling.
 
-## 8. Technology Baseline
+## 9. Technology Baseline
 
-Initial implementation direction:
+Initial direction:
 
-- Next.js with App Router
-- TypeScript strict mode
+- Next.js App Router
 - React
+- TypeScript strict mode
 - Relational database
 - Prisma ORM
-- Server-side domain/service layer
-- Schema validation at API/server-action boundaries
+- Server-side service/domain layer
+- Zod/schema validation at API/server-action boundaries
 - PWA manifest + service worker
-- Object/media storage abstraction for user images and generated documents
-- PayMongo integration through server-only payment service
+- Media/object storage abstraction
+- Server-only PayMongo service
 - Email notification abstraction
-- QR generation/verification service
-- PDF certificate/receipt generation service
+- QR generation/verification
+- PDF certificate/receipt generation
 
-Do not tightly couple business logic to a hosting provider. Infrastructure-specific adapters should remain replaceable.
+Do not tightly couple domain logic to Hostinger. Infrastructure adapters should remain replaceable.
 
-## 9. Initial Domain Model
+## 10. Initial Domain Model
 
-Expected core entities include:
+Expected entities:
 
 - Organization
 - Chapter
 - User
-- Role
-- Permission
-- UserRole / scoped role assignment
-- Applicant / MembershipApplication
+- Role / Permission / scoped assignment
+- MembershipApplication
 - Member
 - MembershipHistory
 - ChapterPosition
 - OfficerAssignment
-- Committee
-- CommitteeMembership
-- Post
-- PostImage
-- Comment
+- Committee / CommitteeMembership
+- Post / PostImage / Comment
 - Announcement
 - Event
-- AssessmentType
-- Assessment
+- AssessmentType / AssessmentRate / Assessment
 - MemberLedgerEntry
-- Payment
-- PaymentTransaction
-- Receipt
-- Certificate
-- CertificateTemplate
+- Payment / PaymentTransaction / Receipt
+- Certificate / CertificateTemplate
 - Notification
 - AuditLog
 
-Exact schema evolves through migrations and ADRs, but chapter isolation, financial traceability, and membership history are mandatory invariants.
+Exact schema may evolve through migrations/ADRs, but chapter isolation, membership history, and financial traceability are invariants.
 
-## 10. Key Business Rules
+## 11. Key Business Rules
 
 1. Registration does not equal active membership.
-2. Every active member has one unique member record and unique membership number.
+2. Every active member has a unique member record and membership number.
 3. A member normally has one primary chapter; transfers preserve history.
 4. Chapter organization structures are configurable.
-5. Monthly contribution amounts vary per chapter and are effective-dated.
-6. Historical assessments are immutable with respect to later rate changes.
-7. Financial access is independently assignable from ordinary chapter administration.
+5. Monthly contribution rates vary by chapter and are effective-dated.
+6. Historical assessments do not change when new rates are configured.
+7. Financial access is independently assignable from ordinary administration.
 8. Payment success requires trusted server-side confirmation.
-9. Duplicate gateway events cannot create duplicate ledger postings.
-10. Completed financial history cannot be silently deleted.
+9. Duplicate gateway events cannot create duplicate payments/ledger postings.
+10. Posted financial history cannot be silently deleted.
 11. Certificate numbers are unique.
-12. QR verification checks live server records.
+12. QR verification checks live records.
 13. Revoked certificates remain auditable.
 14. Chapter users cannot access unauthorized chapter data.
-15. Officer history must be retained.
-16. Administrative moderation and sensitive configuration changes must be audited.
+15. Officer history is retained.
+16. Moderation and sensitive configuration changes are audited.
 
-## 11. UI/UX Direction
+## 12. UI/UX Direction
 
-Member PWA recommended primary navigation:
+Recommended Member PWA navigation:
 
 - Home
 - Community
@@ -316,12 +299,12 @@ Member PWA recommended primary navigation:
 - Payments
 - More
 
-`More` may contain Chapter, Certificate, Profile, Notifications, Settings, Logout.
+`More`: Chapter, Certificate, Profile, Notifications, Settings, Logout.
 
-Member dashboard should prioritize:
+Member dashboard prioritizes:
 
 - Digital membership card
-- Member number / chapter / status
+- Member number/chapter/status
 - Outstanding balance
 - Pay Dues
 - My Certificate
@@ -329,75 +312,76 @@ Member dashboard should prioritize:
 - Latest announcement
 - Community activity
 
-Chapter Admin and National Admin can use adaptive sidebar layouts on larger screens, but all essential administrative workflows must remain usable on tablet/mobile.
+Chapter/National Admin may use adaptive sidebars on large screens but essential administration remains usable on tablet/mobile. Convert wide tables to cards/stacked records where appropriate.
 
-Use cards or stacked records on narrow screens instead of forcing desktop tables horizontally.
-
-## 12. Environments & Deployment
+## 13. Environments & Deployment
 
 Required environments:
 
-- Local development
-- Test/QA or staging
+- Local
+- QA/Staging
 - Production
 
-Never use production secrets or production database for local development.
+Rules:
 
-No production deployment should happen implicitly from an AI code change. Production deployment requires explicit approval and a validated release checklist.
+- Never use production database/secrets locally.
+- Canonical production origin is `https://psp.hoahub.tech`.
+- Hostinger is the target production host.
+- Deployment configuration must support Next.js Node runtime, environment secrets, persistent database connectivity, HTTPS, and application restart/rollback procedures.
+- Production deployment requires explicit approval and a validated release checklist.
 
-## 13. Git Workflow
+## 14. Git Workflow
 
-- Protect `main` conceptually as production-ready/integrated code.
-- Develop features on branches such as `feature/...`, `fix/...`, `chore/...`.
-- Use focused commits.
-- Prefer pull requests for review before merge.
+- `main` is integrated/release-ready.
+- Use `feature/*`, `fix/*`, `chore/*` branches.
+- Use focused commits and PR review before merge when practical.
 - Do not force-push shared branches unless explicitly approved.
-- Never commit `.env`, API keys, database passwords, PayMongo secret keys, SMTP credentials, private keys, or production dumps.
+- Never commit `.env`, passwords, PayMongo secret keys, SMTP credentials, private keys, or production dumps.
 
-## 14. Documentation That Must Stay Current
+## 15. Documentation That Must Stay Current
 
-Maintain these documents as the project grows:
-
-- `AGENTS.md` — mandatory knowledge base and approved product/engineering rules
-- `README.md` — developer setup and project overview
+- `AGENTS.md` — mandatory knowledge base
+- `README.md` — setup/overview
 - `docs/BRD.md` — business requirements
-- `docs/IMPLEMENTATION_PLAN.md` — delivery phases and status
-- `docs/ARCHITECTURE.md` — system architecture and ADR links
-- `docs/SECURITY.md` — security/privacy controls
-- `docs/PAYMENTS.md` — PayMongo and ledger design
-- `docs/DATA_MODEL.md` — entity relationships and schema decisions
-- `docs/UI_UX.md` — responsive/PWA design standards
+- `docs/IMPLEMENTATION_PLAN.md` — phases/status
+- `docs/ARCHITECTURE.md` — architecture/ADRs
+- `docs/SECURITY.md` — security/privacy
+- `docs/PAYMENTS.md` — PayMongo/ledger
+- `docs/DATA_MODEL.md` — entities/invariants
+- `docs/UI_UX.md` — responsive/PWA design
+- `docs/DEPLOYMENT.md` — Hostinger deployment and production domain
 
-## 15. Definition of Done for a Feature
+## 16. Definition of Done
 
-A feature is not complete until applicable items are satisfied:
+Applicable feature completion requires:
 
 - Requirement traced to BRD/business rule
-- Server-side authorization implemented
+- Server authorization implemented
 - Chapter scope enforced
 - Validation implemented
-- Audit events added for privileged/financial operations
-- Responsive mobile behavior verified
-- Loading, empty, success, and error states implemented
-- Tests added/updated
+- Audit events for privileged/financial operations
+- Mobile responsiveness verified
+- Loading/empty/success/error states
+- Tests updated
 - No secrets committed
-- Documentation updated when behavior or architecture changes
-- Financial/idempotency behavior tested for payment-related changes
+- Documentation updated
+- Payment idempotency tests for financial features
 - Accessibility basics checked
 
-## 16. Current Project Status
+## 17. Current Project Status
 
-**As of 2026-08-20:** Greenfield repository initialization and Phase 0/Phase 1 implementation are starting. No production deployment exists yet. The official brand seal has been supplied and the UI direction is black/gold/white. The initial BRD has been defined in the project conversation and will be committed under `docs/BRD.md`.
+**2026-08-20:** Greenfield repository initialization and Phase 0/Phase 1 implementation are underway. No production deployment exists yet. Official seal supplied. UI direction is black/gold/white. Target production host is Hostinger at `https://psp.hoahub.tech`.
 
-## 17. AI/Agent Instruction
+## 18. AI / Agent Operating Rules
 
-For every future AI task in this repository:
+For every future task:
 
 1. Read `AGENTS.md` first.
-2. Read the relevant document under `docs/`.
-3. Inspect the current implementation before modifying it.
-4. Do not invent business processes that are not in the BRD or explicitly approved.
+2. Read relevant `docs/` files.
+3. Inspect current implementation before modifying it.
+4. Do not invent business processes not present in the BRD or explicitly approved.
 5. Preserve chapter isolation and financial traceability.
 6. Never expose secrets.
-7. Do not deploy to production without explicit approval.
-8. If a requirement is ambiguous and affects money, identity, legal/privacy, or cross-chapter access, stop and request clarification rather than guessing.
+7. Use `https://psp.hoahub.tech` for approved production URLs/integrations.
+8. Do not deploy production without explicit approval.
+9. If ambiguity affects money, identity, legal/privacy, or cross-chapter access, stop and request clarification rather than guessing.
