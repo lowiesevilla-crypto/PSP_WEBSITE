@@ -10,7 +10,7 @@ export default function RegistrationPage() {
       <header className="app-topbar">
         <div className="container app-nav">
           <Link className="app-brand" href="/">
-            <img src="/brand/psp-logo.png" alt="Psi Sigma Phi seal" />
+            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
             <span>Psi Sigma Phi Philippines Inc.</span>
           </Link>
           <Link className="btn btn-secondary" href="/member" style={{ color: "#151515", borderColor: "#ddd5c1" }}>
