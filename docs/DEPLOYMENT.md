@@ -1,124 +1,165 @@
-# Deployment — Hostinger
+# Hostinger Production Deployment Runbook
 
-## Canonical Production Target
+## Production Target
 
-- **Host:** Hostinger
-- **Production URL:** `https://psp.hoahub.tech`
-- **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`
-- **Production branch:** `main` after approved merge/release
+- Application: Psi Sigma Phi Philippines Inc. Digital Membership Platform
+- Repository: `lowiesevilla-crypto/PSP_WEBSITE`
+- Hosting: Hostinger Node.js Web App
+- Canonical URL: `https://psp.hoahub.tech`
+- Production branch: `main`
+- Runtime: Node.js 22+
+- Database: dedicated PSP MySQL database, separate from HOAHub
 
-`https://psp.hoahub.tech` is the canonical production origin and must be used consistently for production-facing integrations and generated links.
+## Release Preconditions
 
-## URLs Derived from the Production Origin
+Do not publish a release until:
 
-The exact route structure may evolve, but all production URLs must resolve under the canonical origin. Examples:
+- release commit CI is green
+- Prisma schema validates and applies against CI MySQL
+- baseline seed passes
+- System Admin bootstrap passes in CI
+- strict TypeScript succeeds
+- production build succeeds
+- runtime dependency audit gate succeeds
+- no real secrets exist in GitHub
+- production database backup/rollback plan is confirmed
+- PayMongo test-mode E2E passes before live credentials are enabled
 
-- Member login: `https://psp.hoahub.tech/login`
-- Registration: `https://psp.hoahub.tech/register`
-- Certificate verification: `https://psp.hoahub.tech/verify/<token>`
-- Payment success return: `https://psp.hoahub.tech/payments/success`
-- Payment cancellation return: `https://psp.hoahub.tech/payments/cancelled`
-- PayMongo webhook endpoint: `https://psp.hoahub.tech/api/payments/paymongo/webhook`
+## One-Time Hostinger Setup
 
-Final route names must match implemented routes before production configuration.
+Hostinger Node.js Web App hosting supports GitHub repository import and automatic redeployment.
 
-## Production Environment
+In hPanel:
 
-Hostinger production environment variables must include the appropriate values for:
+1. Go to **Websites → Add website → Node.js Web App / Deploy Web App**.
+2. Choose the `psp.hoahub.tech` domain/subdomain.
+3. Import/connect GitHub repository `lowiesevilla-crypto/PSP_WEBSITE`.
+4. Select production branch `main`.
+5. Runtime: Node.js 22 or later compatible LTS.
+6. Build command: `npm run build`.
+7. Start command: `npm run start`.
+8. Review framework detection as Next.js.
+9. Configure production environment variables in hPanel.
+10. Deploy.
+11. Enable automatic redeployment from `main` only after the release process is stable.
+
+## Production Environment Variables
+
+Required values include:
 
 ```text
-NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech
+NODE_ENV=production
 APP_ENV=production
-DATABASE_URL=<production database URL>
-AUTH_SECRET=<strong production secret>
-PAYMONGO_SECRET_KEY=<production PayMongo secret>
-PAYMONGO_WEBHOOK_SECRET=<configured webhook verification secret/material where applicable>
-SMTP_HOST=<production SMTP host>
-SMTP_PORT=<production SMTP port>
-SMTP_USER=<production SMTP user>
-SMTP_PASSWORD=<production SMTP password>
-SMTP_FROM=<approved sender>
-STORAGE_PROVIDER=<production storage adapter>
-...
+NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech
+DATABASE_URL=mysql://<user>:<password>@<host>:3306/<psp_database>
+AUTH_SECRET=<strong-random-secret>
+SMTP_HOST=<hostinger-smtp-host>
+SMTP_PORT=587
+SMTP_USER=<psp-mailbox>
+SMTP_PASSWORD=<secret>
+SMTP_FROM=<approved-from-address>
+PAYMONGO_SECRET_KEY=<test-key-until-live-approval>
+PAYMONGO_WEBHOOK_SECRET=<matching-endpoint-signing-secret>
+PAYMONGO_PAYMENT_METHODS=qrph
+MEMBERSHIP_NUMBER_PREFIX=PSP
+CERTIFICATE_REQUIRE_CURRENT_DUES=false
+STORAGE_ROOT=<persistent-private-storage-path>
 ```
 
-Never commit actual values to GitHub.
+Optional bootstrap variables are used only for initial System Administrator creation and must be removed immediately afterward:
 
-## Hostinger Requirements
+```text
+BOOTSTRAP_ADMIN_EMAIL=
+BOOTSTRAP_ADMIN_PASSWORD=
+BOOTSTRAP_ADMIN_NAME=
+```
 
-The deployment must support:
+Never put live secrets in GitHub, `.env.example`, client-side `NEXT_PUBLIC_*` variables, browser code, URLs, or logs.
 
-- Node.js runtime compatible with the project version
-- Next.js production build/start process
-- HTTPS/TLS for `psp.hoahub.tech`
-- Environment variables/secrets outside source control
-- MySQL-compatible production database if the current Prisma datasource remains MySQL
-- Persistent media/object storage strategy
-- Application logs/error monitoring
-- Database backup and tested restore process
-- Controlled restart and rollback procedure
+## Production Database
 
-## DNS / Domain Readiness
+Create a dedicated PSP MySQL database/user. Never reuse the HOAHub database.
 
-Before go-live, confirm:
+Initial greenfield release:
 
-1. `psp.hoahub.tech` is created in Hostinger/DNS.
-2. The DNS record points to the correct Hostinger application target.
-3. HTTPS certificate is active and valid.
-4. HTTP redirects to HTTPS.
-5. `NEXT_PUBLIC_APP_URL` equals `https://psp.hoahub.tech`.
-6. No staging or HOAHub application is accidentally mapped to this hostname.
+1. Set production `DATABASE_URL` in Hostinger environment variables.
+2. Apply the approved Prisma schema.
+3. Run `npm run seed` to create idempotent organization/roles/permissions/assessment types.
+4. Bootstrap the first System Administrator with temporary environment values.
+5. Remove bootstrap password variables immediately.
 
-## PayMongo Production Readiness
+`prisma db push` may be used only for the first greenfield production creation before member/financial records exist. Once production data exists, all schema changes require reviewed Prisma migrations and backups.
 
-Before enabling live payments:
+## PayMongo
 
-1. Configure PayMongo production credentials only in Hostinger secrets/environment.
-2. Configure production callback/return URLs under `https://psp.hoahub.tech`.
-3. Configure the webhook endpoint using the implemented production route.
-4. Confirm webhook authenticity validation.
-5. Confirm idempotent event handling.
-6. Execute a controlled low-value production smoke test only after explicit approval.
-7. Confirm successful transaction, member ledger posting, digital receipt, reconciliation record, and audit event.
+Test mode first:
 
-A browser redirect alone must never mark a payment as paid.
+- Set `PAYMONGO_SECRET_KEY=sk_test_...`.
+- Register a test webhook endpoint for `checkout_session.payment.paid`:
+  `https://psp.hoahub.tech/api/webhooks/paymongo`
+- Store its endpoint signing secret as `PAYMONGO_WEBHOOK_SECRET`.
+- Verify checkout, success/cancel return behavior, signature validation, webhook idempotency, ledger posting, receipt creation, and reconciliation.
 
-## PWA Production Readiness
+Only after test-mode QA passes:
 
-Before go-live verify on the production origin:
+1. Confirm required PayMongo payment methods are active.
+2. Replace test secret with live secret in Hostinger.
+3. Create the live-mode webhook endpoint.
+4. Replace the webhook signing secret with the live endpoint secret.
+5. Run one controlled low-value live validation payment.
 
-- Manifest is accessible over HTTPS.
-- Service worker scope is correct.
-- PWA icons load correctly.
-- Android installability works on supported browsers.
-- iOS Add to Home Screen experience is documented/tested.
-- Start URL remains within `psp.hoahub.tech`.
-- Offline cache excludes sensitive/auth/payment/verification API state.
+The browser success redirect is never authoritative payment confirmation.
 
-## Certificate QR Verification
+## Domain & HTTPS
 
-Generated production certificate QR codes must resolve to `https://psp.hoahub.tech` and use opaque verification identifiers/tokens rather than exposing internal database IDs unnecessarily.
+- `psp.hoahub.tech` is the canonical production origin.
+- HTTPS must be active before login, member activation, PayMongo, or certificate QR verification are enabled.
+- HTTP should redirect to HTTPS.
+- Do not use a temporary Hostinger domain in production callbacks, emails, receipts, or QR codes.
 
-Public verification must show only the approved minimum membership/certificate information.
+## PWA Production Checks
 
-## Release Process
+- manifest loads over HTTPS
+- service worker scope is correct
+- branded icon loads
+- Android install works where supported
+- iOS Add to Home Screen guidance works
+- start URL stays under `psp.hoahub.tech`
+- sensitive auth/payment API responses are not cached
 
-No production deployment is implicit.
+## Post-Deployment Smoke Tests
 
-Required release flow:
+1. `GET https://psp.hoahub.tech/api/health`
+2. Landing page loads over HTTPS.
+3. Registration loads active chapters and requires both acknowledgements.
+4. System Admin login succeeds.
+5. Chapter creation/Chapter Admin assignment succeeds.
+6. Applicant approval creates Member and sends activation email.
+7. Activated member logs in and sees only correct chapter data.
+8. Cross-chapter authorization negative checks pass.
+9. PWA manifest/service worker load.
+10. Mobile layout works at representative phone widths.
+11. SMTP delivery succeeds.
+12. PayMongo test checkout/signed webhook succeeds before live mode.
+13. Certificate QR verification resolves under `psp.hoahub.tech`.
 
-1. Develop on feature/fix branch.
-2. Typecheck/build/test.
-3. Validate chapter isolation/security.
-4. Complete applicable E2E QA.
-5. Review migration plan.
-6. Merge approved release to `main`.
-7. Confirm backup/rollback readiness.
-8. Obtain explicit production deployment approval.
-9. Deploy to Hostinger.
-10. Run production smoke tests on `https://psp.hoahub.tech`.
-11. Record release details and any deployment changes in project documentation.
+## Rollback
 
-## Current Status
+- Keep the last known-good Git release SHA.
+- Back up the database before schema-changing releases.
+- If application deployment fails, redeploy the last known-good commit.
+- Do not perform destructive schema rollback after member/financial data exists without a reviewed recovery plan.
 
-As of 2026-08-20, implementation is in the foundation phase. The production hostname is reserved as the target, but the project has **not** been deployed to production yet.
+## Monitoring
+
+Use Hostinger deployment/runtime logs and resource monitoring. Investigate:
+
+- repeated 5xx errors
+- authentication failures/lockouts
+- webhook signature failures
+- payment reconciliation mismatches
+- email delivery failures
+- storage exhaustion
+- dependency vulnerability alerts
+
+A release is not complete until post-deployment smoke checks pass.
