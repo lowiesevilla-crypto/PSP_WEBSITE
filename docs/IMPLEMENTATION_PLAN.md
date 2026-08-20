@@ -15,11 +15,25 @@
 7. Production URL is `https://psp.hoahub.tech`.
 8. Production deployment occurs only after CI, database, security, payment, and smoke-test gates pass.
 
----
+## Phase Status
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Project foundation | COMPLETE |
+| 1 | Identity, registration, RBAC, chapter core | COMPLETE / CI GREEN |
+| 2 | Production PWA member experience | IN PROGRESS |
+| 3 | Community & communications | PLANNED NEXT |
+| 4 | Chapter organization & events | PLANNED |
+| 5 | Finance & member ledger | PLANNED |
+| 6 | PayMongo Hosted Checkout v2 | PLANNED |
+| 7 | Certificates & QR verification | PLANNED |
+| 8 | Reporting & audit operations | PLANNED |
+| 9 | QA & security release gate | PLANNED |
+| 10 | Hostinger production deployment | PLANNED |
 
 ## Phase 0 — Project Foundation — COMPLETE
 
-- [x] Initialize `AGENTS.md` knowledge base
+- [x] `AGENTS.md` knowledge base
 - [x] Next.js 16 / React 19 / TypeScript strict foundation
 - [x] Prisma + MySQL domain schema baseline
 - [x] Responsive black/gold/white brand system
@@ -47,14 +61,13 @@
 
 ### Registration & Membership
 - [x] Approved registration fields: First Name, Last Name, MI, Address, Email, Mobile No., Date Survive, Location, PSP Birthday Code, Date of Birth, Select Chapter
-- [x] Separate membership acknowledgement
+- [x] Separate Membership Application acknowledgement
 - [x] Separate versioned Data Privacy acknowledgement
 - [x] Duplicate applicant/member checks
 - [x] Scoped reviewer queue
 - [x] Under Review / Correction / Approval / Rejection workflow
-- [x] Approval creates Member record
+- [x] Approval creates Member and MembershipHistory
 - [x] Unique platform membership number generated on approval
-- [x] MembershipHistory generated
 - [x] Member role assigned
 - [x] Activation email sent
 
@@ -68,23 +81,21 @@
 - [x] Controlled chapter transfer preserving membership, officer, and access history
 - [x] National/Chapter Admin dashboard
 
-### Phase 1 validation
-- [x] CI MySQL service
-- [x] Schema push succeeds
-- [x] Seed succeeds
-- [x] Secure System Admin bootstrap succeeds
-- [x] Strict TypeScript succeeds
-- [x] Production Next.js build succeeds
-- [x] Runtime production dependency audit gate succeeds
-
----
+### Phase 1 Validation
+- [x] CI MySQL 8.4 service
+- [x] Schema application
+- [x] Baseline seed
+- [x] secure System Admin bootstrap
+- [x] strict TypeScript
+- [x] production Next.js build
+- [x] runtime production dependency audit enforcement
 
 ## Phase 2 — Production PWA Member Experience
 
 - [ ] Install prompt and iOS Add-to-Home-Screen guidance
 - [ ] Update-available handling
 - [ ] Offline shell with safe cache policy
-- [ ] Production icon set / splash-ready manifest
+- [ ] Production icon/splash-ready manifest
 - [x] Real authenticated member dashboard
 - [ ] Member profile update
 - [ ] Digital membership card
@@ -92,13 +103,11 @@
 - [ ] Notification center
 - [ ] Responsive/accessibility QA
 
----
-
 ## Phase 3 — Community & Communications
 
 - [ ] Member post create/edit/delete ownership controls
 - [ ] Chapter vs National audience
-- [ ] Secure image upload abstraction and validation
+- [ ] Secure image upload/storage abstraction and validation
 - [ ] Comments
 - [ ] Pinned content
 - [ ] Moderation/hide controls
@@ -106,19 +115,15 @@
 - [ ] Notification triggers
 - [ ] Cross-chapter content isolation tests
 
----
-
 ## Phase 4 — Chapter Organization & Events
 
-- [ ] Configurable positions and hierarchy
+- [ ] Configurable positions/hierarchy
 - [ ] Officer assignment with term history
-- [ ] Committee model and memberships
+- [ ] Committee model/memberships
 - [ ] National/chapter event creation
 - [ ] Draft/publish/cancel lifecycle
 - [ ] Member event list/detail
 - [ ] Event image foundation
-
----
 
 ## Phase 5 — Finance & Member Ledger
 
@@ -131,29 +136,23 @@
 - [ ] Traceable adjustment/reversal controls
 - [ ] Historical rate immutability validation
 
----
-
-## Phase 6 — PayMongo
-
-Current integration target: PayMongo Hosted Checkout v2.
+## Phase 6 — PayMongo Hosted Checkout v2
 
 - [ ] Server-only PayMongo client
 - [ ] Internal pending Payment before checkout
-- [ ] POST `/v2/checkout_sessions`
+- [ ] `POST /v2/checkout_sessions`
 - [ ] Idempotency key on resource creation
 - [ ] Checkout redirect URL returned to PWA
 - [ ] Raw-body webhook handler
 - [ ] `Paymongo-Signature` HMAC-SHA256 validation
 - [ ] `checkout_session.payment.paid` processing
-- [ ] Event/object idempotency
+- [ ] Event/session idempotency
 - [ ] Ledger posting after trusted webhook confirmation
 - [ ] Digital PSP receipt
 - [ ] Failed/cancelled handling and reconciliation
-- [ ] Test-mode payment QA before live credentials
+- [ ] PayMongo test-mode E2E
 
-Production webhook URL: `https://psp.hoahub.tech/api/webhooks/paymongo`.
-
----
+Production webhook: `https://psp.hoahub.tech/api/webhooks/paymongo`.
 
 ## Phase 7 — Certificates & QR Verification
 
@@ -165,55 +164,48 @@ Production webhook URL: `https://psp.hoahub.tech/api/webhooks/paymongo`.
 - [ ] Revocation/supersession history
 - [ ] Member mobile preview/download
 
----
-
 ## Phase 8 — Reporting, Audit & Operations
 
-- [ ] National dashboard/reporting
-- [ ] Chapter dashboard/reporting
-- [ ] Membership, applications, collections, outstanding, payment, certificate, event reports
+- [ ] National/chapter dashboards and reports
+- [ ] Membership/applications/collections/outstanding/payment/certificate/event reports
 - [ ] CSV export where appropriate
-- [ ] Audit viewer for authorized National users
-- [ ] Pagination/search/filtering on large data
-
----
+- [ ] Audit viewer for authorized users
+- [ ] Pagination/search/filtering
 
 ## Phase 9 — QA & Security
 
-Required gates:
+Required release gates:
 
 - [ ] CI green on release candidate
-- [ ] Production database backup strategy confirmed
-- [ ] Authentication negative tests
-- [ ] Cross-chapter IDOR/BOLA negative tests
-- [ ] Registration/privacy workflow test
-- [ ] Application approval/activation E2E
-- [ ] Community authorization test
-- [ ] Finance ledger invariants test
+- [ ] production database backup strategy confirmed
+- [ ] authentication negative tests
+- [ ] cross-chapter IDOR/BOLA negative tests
+- [ ] registration/privacy E2E
+- [ ] application approval/activation E2E
+- [ ] community authorization test
+- [ ] finance ledger invariants test
 - [ ] PayMongo test-mode checkout/webhook/idempotency test
-- [ ] Certificate verification/revocation test
-- [ ] PWA mobile/tablet/desktop smoke test
-- [ ] Security headers verified
-- [ ] No secrets in source control
-- [ ] Runtime dependency audit clean at configured threshold
-
----
+- [ ] certificate verification/revocation test
+- [ ] PWA responsive/install smoke test
+- [ ] security headers verified
+- [ ] no secrets in source
 
 ## Phase 10 — Hostinger Production Deployment
 
 Target: `https://psp.hoahub.tech`
 
-- [ ] Provision isolated PSP production MySQL database
-- [ ] Configure Node.js 22+ application runtime
-- [ ] Configure production environment variables/secrets
-- [ ] Apply Prisma production schema
-- [ ] Run baseline seed
-- [ ] Bootstrap first System Administrator securely
-- [ ] Build and start production application
-- [ ] Configure subdomain/SSL/reverse proxy
-- [ ] Register PayMongo live webhook after payment test-mode signoff
-- [ ] Verify `/api/health`
-- [ ] Run post-deployment smoke tests
-- [ ] Confirm backups and rollback procedure
+- [ ] provision dedicated production MySQL
+- [ ] configure Node.js 22+ web app
+- [ ] configure secrets/environment variables
+- [ ] apply approved Prisma production schema
+- [ ] seed baseline
+- [ ] bootstrap first System Administrator securely
+- [ ] build/start application
+- [ ] confirm domain/SSL
+- [ ] register PayMongo test webhook and test E2E
+- [ ] enable live PayMongo only after signoff
+- [ ] verify `/api/health`
+- [ ] run production smoke tests
+- [ ] confirm backup/rollback
 
-Production is considered complete only when the application, database, email, PWA install, security controls, PayMongo, certificate verification, and chapter-scoped membership workflows pass the release checklist.
+Production is complete only when application, database, email, PWA, security, PayMongo, certificate verification, and chapter-scoped membership workflows pass the release checklist.
