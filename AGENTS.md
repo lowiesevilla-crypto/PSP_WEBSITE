@@ -14,12 +14,12 @@
 
 - **Production hosting target:** Hostinger
 - **Official production URL:** `https://psp.hoahub.tech`
-- This URL is the canonical production origin for the application unless the product owner explicitly changes it.
-- Production PWA metadata, email links, PayMongo success/cancel URLs, PayMongo webhook configuration, certificate QR verification links, receipt links, and public verification URLs must use `https://psp.hoahub.tech`.
+- This URL is the canonical production origin unless explicitly changed by the product owner.
+- Production PWA metadata, email links, PayMongo success/cancel URLs, webhook configuration, certificate QR verification links, receipt links, and public verification URLs use `https://psp.hoahub.tech`.
 - Do not publish to a different production hostname without explicit approval.
 - Local development uses `http://localhost:3000`.
-- QA/staging, when introduced, must use a separate hostname and separate secrets/database.
-- Production deployment requires explicit approval after QA/security checks. Do not auto-deploy production merely because code was committed.
+- QA/staging, when introduced, uses a separate hostname and separate secrets/database.
+- Production deployment requires CI, QA, security, database, and payment readiness gates.
 
 ## 3. Official Branding
 
@@ -54,19 +54,46 @@ Design direction: premium, prestigious, modern, professional fraternity/sorority
 - Applicant review/approval
 - Member activation
 - Secure login/recovery
-- Profile
+- Member profile
 - Unique membership number
 - Membership status/history
 - Chapter assignment and transfer history
 
-**Registration never automatically creates an active member.** Approval is required.
+**Registration never automatically creates an active member. Approval is required.**
+
+### Approved Member Registration Fields
+
+The online registration form uses the following business-approved fields, in this order:
+
+1. First Name
+2. Last Name
+3. MI (Middle Initial)
+4. Address
+5. Email
+6. Mobile No.
+7. Date Survive
+8. Location (survive/initiation location)
+9. PSP Birthday Code
+10. Date of Birth
+11. Select Chapter
+
+Do not reintroduce suffix, full middle name, or other registration fields without approval. PSP-specific data (`dateSurvive`, `surviveLocation`, `pspBirthdayCode`) must survive approval into the official Member record.
+
+### Registration Acknowledgements
+
+The final registration review step requires **two separate checkboxes**:
+
+1. Membership Application Acknowledgement — confirms information accuracy and understanding that submission is subject to approval.
+2. Data Privacy Acknowledgement — confirms the applicant has read and understood the PSP Data Privacy Notice.
+
+Both are required in the UI **and** validated server-side. Record the privacy acknowledgement timestamp and privacy notice version for auditability. Current notice version: `2026-08-20-v1`.
 
 ### Chapter Management
 
 - System Admin creates/activates/deactivates/suspends/archives chapters.
 - Each chapter may have different officers, positions, committees, members, events, announcements, contribution rates, assessments, and reports.
 - Organization structures are configurable; never hardcode one structure for all chapters.
-- Officer assignments must retain term history.
+- Officer assignments retain term history.
 
 ### Community
 
@@ -97,16 +124,22 @@ Rates are configurable and **effective-dated**. Changing a current rate must nev
 
 Use PayMongo for online payments.
 
+Current integration direction for new development: **PayMongo Hosted Checkout v2**.
+
 Non-negotiable controls:
 
 - Secret keys are server-only.
 - Browser redirect is not proof of successful payment.
-- Confirm payment using trusted server-side PayMongo state/webhook processing.
+- Create an internal pending Payment before handing off to PayMongo.
+- Use PayMongo resource-creation idempotency keys.
+- Confirm payment using trusted server-side webhook processing.
+- Verify the raw webhook body against `Paymongo-Signature` with the endpoint signing secret before parsing/processing.
+- `checkout_session.payment.paid` is the authoritative Hosted Checkout success event.
 - Webhook/event processing is idempotent.
-- Store internal transaction reference and PayMongo reference.
+- Store internal transaction reference and PayMongo reference/session ID.
 - Never silently delete posted financial history.
 - Refunds, reversals, corrections, and reconciliation changes remain traceable.
-- Production callback/webhook URLs use the `https://psp.hoahub.tech` origin.
+- Production webhook URL: `https://psp.hoahub.tech/api/webhooks/paymongo`.
 
 ### Certificates
 
@@ -116,7 +149,7 @@ Non-negotiable controls:
 - Public verification exposes only minimal appropriate data.
 - Statuses may include Valid, Revoked, Superseded, and Expired if expiry is enabled.
 - Revocation never destroys historical records.
-- Production QR verification must resolve under `https://psp.hoahub.tech`.
+- Production QR verification resolves under `https://psp.hoahub.tech`.
 
 ## 5. PWA & Responsive Requirements
 
@@ -207,11 +240,11 @@ Mandatory:
 - HTTPS in production
 - Strong password hashing; no plaintext passwords
 - Server-side session/auth validation
-- Appropriate CSRF protection
+- Appropriate CSRF/origin protections for state-changing browser requests
 - Secure cookies for cookie sessions
 - Input validation at trust boundaries
 - XSS/output safety
-- Rate limiting for login, recovery, registration, verification, abuse-prone APIs
+- Rate limiting for login, recovery, registration, verification, and abuse-prone APIs
 - IDOR/BOLA protection
 - Least-privilege RBAC
 - Secure file type/size/content validation
@@ -222,19 +255,17 @@ Mandatory:
 - Privacy-safe exports/reports
 - Backups and tested recovery before production
 
-Design for Philippine privacy obligations: purpose limitation, data minimization, access control, retention, appropriate notices/consent, and incident handling.
+Design for Philippine privacy obligations: purpose limitation, data minimization, access control, retention, appropriate notices/acknowledgement, and incident handling.
 
 ## 9. Technology Baseline
 
-Initial direction:
-
-- Next.js App Router
-- React
+- Next.js App Router 16.x
+- React 19.x
 - TypeScript strict mode
-- Relational database
+- MySQL
 - Prisma ORM
 - Server-side service/domain layer
-- Zod/schema validation at API/server-action boundaries
+- Zod validation at API/server boundaries
 - PWA manifest + service worker
 - Media/object storage abstraction
 - Server-only PayMongo service
@@ -242,146 +273,50 @@ Initial direction:
 - QR generation/verification
 - PDF certificate/receipt generation
 
-Do not tightly couple domain logic to Hostinger. Infrastructure adapters should remain replaceable.
+Do not tightly couple domain logic to Hostinger. Infrastructure adapters remain replaceable.
 
-## 10. Initial Domain Model
+## 10. Domain Model
 
-Expected entities:
+Core entities include:
 
 - Organization
-- Chapter
+- Chapters
 - User
-- Role / Permission / scoped assignment
+- Role / Permission / UserRoleAssignment
 - MembershipApplication
 - Member
 - MembershipHistory
 - ChapterPosition
 - OfficerAssignment
-- Committee / CommitteeMembership
 - Post / PostImage / Comment
 - Announcement
 - Event
 - AssessmentType / AssessmentRate / Assessment
 - MemberLedgerEntry
 - Payment / PaymentTransaction / Receipt
-- Certificate / CertificateTemplate
-- Notification
+- Certificate
 - AuditLog
 
-Exact schema may evolve through migrations/ADRs, but chapter isolation, membership history, and financial traceability are invariants.
+Add Committee/CommitteeMembership and Notification entities when those modules are implemented.
 
-## 11. Key Business Rules
+## 11. Financial Invariants
 
-1. Registration does not equal active membership.
-2. Every active member has a unique member record and membership number.
-3. A member normally has one primary chapter; transfers preserve history.
-4. Chapter organization structures are configurable.
-5. Monthly contribution rates vary by chapter and are effective-dated.
-6. Historical assessments do not change when new rates are configured.
-7. Financial access is independently assignable from ordinary administration.
-8. Payment success requires trusted server-side confirmation.
-9. Duplicate gateway events cannot create duplicate payments/ledger postings.
-10. Posted financial history cannot be silently deleted.
-11. Certificate numbers are unique.
-12. QR verification checks live records.
-13. Revoked certificates remain auditable.
-14. Chapter users cannot access unauthorized chapter data.
-15. Officer history is retained.
-16. Moderation and sensitive configuration changes are audited.
+- Posted financial history is append/trace oriented.
+- Historical assessment values are immutable when current rates change.
+- Corrections use adjustment/reversal/refund records rather than destructive edits.
+- Payment is marked paid only after trusted PayMongo server/webhook confirmation.
+- Webhook processing is idempotent by event and/or gateway object identifiers.
+- Receipt creation is unique per successful internal Payment.
+- Chapter financial scope is validated server-side.
 
-## 12. UI/UX Direction
+## 12. Development & Deployment Rules
 
-Recommended Member PWA navigation:
-
-- Home
-- Community
-- Events
-- Payments
-- More
-
-`More`: Chapter, Certificate, Profile, Notifications, Settings, Logout.
-
-Member dashboard prioritizes:
-
-- Digital membership card
-- Member number/chapter/status
-- Outstanding balance
-- Pay Dues
-- My Certificate
-- Upcoming event
-- Latest announcement
-- Community activity
-
-Chapter/National Admin may use adaptive sidebars on large screens but essential administration remains usable on tablet/mobile. Convert wide tables to cards/stacked records where appropriate.
-
-## 13. Environments & Deployment
-
-Required environments:
-
-- Local
-- QA/Staging
-- Production
-
-Rules:
-
-- Never use production database/secrets locally.
-- Canonical production origin is `https://psp.hoahub.tech`.
-- Hostinger is the target production host.
-- Deployment configuration must support Next.js Node runtime, environment secrets, persistent database connectivity, HTTPS, and application restart/rollback procedures.
-- Production deployment requires explicit approval and a validated release checklist.
-
-## 14. Git Workflow
-
-- `main` is integrated/release-ready.
-- Use `feature/*`, `fix/*`, `chore/*` branches.
-- Use focused commits and PR review before merge when practical.
-- Do not force-push shared branches unless explicitly approved.
-- Never commit `.env`, passwords, PayMongo secret keys, SMTP credentials, private keys, or production dumps.
-
-## 15. Documentation That Must Stay Current
-
-- `AGENTS.md` — mandatory knowledge base
-- `README.md` — setup/overview
-- `docs/BRD.md` — business requirements
-- `docs/IMPLEMENTATION_PLAN.md` — phases/status
-- `docs/ARCHITECTURE.md` — architecture/ADRs
-- `docs/SECURITY.md` — security/privacy
-- `docs/PAYMENTS.md` — PayMongo/ledger
-- `docs/DATA_MODEL.md` — entities/invariants
-- `docs/UI_UX.md` — responsive/PWA design
-- `docs/DEPLOYMENT.md` — Hostinger deployment and production domain
-
-## 16. Definition of Done
-
-Applicable feature completion requires:
-
-- Requirement traced to BRD/business rule
-- Server authorization implemented
-- Chapter scope enforced
-- Validation implemented
-- Audit events for privileged/financial operations
-- Mobile responsiveness verified
-- Loading/empty/success/error states
-- Tests updated
-- No secrets committed
-- Documentation updated
-- Payment idempotency tests for financial features
-- Accessibility basics checked
-
-## 17. Current Project Status
-
-**2026-08-20:** Greenfield repository initialization and Phase 0/Phase 1 implementation are underway. No production deployment exists yet. Official seal supplied. UI direction is black/gold/white. Target production host is Hostinger at `https://psp.hoahub.tech`.
-
-## 18. AI / Agent Operating Rules
-
-For every future task:
-
-1. Read `AGENTS.md` first.
-2. Read relevant `docs/` files.
-3. Inspect current implementation before modifying it.
-4. Do not invent business processes not present in the BRD or explicitly approved.
-5. Preserve chapter isolation and financial traceability.
-6. Never expose secrets.
-7. Use `https://psp.hoahub.tech` for approved production URLs/integrations.
-8. Do not deploy production without explicit approval.
-9. If ambiguity affects money, identity, legal/privacy, or cross-chapter access, stop and request clarification rather than guessing.
+- Read this `AGENTS.md` before every implementation change.
+- Keep `main` releasable; use feature/fix branches and CI.
+- No production secrets in source control.
+- Use Node.js 22+ for build/runtime unless the approved production environment requires a later compatible LTS.
+- Run Prisma validation, schema application against CI MySQL, seed checks, strict TypeScript, production build, and runtime dependency audit in CI.
+- Production database is separate from development/QA.
+- Production deployment target is `https://psp.hoahub.tech` on Hostinger.
+- Production PayMongo live credentials are not enabled until test-mode E2E passes.
+- Run post-deployment `/api/health` and E2E smoke checks before declaring release complete.
