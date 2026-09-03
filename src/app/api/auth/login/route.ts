@@ -25,20 +25,17 @@ function isAllowedOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
 
-  const allowedOrigins = new Set<string>();
+  const allowedOrigins = new Set<string>([CANONICAL_PRODUCTION_ORIGIN]);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (appUrl) {
     try {
       allowedOrigins.add(new URL(appUrl).origin);
     } catch {
-      // Production still retains the explicitly approved canonical origin below.
+      // The approved canonical production origin remains available even if the runtime value is malformed.
     }
   }
-  if (process.env.NODE_ENV === "production") {
-    allowedOrigins.add(CANONICAL_PRODUCTION_ORIGIN);
-  }
 
-  return allowedOrigins.size === 0 || allowedOrigins.has(origin);
+  return allowedOrigins.has(origin);
 }
 
 function serverErrorResponse() {
