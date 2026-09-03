@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-08-20 23:24 PHT  
+**Status timestamp:** 2026-09-04 04:06 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`
@@ -11,9 +11,9 @@
 
 The production-oriented PSP MVP is implemented in the repository. Core identity, registration, membership, chapter administration, PWA member experience, community, events, finance, PayMongo integration code, receipts, certificates, reports, audit controls, and cross-chapter isolation controls are present.
 
-The remaining work is primarily production operational validation that depends on live infrastructure or external credentials. These checks must not be marked complete unless actually verified.
+The active priority is production release hardening and validation. Application scope is substantially complete; production must not be declared fully released until live runtime/integration gates are evidenced.
 
-## Latest Closed Code Item
+## Latest Closed Main-Branch Code Item
 
 - PR #5 — `fix: make production bootstrap initialization safe and idempotent`
 - CI: PSP CI #253 — PASSED
@@ -28,8 +28,46 @@ The remaining work is primarily production operational validation that depends o
 
 ## Product Owner Confirmations
 
-- `psp.hoahub.tech` is correctly mapped to the PSP Website application. **COMPLETE — owner confirmed 2026-08-20.**
+- `psp.hoahub.tech` is correctly mapped to the PSP Website application. **COMPLETE — owner confirmed.**
 - PSP remains a separate application/database/runtime from HOAHub.
+- `NEXT_PUBLIC_APP_URL` was configured in Hostinger as the PSP canonical production origin; the earlier `Request origin is not allowed` login error stopped appearing after the owner corrected/redeployed that configuration.
+- A production `AUTH_SECRET` was subsequently added by the product owner. Its secret value is intentionally not recorded in GitHub or this knowledge base.
+- GitHub App write access to `PSP_WEBSITE` was restored on 2026-09-04, allowing PR #7 remediation work to continue.
+
+## Active Production Incident — Admin Login
+
+**Status: IN PROGRESS / NOT COMPLETE**
+
+The configured production System Administrator has not yet been proven to reach `/admin` successfully.
+
+Observed production progression:
+
+1. Initial failure: `Request origin is not allowed.`
+   - Root cause class: production origin/runtime configuration.
+   - Owner corrected `NEXT_PUBLIC_APP_URL` and redeployed.
+   - This exact error no longer appeared in the subsequent login attempt.
+2. Subsequent failure: browser displayed `Unexpected end of JSON input`.
+   - The request had moved beyond the origin gate.
+   - Code review identified that an unhandled server exception during authentication/session creation could return an empty/non-JSON 5xx response, while the client unconditionally parsed JSON.
+   - `AUTH_SECRET` is mandatory for signed sessions and must contain at least 32 characters; the owner has now configured it in Hostinger.
+
+### PR #7 remediation now in progress
+
+PR #7 branch `docs/admin-login-investigation-2026-08-20` now contains the following code/release hardening and is awaiting exact-head CI validation before merge:
+
+- canonical production origin resilience for `https://psp.hoahub.tech` while preserving malicious cross-site rejection;
+- controlled JSON 500 responses for unexpected login server/configuration failures;
+- client-side tolerant parsing so empty/non-JSON server failures never surface as browser JSON parser errors;
+- national/System Administrators route to `/admin` even if they also have a PSP Member record;
+- secure bootstrap support for an optional PSP member identity linked to the national `SYSTEM_ADMIN` account;
+- bootstrap member-number collision protection, active membership/history creation, and chapter-scoped MEMBER assignment;
+- bootstrap credentials remain configured until an actual `/admin` login succeeds;
+- CI coverage for a member-linked System Admin login, canonical production Origin allowance, System Admin permissions, and `/admin` redirect;
+- deployment/environment documentation reconciliation.
+
+**Do not merge PR #7 until its final exact head passes required CI and all actionable review findings are resolved.**
+
+**Do not close this production incident until the deployed merged release successfully authenticates the intended System Administrator and reaches `/admin`.**
 
 ## Completed Application Scope
 
@@ -131,25 +169,28 @@ The remaining work is primarily production operational validation that depends o
 
 - official PSP seal restored
 - Rho Alpha De Las Piñas baseline chapter added
-- production System Admin bootstrap synchronization hardened
+- production System Admin bootstrap synchronization hardened in PR #5
 - login contrast and shared-account wording fixed
 - cross-chapter isolation gate added to CI
 - production restart reseeding made safe/idempotent
-- PR #5 merged after successful CI
 - production domain mapping confirmed by product owner
+- GitHub write access for PSP release engineering restored on 2026-09-04
 
 ## Pending External / Production Validation
 
 The following are intentionally **not** marked complete from repository evidence alone:
 
-1. Dedicated production MySQL backup/rollback strategy confirmation.
-2. Production environment-variable review in Hostinger without exposing secrets.
-3. Production `/api/health` verification from an environment with live DNS/network access.
-4. Production SMTP delivery test for activation/recovery email.
-5. PWA install/responsive smoke test on representative Android/iOS devices.
-6. PayMongo **test-mode** end-to-end checkout + signed webhook + idempotency + ledger + receipt verification.
-7. Certificate QR verification against the live production origin.
-8. Controlled low-value PayMongo live validation only after test-mode signoff and explicit live-credential approval.
+1. Merge and deploy the final passing PR #7 head.
+2. Verify the intended overall System Administrator can sign in and reaches `/admin`.
+3. Verify the intended PSP member identity/chapter is linked correctly to that administrator when configured.
+4. Verify the dedicated production PSP MySQL connection and backup/rollback strategy without exposing credentials.
+5. Verify production environment variables in Hostinger without exposing secret values.
+6. Verify `GET https://psp.hoahub.tech/api/health` from a live-network environment.
+7. Verify production SMTP delivery for activation/recovery email.
+8. Run PWA install/responsive smoke tests on representative Android/iOS devices.
+9. Run PayMongo test-mode end-to-end checkout + signed webhook + idempotency + ledger + receipt verification.
+10. Verify Certificate QR against the live production origin.
+11. Run a controlled low-value PayMongo live validation only after test-mode signoff and explicit live-credential approval.
 
 These are release/operations gates, not missing MVP application modules.
 

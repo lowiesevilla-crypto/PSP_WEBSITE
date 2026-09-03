@@ -7,6 +7,7 @@ on:
       - "feature/**"
       - "fix/**"
       - "chore/**"
+      - "docs/**"
   pull_request:
     branches:
       - main
@@ -95,6 +96,10 @@ jobs:
           BOOTSTRAP_ADMIN_EMAIL: ci-system-admin@example.invalid
           BOOTSTRAP_ADMIN_PASSWORD: ci-only-bootstrap-password-2026
           BOOTSTRAP_ADMIN_NAME: CI System Admin
+          BOOTSTRAP_ADMIN_MEMBER_NO: CI-ADMIN-0001
+          BOOTSTRAP_ADMIN_CHAPTER_CODE: RHO_ALPHA_DLP
+          BOOTSTRAP_ADMIN_FIRST_NAME: CI
+          BOOTSTRAP_ADMIN_LAST_NAME: Administrator
 
       - name: Prepare cross-chapter security fixtures
         run: node scripts/ci-prepare-isolation.mjs
@@ -137,13 +142,41 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{}' \
             http://127.0.0.1:3000/api/auth/login)"
+          echo "Cross-site login status: $CROSS_SITE_STATUS"
           test "$CROSS_SITE_STATUS" = "403"
+
+          CANONICAL_LOGIN_STATUS="$(curl --silent --output /tmp/psp-admin-login.json --write-out '%{http_code}' \
+            --cookie-jar /tmp/psp-admin.cookies \
+            -X POST \
+            -H 'Origin: https://psp.hoahub.tech' \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci-system-admin@example.invalid","password":"ci-only-bootstrap-password-2026"}' \
+            http://127.0.0.1:3000/api/auth/login)"
+          echo "Canonical-origin admin login status: $CANONICAL_LOGIN_STATUS"
+          cat /tmp/psp-admin-login.json
+          test "$CANONICAL_LOGIN_STATUS" = "200"
+
+          AUTH_CONTEXT="$(curl --fail --silent \
+            --cookie /tmp/psp-admin.cookies \
+            http://127.0.0.1:3000/api/auth/me)"
+          echo "Admin auth context: $AUTH_CONTEXT"
+          printf '%s' "$AUTH_CONTEXT" | grep -q '"authenticated":true'
+          printf '%s' "$AUTH_CONTEXT" | grep -q '"membershipNo":"CI-ADMIN-0001"'
+          printf '%s' "$AUTH_CONTEXT" | grep -q '"chapterId":null'
+          printf '%s' "$AUTH_CONTEXT" | grep -q '"chapters.manage"'
+
+          LOGIN_REDIRECT="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' \
+            --cookie /tmp/psp-admin.cookies \
+            http://127.0.0.1:3000/login)"
+          echo "Authenticated /login redirect: $LOGIN_REDIRECT"
+          printf '%s' "$LOGIN_REDIRECT" | grep -Eq '^30[2378] https?://[^ ]+/admin$'
 
           INVALID_WEBHOOK_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -X POST \
             -H 'Content-Type: application/json' \
             -d '{}' \
             http://127.0.0.1:3000/api/webhooks/paymongo)"
+          echo "Invalid webhook status: $INVALID_WEBHOOK_STATUS"
           test "$INVALID_WEBHOOK_STATUS" = "401"
 
           node scripts/ci-isolation-test.mjs

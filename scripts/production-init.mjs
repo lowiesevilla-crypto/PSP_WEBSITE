@@ -72,7 +72,13 @@ if (!baselineReady) {
 
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
 const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
-const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim();
+const optionalBootstrapValues = [
+  process.env.BOOTSTRAP_ADMIN_NAME,
+  process.env.BOOTSTRAP_ADMIN_MEMBER_NO,
+  process.env.BOOTSTRAP_ADMIN_CHAPTER_CODE,
+  process.env.BOOTSTRAP_ADMIN_FIRST_NAME,
+  process.env.BOOTSTRAP_ADMIN_LAST_NAME,
+].map((value) => value?.trim()).filter(Boolean);
 
 if ((email && !password) || (!email && password)) {
   console.error(
@@ -85,12 +91,12 @@ if (email && password) {
   console.log(`Synchronizing configured PSP System Administrator: ${email.toLowerCase()}`);
   run("scripts/bootstrap-admin.mjs");
   console.log(
-    "Bootstrap administrator synchronized. Remove BOOTSTRAP_ADMIN_* after confirming the first successful production login.",
+    "Bootstrap administrator synchronized. Keep BOOTSTRAP_ADMIN_* until a successful production /admin login is verified; remove all BOOTSTRAP_ADMIN_* only after that verification.",
   );
 } else {
-  if (name) {
+  if (optionalBootstrapValues.length > 0) {
     console.warn(
-      "BOOTSTRAP_ADMIN_NAME is configured without bootstrap email/password; administrator synchronization was skipped.",
+      "BOOTSTRAP_ADMIN_* metadata is configured without bootstrap email/password; administrator synchronization was skipped.",
     );
   }
   console.log("No bootstrap administrator credentials configured; continuing normally.");

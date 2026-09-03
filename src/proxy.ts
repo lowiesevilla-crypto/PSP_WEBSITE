@@ -2,17 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const SERVER_TO_SERVER_PATHS = new Set(["/api/webhooks/paymongo"]);
+const CANONICAL_PRODUCTION_ORIGIN = "https://psp.hoahub.tech";
 
-function trustedOrigin(request: NextRequest) {
+function trustedOrigins(request: NextRequest) {
+  const origins = new Set<string>([CANONICAL_PRODUCTION_ORIGIN]);
   const configured = process.env.NEXT_PUBLIC_APP_URL;
+
   if (configured) {
     try {
-      return new URL(configured).origin;
+      origins.add(new URL(configured).origin);
     } catch {
-      // Fall through to the request origin only for a malformed non-production configuration.
+      // Keep the approved canonical production origin and do not trust a malformed configured value.
     }
+  } else {
+    // Local/test deployments without an explicit app URL may trust their own request origin.
+    origins.add(request.nextUrl.origin);
   }
-  return request.nextUrl.origin;
+
+  return origins;
 }
 
 export function proxy(request: NextRequest) {
@@ -21,14 +28,20 @@ export function proxy(request: NextRequest) {
 
   const origin = request.headers.get("origin");
   const fetchSite = request.headers.get("sec-fetch-site");
-  const expected = trustedOrigin(request);
+  const expected = trustedOrigins(request);
 
   if (fetchSite === "cross-site") {
-    return NextResponse.json({ message: "Cross-site request rejected." }, { status: 403 });
+    return NextResponse.json(
+      { message: "Cross-site request rejected." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
-  if (origin && origin !== expected) {
-    return NextResponse.json({ message: "Request origin is not allowed." }, { status: 403 });
+  if (origin && !expected.has(origin)) {
+    return NextResponse.json(
+      { message: "Request origin is not allowed." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   return NextResponse.next();
