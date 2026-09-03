@@ -31,6 +31,32 @@ async function hashPassword(password) {
   ].join("$");
 }
 
+function memberIdentity(displayName) {
+  const membershipNo = process.env.BOOTSTRAP_ADMIN_MEMBER_NO?.trim();
+  const chapterCode = process.env.BOOTSTRAP_ADMIN_CHAPTER_CODE?.trim();
+  const explicitFirstName = process.env.BOOTSTRAP_ADMIN_FIRST_NAME?.trim();
+  const explicitLastName = process.env.BOOTSTRAP_ADMIN_LAST_NAME?.trim();
+  const configured = [membershipNo, chapterCode, explicitFirstName, explicitLastName].some(Boolean);
+
+  if (!configured) return null;
+  if (!membershipNo || !chapterCode) {
+    throw new Error(
+      "BOOTSTRAP_ADMIN_MEMBER_NO and BOOTSTRAP_ADMIN_CHAPTER_CODE are both required when bootstrapping a member identity.",
+    );
+  }
+
+  const nameParts = displayName.split(/\s+/).filter(Boolean);
+  const firstName = explicitFirstName || nameParts[0];
+  const lastName = explicitLastName || nameParts.slice(1).join(" ");
+  if (!firstName || !lastName) {
+    throw new Error(
+      "Bootstrap member identity requires first and last name. Configure BOOTSTRAP_ADMIN_FIRST_NAME and BOOTSTRAP_ADMIN_LAST_NAME when BOOTSTRAP_ADMIN_NAME cannot be split safely.",
+    );
+  }
+
+  return { membershipNo, chapterCode, firstName, lastName };
+}
+
 async function main() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
@@ -42,15 +68,27 @@ async function main() {
     );
   }
 
-  const role = await prisma.role.findUnique({ where: { code: "SYSTEM_ADMIN" } });
-  if (!role) {
+  const identity = memberIdentity(displayName);
+  const [systemAdminRole, memberRole, chapter] = await Promise.all([
+    prisma.role.findUnique({ where: { code: "SYSTEM_ADMIN" } }),
+    identity ? prisma.role.findUnique({ where: { code: "MEMBER" } }) : Promise.resolve(null),
+    identity ? prisma.chapters.findUnique({ where: { code: identity.chapterCode } }) : Promise.resolve(null),
+  ]);
+
+  if (!systemAdminRole) {
     throw new Error("SYSTEM_ADMIN role is missing. Run `npm run seed` first.");
+  }
+  if (identity && !memberRole) {
+    throw new Error("MEMBER role is missing. Run `npm run seed` first.");
+  }
+  if (identity && !chapter) {
+    throw new Error(`Bootstrap chapter ${identity.chapterCode} does not exist.`);
   }
 
   const passwordHash = await hashPassword(password);
   const now = new Date();
 
-  const user = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const synchronizedUser = await tx.user.upsert({
       where: { email },
       create: {
@@ -68,23 +106,110 @@ async function main() {
       },
     });
 
-    const existingAssignment = await tx.userRoleAssignment.findFirst({
+    const existingSystemAssignment = await tx.userRoleAssignment.findFirst({
       where: {
         userId: synchronizedUser.id,
-        roleId: role.id,
+        roleId: systemAdminRole.id,
         chapterId: null,
         endsAt: null,
       },
     });
 
-    if (!existingAssignment) {
+    if (!existingSystemAssignment) {
       await tx.userRoleAssignment.create({
         data: {
           userId: synchronizedUser.id,
-          roleId: role.id,
+          roleId: systemAdminRole.id,
           chapterId: null,
         },
       });
+    }
+
+    let synchronizedMember = null;
+    if (identity && memberRole && chapter) {
+      const numberOwner = await tx.member.findUnique({
+        where: { membershipNo: identity.membershipNo },
+        select: { id: true, userId: true },
+      });
+      if (numberOwner && numberOwner.userId !== synchronizedUser.id) {
+        throw new Error("BOOTSTRAP_ADMIN_MEMBER_NO is already assigned to another user.");
+      }
+
+      const existingMember = await tx.member.findUnique({
+        where: { userId: synchronizedUser.id },
+        select: { id: true, chapterId: true, membershipStatus: true },
+      });
+
+      if (existingMember) {
+        const appendHistory =
+          existingMember.chapterId !== chapter.id || existingMember.membershipStatus !== "ACTIVE";
+
+        synchronizedMember = await tx.member.update({
+          where: { id: existingMember.id },
+          data: {
+            chapterId: chapter.id,
+            membershipNo: identity.membershipNo,
+            firstName: identity.firstName,
+            lastName: identity.lastName,
+            membershipStatus: "ACTIVE",
+          },
+        });
+
+        if (appendHistory) {
+          await tx.membershipHistory.updateMany({
+            where: { memberId: existingMember.id, effectiveTo: null },
+            data: { effectiveTo: now },
+          });
+          await tx.membershipHistory.create({
+            data: {
+              memberId: existingMember.id,
+              chapterId: chapter.id,
+              status: "ACTIVE",
+              effectiveFrom: now,
+              reason: "System Administrator bootstrap identity synchronization",
+            },
+          });
+        }
+      } else {
+        synchronizedMember = await tx.member.create({
+          data: {
+            userId: synchronizedUser.id,
+            chapterId: chapter.id,
+            membershipNo: identity.membershipNo,
+            firstName: identity.firstName,
+            lastName: identity.lastName,
+            membershipStatus: "ACTIVE",
+            joinedAt: now,
+          },
+        });
+        await tx.membershipHistory.create({
+          data: {
+            memberId: synchronizedMember.id,
+            chapterId: chapter.id,
+            status: "ACTIVE",
+            effectiveFrom: now,
+            reason: "System Administrator bootstrap identity creation",
+          },
+        });
+      }
+
+      const existingMemberAssignment = await tx.userRoleAssignment.findFirst({
+        where: {
+          userId: synchronizedUser.id,
+          roleId: memberRole.id,
+          chapterId: chapter.id,
+          endsAt: null,
+        },
+      });
+      if (!existingMemberAssignment) {
+        await tx.userRoleAssignment.create({
+          data: {
+            userId: synchronizedUser.id,
+            roleId: memberRole.id,
+            chapterId: chapter.id,
+          },
+        });
+      }
     }
 
     await tx.auditLog.create({
@@ -96,16 +221,20 @@ async function main() {
         metadataJson: {
           source: "CLI_BOOTSTRAP",
           credentialsSynchronized: true,
+          memberIdentitySynchronized: Boolean(synchronizedMember),
         },
       },
     });
 
-    return synchronizedUser;
+    return { user: synchronizedUser, member: synchronizedMember };
   });
 
-  console.log(`System Administrator is ready for ${user.email}.`);
+  console.log(`System Administrator is ready for ${result.user.email}.`);
+  if (result.member) {
+    console.log("Configured PSP member identity is linked to the System Administrator.");
+  }
   console.log(
-    "IMPORTANT: Remove BOOTSTRAP_ADMIN_EMAIL, BOOTSTRAP_ADMIN_PASSWORD, and BOOTSTRAP_ADMIN_NAME from the runtime environment after successful first login.",
+    "IMPORTANT: Keep BOOTSTRAP_ADMIN_* configured until a successful production /admin login is verified, then remove all BOOTSTRAP_ADMIN_* runtime variables.",
   );
 }
 
