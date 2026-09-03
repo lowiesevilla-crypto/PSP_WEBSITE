@@ -3,6 +3,18 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+type JsonPayload = { message?: string };
+
+async function readJsonPayload(response: Response): Promise<JsonPayload | null> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as JsonPayload;
+  } catch {
+    return null;
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -25,9 +37,9 @@ export function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
 
-      const payload = (await response.json()) as { message?: string };
+      const payload = await readJsonPayload(response);
       if (!response.ok) {
-        throw new Error(payload.message ?? "Unable to sign in.");
+        throw new Error(payload?.message ?? "Unable to sign in. Please try again.");
       }
 
       const contextResponse = await fetch("/api/auth/me", {
@@ -36,7 +48,6 @@ export function LoginForm() {
       });
       const context = contextResponse.ok
         ? ((await contextResponse.json()) as {
-            user?: { member?: unknown };
             assignments?: Array<{ chapterId: string | null; permissions: string[] }>;
           })
         : null;
@@ -51,7 +62,7 @@ export function LoginForm() {
         ),
       );
 
-      router.replace(hasNationalAdminAccess && !context?.user?.member ? "/admin" : "/member");
+      router.replace(hasNationalAdminAccess ? "/admin" : "/member");
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in.");
