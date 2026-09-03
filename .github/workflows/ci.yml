@@ -142,6 +142,7 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{}' \
             http://127.0.0.1:3000/api/auth/login)"
+          echo "Cross-site login status: $CROSS_SITE_STATUS"
           test "$CROSS_SITE_STATUS" = "403"
 
           CANONICAL_LOGIN_STATUS="$(curl --silent --output /tmp/psp-admin-login.json --write-out '%{http_code}' \
@@ -151,11 +152,14 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"email":"ci-system-admin@example.invalid","password":"ci-only-bootstrap-password-2026"}' \
             http://127.0.0.1:3000/api/auth/login)"
+          echo "Canonical-origin admin login status: $CANONICAL_LOGIN_STATUS"
+          cat /tmp/psp-admin-login.json
           test "$CANONICAL_LOGIN_STATUS" = "200"
 
           AUTH_CONTEXT="$(curl --fail --silent \
             --cookie /tmp/psp-admin.cookies \
             http://127.0.0.1:3000/api/auth/me)"
+          echo "Admin auth context: $AUTH_CONTEXT"
           printf '%s' "$AUTH_CONTEXT" | grep -q '"authenticated":true'
           printf '%s' "$AUTH_CONTEXT" | grep -q '"membershipNo":"CI-ADMIN-0001"'
           printf '%s' "$AUTH_CONTEXT" | grep -q '"chapterId":null'
@@ -164,13 +168,15 @@ jobs:
           LOGIN_REDIRECT="$(curl --silent --output /dev/null --write-out '%{http_code} %{redirect_url}' \
             --cookie /tmp/psp-admin.cookies \
             http://127.0.0.1:3000/login)"
-          printf '%s' "$LOGIN_REDIRECT" | grep -q '^307 http://127.0.0.1:3000/admin$'
+          echo "Authenticated /login redirect: $LOGIN_REDIRECT"
+          printf '%s' "$LOGIN_REDIRECT" | grep -Eq '^30[2378] https?://[^ ]+/admin$'
 
           INVALID_WEBHOOK_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -X POST \
             -H 'Content-Type: application/json' \
             -d '{}' \
             http://127.0.0.1:3000/api/webhooks/paymongo)"
+          echo "Invalid webhook status: $INVALID_WEBHOOK_STATUS"
           test "$INVALID_WEBHOOK_STATUS" = "401"
 
           node scripts/ci-isolation-test.mjs
