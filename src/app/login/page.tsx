@@ -15,7 +15,7 @@ export default async function LoginPage() {
           ["chapters.manage", "applications.review", "members.manage"].includes(permission),
         ),
     );
-    redirect(hasNationalAdminAccess && !context.user.member ? "/admin" : "/member");
+    redirect(hasNationalAdminAccess ? "/admin" : "/member");
   }
 
   return (
