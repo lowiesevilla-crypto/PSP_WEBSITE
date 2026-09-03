@@ -1,0 +1,104 @@
+name: PSP Production Smoke
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psp-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  production-smoke:
+    name: Verify public production runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROD_URL: https://psp.hoahub.tech
+
+    steps:
+      - name: Wait for deployed main health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ready=false
+          for attempt in {1..40}; do
+            status="$(curl --silent --show-error --max-time 10 \
+              --output /tmp/psp-health.json \
+              --write-out '%{http_code}' \
+              "$PROD_URL/api/health" || true)"
+            echo "Health attempt $attempt: HTTP ${status:-network-error}"
+            if [ "$status" = "200" ] && grep -q '"service":"psi-sigma-phi-digital-platform"' /tmp/psp-health.json; then
+              ready=true
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$ready" != "true" ]; then
+            echo "Production health did not become ready within the deployment window." >&2
+            cat /tmp/psp-health.json 2>/dev/null || true
+            exit 1
+          fi
+
+          cat /tmp/psp-health.json
+
+      - name: Verify PSP public pages and PWA assets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --location "$PROD_URL/" > /tmp/psp-home.html
+          curl --fail --silent --show-error "$PROD_URL/manifest.webmanifest" > /tmp/psp-manifest.json
+          curl --fail --silent --show-error "$PROD_URL/privacy" > /dev/null
+          curl --fail --silent --show-error "$PROD_URL/register" > /dev/null
+          grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
+          grep -q '"start_url"' /tmp/psp-manifest.json
+
+      - name: Verify production security headers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --silent --show-error --head "$PROD_URL/" > /tmp/psp-headers.txt
+          grep -qi '^x-content-type-options: *nosniff' /tmp/psp-headers.txt
+          grep -qi '^x-frame-options:' /tmp/psp-headers.txt
+          grep -qi '^referrer-policy:' /tmp/psp-headers.txt
+
+      - name: Verify canonical login origin and JSON failures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          smoke_email="prod-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.invalid"
+          canonical_status="$(curl --silent --show-error \
+            --output /tmp/psp-login-canonical.json \
+            --write-out '%{http_code}' \
+            -X POST \
+            -H "Origin: $PROD_URL" \
+            -H 'Content-Type: application/json' \
+            -d "{\"email\":\"$smoke_email\",\"password\":\"production-smoke-invalid-password\"}" \
+            "$PROD_URL/api/auth/login")"
+          echo "Canonical-origin invalid-login status: $canonical_status"
+          cat /tmp/psp-login-canonical.json
+          test "$canonical_status" = "401"
+          grep -q '"message":"Invalid email or password."' /tmp/psp-login-canonical.json
+
+          cross_site_status="$(curl --silent --show-error \
+            --output /tmp/psp-login-cross-site.json \
+            --write-out '%{http_code}' \
+            -X POST \
+            -H 'Origin: https://malicious.example' \
+            -H 'Sec-Fetch-Site: cross-site' \
+            -H 'Content-Type: application/json' \
+            -d '{}' \
+            "$PROD_URL/api/auth/login")"
+          echo "Cross-site login status: $cross_site_status"
+          cat /tmp/psp-login-cross-site.json
+          test "$cross_site_status" = "403"
+
+      - name: Production smoke summary
+        run: |
+          echo "PSP public production smoke passed for $PROD_URL"
