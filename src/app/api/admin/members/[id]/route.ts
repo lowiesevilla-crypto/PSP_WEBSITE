@@ -100,7 +100,7 @@ export async function DELETE(
         },
       });
 
-      await tx.digitalMemberId.updateMany({
+      const digitalIdUpdate = await tx.digitalMemberId.updateMany({
         where: { memberId: member.id },
         data: { status: "REVOKED", revokedAt: now },
       });
@@ -133,7 +133,7 @@ export async function DELETE(
             membershipStatus: archivedMember.membershipStatus,
             userAccessDisabled: disableWholeUser,
             certificatesRevoked: certificateUpdate.count,
-            digitalMemberIdRevoked: true,
+            digitalMemberIdsRevoked: digitalIdUpdate.count,
             chapterAssignmentsEnded: true,
           },
           metadataJson: {
@@ -143,7 +143,11 @@ export async function DELETE(
         },
       });
 
-      return { disableWholeUser, certificatesRevoked: certificateUpdate.count };
+      return {
+        disableWholeUser,
+        certificatesRevoked: certificateUpdate.count,
+        digitalMemberIdsRevoked: digitalIdUpdate.count,
+      };
     });
 
     return NextResponse.json(
@@ -153,6 +157,7 @@ export async function DELETE(
         archived: true,
         userAccessDisabled: result.disableWholeUser,
         certificatesRevoked: result.certificatesRevoked,
+        digitalMemberIdsRevoked: result.digitalMemberIdsRevoked,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
