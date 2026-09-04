@@ -3,7 +3,7 @@
 **Date:** 2026-09-04  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Working branch:** `fix/admin-lifecycle-content-media-2026-09-04`  
-**Code head before documentation commits:** `5ef0655f0fc23a835957d4daf84dff5600320875`  
+**Latest implementation head before this documentation commit:** `1bdce47f4f118a3eab1ac163e81f75539d96035d`  
 **Production branch:** `main`
 
 ## Objective
@@ -55,61 +55,63 @@ Required outcomes:
 
 - Existing PSP RBAC already grants Chapter Admin `content.manage` for the assigned chapter.
 - Existing announcement API already enforces chapter scope server-side; Chapter Admin cannot publish national announcements unless holding national permission.
-- Announcement creation form now supports secure image upload.
+- Announcement creation form supports secure image upload.
 - Accepted formats reuse PSP private-image validation: valid JPG, PNG, WEBP, subject to `MAX_IMAGE_UPLOAD_BYTES` (default 5 MB).
 - Announcement image storage is private; delivery uses an authenticated/scoped content-media route.
 - Admin recent-announcement view shows image previews.
 - Member Announcements page renders images responsively with bounded height and `object-fit`, avoiding mobile overflow.
 
-### 5. Shared private content-media delivery — CODE COMPLETE FOR ANNOUNCEMENTS
+### 5. Shared private content-media delivery — CODE COMPLETE
 
-- Added a reusable content-media URL helper and authenticated content-media delivery route.
-- Media access is evaluated against announcement/event audience, chapter membership, and relevant admin permission.
-- Images are returned with no-sniff and private/no-store protections.
+- Added a reusable content-media URL helper and authenticated content-media delivery route for both `announcement` and `event` media.
+- Media access is evaluated against content audience, chapter membership, publication state, and the relevant scoped admin permission.
+- Cross-chapter member access is denied by server-side scope checks.
+- Images are returned with `private, no-store` caching, `nosniff`, and the detected image MIME type.
 
-## Pending Development
+### 6. Chapter/National Event image upload and member rendering — CODE COMPLETE
 
-### P0 — Event image upload and member rendering
+Implementation head: `1bdce47f4f118a3eab1ac163e81f75539d96035d`.
 
-The event creation/management path still uses the pre-existing JSON-only flow. The following remain to be implemented:
+- Event Manager now accepts an optional JPG, PNG, or WEBP image using the same PSP private-media validation and size limit used for announcements.
+- Event creation supports secure multipart submission while retaining JSON compatibility for existing API clients.
+- Uploaded media is stored outside the public web root and `Event.imageUrl` stores only the PSP private-media reference.
+- If event/database creation fails after a file was stored, the orphaned private file is removed.
+- Event creation audit metadata records whether an image was attached.
+- Notification failure after a successfully committed event is logged without returning a false creation failure to the user.
+- Admin Event Management renders the authorized image through the scoped content-media endpoint.
+- Member Events renders published national or same-chapter images responsively with bounded height and no uncontrolled overflow.
+- Chapter Admin remains constrained to its assigned chapter through `events.manage`; national event creation still requires national permission.
 
-- add image selection/upload to Chapter/National Event Manager;
-- change event creation request to secure multipart handling;
-- save validated image through PSP private-media storage;
-- persist the private storage key/reference in `Event.imageUrl` using the same non-public convention as announcements;
-- serve event media through the scoped content-media route;
-- show event image in Admin event history/management;
-- show responsive event image on the Member Events page;
-- preserve Chapter Admin chapter-only scope and National Admin national scope.
+## Pending Validation / Delivery
 
 ### P0 — Automated validation and regression coverage
 
 Before PR closure:
 
-- run typecheck/build/Prisma/runtime security gates;
-- add or extend regression checks for Chapter Admin assignment form behavior where practical;
+- run the repository’s required secret/security, Prisma/MySQL, typecheck, production-build, runtime/security, cross-chapter-isolation, and runtime-dependency gates;
 - validate chapter lifecycle authorization and audit behavior;
 - validate national user-status authorization, self-deactivation protection, and login blocking semantics;
-- validate announcement image upload: valid file, invalid type, oversize, chapter scope, member retrieval;
-- validate event image upload with the same matrix once implemented;
-- ensure no cross-chapter content-media access.
+- validate announcement image upload behavior and scoped retrieval;
+- validate event image upload behavior and scoped retrieval;
+- confirm no cross-chapter content-media access.
 
 ### P0 — PR / exact-head CI / merge
 
-- No PR exists yet for `fix/admin-lifecycle-content-media-2026-09-04` at the time of this documentation update.
-- Exact-head PSP CI has **not yet run** on this work branch.
-- Do not merge until the final implementation head passes every required gate.
+- Open the PR only from the completed implementation/documentation branch head.
+- Merge only after every required PR gate passes on that exact head.
 - If any gate fails: inspect the failed job, fix the exact cause, push a new head, rerun, and merge only the exact passing head.
+- Do not treat a green run from an older branch head as approval for a newer commit.
 
 ## Production Verification Status
 
-The current branch is **not in production**.
+The current branch is **not yet in production**.
 
-Separately, `main` currently points to `7269b9ab1bc3c60f015850e784f96923464bd2f5`, which carries release markers `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. The latest exact-generation Production Smoke run `33837001102` failed during the deployment wait because production remained healthy at HTTP 200 but continued serving `2026-09-04-r3 / 2026-09-04-member-mobile-v1` for all 40 polling attempts. Therefore the professional-UI exact production-generation proof remains open until Hostinger serves the expected generation.
+Separately, `main` currently points to `7269b9ab1bc3c60f015850e784f96923464bd2f5`, which carries release markers `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. The last recorded exact-generation Production Smoke run `33837001102` failed during the deployment wait because production remained healthy at HTTP 200 but continued serving `2026-09-04-r3 / 2026-09-04-member-mobile-v1` for all polling attempts. Re-check production before claiming the professional-UI generation is live.
 
-After this branch is eventually merged, production verification must additionally cover:
+After this branch is merged, production verification must additionally cover:
 
-- Chapter Admin assignment from the actual National Admin UI;
+- exact new release/deployment generation is served;
+- Chapter Admin assignment from the actual National Admin UI without the reset error;
 - chapter status transition and reactivation;
 - user suspend/disable/reactivate behavior with a controlled test account;
 - Chapter Admin chapter-scoped announcement with image, visible to a member in the same chapter and not another chapter;
@@ -125,7 +127,7 @@ Unchanged external evidence items remain open until proven with real services/de
 - physical Android/iOS PWA installation and representative mobile acceptance;
 - real passkey registration/authentication;
 - Digital Member ID second-device QR validation;
-- certificate second-device QR validation;
+- certificate QR validation on a second device;
 - PayMongo Platforms / Linked Accounts capability, child linkage, approved fee configuration, and TEST split-settlement E2E;
 - database backup/restore drill;
 - security credential cleanup/rotation where earlier values were exposed.
@@ -134,9 +136,8 @@ Unchanged external evidence items remain open until proven with real services/de
 
 This task is complete only when:
 
-1. event image upload/member rendering is implemented;
-2. all required regression and PSP CI gates pass on one exact head;
-3. that exact head is merged;
-4. production serves the new exact release generation;
-5. production functional checks for admin lifecycle, user lifecycle, chapter-scoped announcements/events, media access, and mobile rendering pass;
-6. `AGENTS.md` and `docs/STATUS.md` are reconciled with final PR/head/merge/run/production evidence.
+1. all required regression and PSP CI gates pass on one exact head;
+2. that exact head is merged;
+3. production serves the new exact release generation;
+4. production functional checks for admin lifecycle, user lifecycle, chapter-scoped announcements/events, media access, and mobile rendering pass or are explicitly identified as requiring controlled authenticated/device evidence;
+5. `AGENTS.md`, `docs/STATUS.md`, and this tracker are reconciled with final PR/head/merge/run/production evidence.
