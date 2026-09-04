@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-04-r8
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-pwa-email-branding-v1
+      EXPECTED_RELEASE: 2026-09-04-r9
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-chapter-logo-origin-fix-v1
 
     steps:
       - name: Wait for exact deployed main release
