@@ -202,9 +202,10 @@ Mandatory PWA baseline:
 - touch-friendly controls;
 - PWA shortcuts for Member Home, Digital ID, Payments and Certificate.
 
-Installer UX rules:
+Installer UX and delivery rules:
 
 - `/install` is the canonical install page and must remain simple/mobile-first.
+- `/install` is operational release content referenced from member emails and must not remain stale after a new exact release becomes live. It must be served dynamically/no-store (or an equivalently proven non-stale strategy) and CI/Production Smoke must verify its cache-control behavior.
 - Browser `beforeinstallprompt` must be captured/shared so the global PWA helper and `/install` do not race and cause the Install action to disappear.
 - On supported Android Chrome/Edge/Chromium, **Install PSP App** opens the browser/OS PWA installation confirmation when `beforeinstallprompt` is available.
 - If Android does not expose the direct prompt, show the exact browser-menu fallback: **Install app / Add to Home screen**.
@@ -405,72 +406,38 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - Runtime dependency audit is fail-closed: missing, malformed, stale, timed-out or operational-error audit evidence is not a clean audit.
 - Audit-source tolerance may use bounded independent retries, explicit fetch timeout and backoff only when every accepted report still passes trusted audit schema validation.
 - Hostinger/WAF browser challenges are operational reachability failures; inspect/rerun exact smoke. Never weaken application security merely to make a bot challenge pass.
+- Exact health identity alone does not prove that every public HTML route is from the same effective release. Production Smoke must assert release-significant public route markers and cache behavior where stale content could survive deployment.
 - Production smoke failures must identify and fix the exact failed public/auth/security assertion; diagnostic improvements may add labels/evidence but may not weaken or remove acceptance assertions.
 - Email/payment/passkey/device/QR/backup/authenticated production state-changing gates require real evidence; source code/public smoke alone cannot close them.
 
 ## 18. Current Delivery Baseline — 2026-09-05
 
-Accepted production implementation includes:
+Accepted implementation history includes PR #13, #14, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28 and PR #30.
 
-- PR #13 member mobile/PWA + PayMongo linked-account architecture;
-- PR #14 professional responsive UI;
-- PR #16 admin lifecycle + secure announcement/event media;
-- PR #17 production-smoke reliability;
-- PR #18 r5 production-proof documentation;
-- PR #19 runtime dependency-audit fail-closed hardening;
-- PR #20 evidence reconciliation;
-- PR #21 private-media build-tracing correction;
-- PR #22 safe Member Delete/Archive + Resend Invitation;
-- PR #23 PSP login UX redesign;
-- PR #24 PWA install flow + shared branded PSP/Chapter email + Chapter logo management;
-- PR #25 r8 public-asset production diagnostic;
-- PR #26 canonical Chapter-logo fallback + Admin approval email-delivery visibility/CI contract;
-- PR #27 exact r9 production-smoke diagnostics;
-- PR #28 r9 production/evidence documentation reconciliation.
+PR #29 native Android installer experiment was closed without merge and is not part of the product baseline.
 
-Current `main` SHA before the r10 PWA simplification release:
+PR #30 simplified the canonical mobile installation to PWA-only:
 
-`78b58a4437cb92c64f131f252dbace2c73fa3df7`
+- exact passing head `da6902fd51161473a250a984ec1a2fa69ec19951`;
+- PSP CI #497 / run `33929737781`: PASSED;
+- merge SHA `642f430194537e8be144f097f226e20565c2f251`;
+- post-merge PSP CI #498 / run `33929909162`: PASSED;
+- exact r10 health/readiness became live with `2026-09-05-r10 / 2026-09-05-simple-pwa-install-v1`;
+- Production Smoke run `33929909263` failed twice at the installer-content assertion because `/install` continued returning the older r9 HTML while `/api/health` and `/api/health/ready` were already r10.
 
-Current publicly proven production-code baseline remains:
+This r10 evidence proves a deterministic stale-public-page/cache condition, not an application/database/auth regression. Release closure is therefore still open.
 
-`b14bb1b90eb38a703c233724ab77803f5838b17e`
+Active corrective release:
 
-Current publicly proven production identity:
+- branch `fix/pwa-install-cache-refresh-2026-09-05`;
+- target release `2026-09-05-r11`;
+- target generation `2026-09-05-pwa-install-cache-fix-v1`;
+- `/install` is forced dynamic with revalidation disabled;
+- CI and Production Smoke require the simplified PWA marker and cache-control that prevents stale installer HTML.
 
-- release `2026-09-04-r9`;
-- deployment generation `2026-09-04-chapter-logo-origin-fix-v1`;
-- PR #26 exact passing head `72c605dc2568c9acb362c481eebe58efd4ad5ec0`, PSP CI #468 / run `33882933038`: PASSED;
-- PR #26 merge SHA `b5788298d50981d26c531e746b55149daf1afb42`;
-- post-PR-#26 main PSP CI run `33883183121`: PASSED;
-- PR #27 exact passing head `d7655723676d21da5bdaae881f43510d39e82c05`, PSP CI #470 / run `33883716480`: PASSED;
-- PR #27 merge SHA `b14bb1b90eb38a703c233724ab77803f5838b17e`;
-- post-PR-#27 main PSP CI run `33884003915`: PASSED;
-- Production Smoke run `33884003888`: PASSED every exact-r9 readiness, public/PWA, Chapter-logo fallback, security-header, login-origin/JSON-failure and public verification-route gate.
+r11 must not be called production-proven until its final exact PR head passes the complete PSP CI gate, is merged with exact-head protection, and exact r11 Production Smoke passes every required gate.
 
-r8 incident evidence retained for traceability:
-
-- PR #24 exact head `30efed5f0f80a8e943ee9be0f89ae2cbbe98bcf2`, PSP CI #453 / run `33880569148`: PASSED; merge `aee0a73b694d9e84fec73129e1951fb214bbdb68`;
-- r8 became live and ready, but Production Smoke #16 failed because the Chapter-logo fallback redirect inherited Hostinger's internal request origin and pointed at `0.0.0.0:3000`;
-- PR #25 diagnostic isolated the failed redirect; PR #26 corrected external fallback generation to use PSP's canonical application origin and advanced release proof to r9;
-- the first r9 Production Smoke run `33883183222` still reported an aggregated public-assets failure; PR #27 preserved all assertions while adding per-assertion diagnostics, after which exact r9 Production Smoke `33884003888` passed the complete gate set.
-
-Approval-email implementation evidence:
-
-- the approval route attempts the welcome/activation email after successful member creation and returns delivery status to the Admin UI;
-- Admin approval UI surfaces sent versus failed delivery rather than showing only the Membership Number;
-- CI verifies that unconfigured SMTP reports `welcomeDelivery=failed`, preserves the approved membership transaction, and records `MEMBER_WELCOME_EMAIL_FAILED` audit evidence;
-- production readiness reports SMTP `configured`;
-- actual inbox receipt/rendering after a controlled real Admin approval is still an external acceptance item and must not be claimed solely from configuration/source/CI evidence.
-
-### Active r10 simplified PWA release
-
-Product direction supersedes the native Android installer experiment. PR #29 was closed unmerged. The active branch `fix/simple-cross-platform-pwa-install-2026-09-05` implements the PWA-only installer UX and advances the target identity to:
-
-- release `2026-09-05-r10`;
-- deployment generation `2026-09-05-simple-pwa-install-v1`.
-
-r10 must not be called production-proven until its final exact PR head passes the complete PSP CI gate, is merged with exact-head protection, and Production Smoke observes that exact r10 generation.
+Approval-email behavior remains as previously proven at code/CI-contract level: Admin sees sent/failed delivery state, approval is not rolled back on SMTP failure, failure is audit logged, and production SMTP readiness is configured. Actual recipient inbox receipt remains external acceptance.
 
 Detailed PWA/email tracker: `docs/PWA_INSTALL_EMAIL_BRANDING_2026-09-04.md`.
 
