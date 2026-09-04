@@ -2,15 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthContext, hasPermission } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
-import { encryptSecret } from "@/lib/security/encryption";
+import { encryptSecret, decryptSecret } from "@/lib/security/encryption";
+import { createLinkedWebhook } from "@/lib/paymongo/client";
+import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
 
 export const dynamic = "force-dynamic";
 
-const paymentMethods = ["card", "gcash", "paymaya", "qrph"] as const;
+const paymentMethods = ["gcash", "paymaya", "qrph"] as const;
 const schema = z.object({
   chapterId: z.string().min(1),
   mode: z.enum(["TEST", "LIVE"]),
-  secretKey: z.string().trim().min(1).max(500).optional(),
+  linkedAccountId: z.string().trim().regex(/^org_[A-Za-z0-9]+$/, "Linked PayMongo account must be an org_* id."),
   webhookSecret: z.string().trim().min(1).max(500).optional(),
   paymentMethods: z.array(z.enum(paymentMethods)).min(1).max(paymentMethods.length),
   isEnabled: z.boolean(),
@@ -58,20 +60,42 @@ export async function GET(request: Request) {
   });
   if (!chapter) return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
 
+  let linkedAccountId: string | null = null;
+  if (chapter.paymentConfig?.secretKeyCiphertext) {
+    try {
+      const value = decryptSecret(chapter.paymentConfig.secretKeyCiphertext);
+      linkedAccountId = value.startsWith("org_") ? value : null;
+    } catch {
+      linkedAccountId = null;
+    }
+  }
+
+  let platformReady = false;
+  let platformMode: "TEST" | "LIVE" | null = null;
+  try {
+    const platform = getPlatformPayMongoConfig();
+    platformReady = true;
+    platformMode = platform.mode;
+  } catch {
+    platformReady = false;
+  }
+
   return NextResponse.json(
     {
       chapter: { id: chapter.id, code: chapter.code, name: chapter.name },
       config: chapter.paymentConfig
         ? {
             mode: chapter.paymentConfig.mode,
+            linkedAccountId,
             paymentMethods: chapter.paymentConfig.paymentMethods,
             isEnabled: chapter.paymentConfig.isEnabled,
-            hasSecretKey: Boolean(chapter.paymentConfig.secretKeyCiphertext),
             hasWebhookSecret: Boolean(chapter.paymentConfig.webhookSecretCiphertext),
             updatedAt: chapter.paymentConfig.updatedAt,
           }
         : null,
       webhookUrl: webhookUrl(chapter.code),
+      platformReady,
+      platformMode,
       liveGloballyEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -83,7 +107,7 @@ export async function PUT(request: Request) {
   if (!context) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ message: "Please review the chapter PayMongo configuration." }, { status: 400 });
+    return NextResponse.json({ message: "Please review the chapter PayMongo linked-account configuration." }, { status: 400 });
   }
   const input = parsed.data;
   if (!canManage(context, input.chapterId)) {
@@ -96,37 +120,56 @@ export async function PUT(request: Request) {
   });
   if (!chapter) return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
 
-  const existing = await prisma.chapterPaymentConfig.findUnique({ where: { chapterId: chapter.id } });
-  if (!existing && (!input.secretKey || !input.webhookSecret)) {
-    return NextResponse.json({ message: "Secret key and webhook secret are required for the first chapter PayMongo setup." }, { status: 400 });
-  }
-
-  if (input.secretKey) {
-    const expectedPrefix = input.mode === "LIVE" ? "sk_live_" : "sk_test_";
-    if (!input.secretKey.startsWith(expectedPrefix)) {
-      return NextResponse.json({ message: `${input.mode} mode requires a matching ${expectedPrefix} PayMongo secret key.` }, { status: 400 });
-    }
-  }
-
-  const liveGloballyEnabled = process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true";
-  if (input.mode === "LIVE" && input.isEnabled && !liveGloballyEnabled) {
+  let platform;
+  try {
+    platform = getPlatformPayMongoConfig();
+  } catch (error) {
     return NextResponse.json(
-      { message: "Live PayMongo cannot be enabled until test-mode E2E is signed off and PAYMONGO_LIVE_ENABLED=true is explicitly approved." },
+      { message: error instanceof Error ? error.message : "PSP PayMongo platform configuration is unavailable." },
+      { status: 409 },
+    );
+  }
+  if (platform.mode !== input.mode) {
+    return NextResponse.json(
+      { message: `Chapter mode ${input.mode} must match PSP PayMongo platform mode ${platform.mode}.` },
       { status: 409 },
     );
   }
 
+  const existing = await prisma.chapterPaymentConfig.findUnique({ where: { chapterId: chapter.id } });
+  let existingLinkedAccountId: string | null = null;
+  if (existing?.secretKeyCiphertext) {
+    try {
+      existingLinkedAccountId = decryptSecret(existing.secretKeyCiphertext);
+    } catch {
+      existingLinkedAccountId = null;
+    }
+  }
+  const linkedAccountChanged = existingLinkedAccountId !== input.linkedAccountId;
+
   try {
-    const secretKeyCiphertext = input.secretKey
-      ? encryptSecret(input.secretKey)
-      : existing?.secretKeyCiphertext;
-    const webhookSecretCiphertext = input.webhookSecret
-      ? encryptSecret(input.webhookSecret)
-      : existing?.webhookSecretCiphertext;
-    if (!secretKeyCiphertext || !webhookSecretCiphertext) {
-      return NextResponse.json({ message: "Chapter payment credentials are incomplete." }, { status: 400 });
+    let webhookSecretCiphertext = existing?.webhookSecretCiphertext;
+    let webhookCreated = false;
+    let webhookId: string | null = null;
+
+    if (input.webhookSecret) {
+      webhookSecretCiphertext = encryptSecret(input.webhookSecret);
+    } else if (!webhookSecretCiphertext || linkedAccountChanged) {
+      const createdWebhook = await createLinkedWebhook({
+        secretKey: platform.secretKey,
+        childAccountId: input.linkedAccountId,
+        url: webhookUrl(chapter.code),
+      });
+      webhookSecretCiphertext = encryptSecret(createdWebhook.secret);
+      webhookCreated = true;
+      webhookId = createdWebhook.id;
     }
 
+    if (!webhookSecretCiphertext) {
+      return NextResponse.json({ message: "Chapter webhook signing secret is unavailable." }, { status: 400 });
+    }
+
+    const linkedAccountCiphertext = encryptSecret(input.linkedAccountId);
     const config = await prisma.$transaction(async (tx) => {
       const saved = await tx.chapterPaymentConfig.upsert({
         where: { chapterId: chapter.id },
@@ -134,14 +177,14 @@ export async function PUT(request: Request) {
           chapterId: chapter.id,
           gateway: "PAYMONGO",
           mode: input.mode,
-          secretKeyCiphertext,
+          secretKeyCiphertext: linkedAccountCiphertext,
           webhookSecretCiphertext,
           paymentMethods: input.paymentMethods,
           isEnabled: input.isEnabled,
         },
         update: {
           mode: input.mode,
-          secretKeyCiphertext,
+          secretKeyCiphertext: linkedAccountCiphertext,
           webhookSecretCiphertext,
           paymentMethods: input.paymentMethods,
           isEnabled: input.isEnabled,
@@ -151,15 +194,16 @@ export async function PUT(request: Request) {
         data: {
           actorUserId: context.user.id,
           chapterId: chapter.id,
-          action: "CHAPTER_PAYMONGO_CONFIG_UPDATED",
+          action: "CHAPTER_PAYMONGO_LINKED_ACCOUNT_UPDATED",
           entityType: "ChapterPaymentConfig",
           entityId: saved.id,
           metadataJson: {
             mode: input.mode,
             isEnabled: input.isEnabled,
             paymentMethods: input.paymentMethods,
-            secretKeyRotated: Boolean(input.secretKey),
-            webhookSecretRotated: Boolean(input.webhookSecret),
+            linkedAccountChanged,
+            webhookCreated,
+            webhookId,
           },
         },
       });
@@ -170,20 +214,21 @@ export async function PUT(request: Request) {
       {
         config: {
           mode: config.mode,
+          linkedAccountId: input.linkedAccountId,
           isEnabled: config.isEnabled,
           paymentMethods: config.paymentMethods,
-          hasSecretKey: true,
           hasWebhookSecret: true,
         },
         webhookUrl: webhookUrl(chapter.code),
+        webhookCreated,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    console.error("Chapter PayMongo configuration error", error instanceof Error ? error.name : "UnknownError");
+    console.error("Chapter PayMongo linked-account configuration error", error instanceof Error ? error.name : "UnknownError");
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : "Unable to save chapter PayMongo configuration." },
-      { status: 500 },
+      { message: error instanceof Error ? error.message : "Unable to save chapter PayMongo linked-account configuration." },
+      { status: 502 },
     );
   }
 }
