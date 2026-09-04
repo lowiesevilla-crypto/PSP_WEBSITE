@@ -1,32 +1,23 @@
 import { decryptSecret } from "@/lib/security/encryption";
 import { prisma } from "@/lib/prisma";
+import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
 
 export type ChapterPayMongoRuntimeConfig = {
   chapterId: string;
   chapterCode: string;
   mode: "TEST" | "LIVE";
-  secretKey: string;
+  accountId: string;
   webhookSecret: string;
   paymentMethods: string[];
 };
 
 function normalizeMethods(value: unknown) {
   if (!Array.isArray(value)) return ["qrph"];
-  const methods = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+  const allowed = new Set(["qrph", "gcash", "paymaya"]);
+  const methods = value
+    .filter((item): item is string => typeof item === "string" && allowed.has(item.trim()))
+    .map((item) => item.trim());
   return methods.length ? Array.from(new Set(methods)) : ["qrph"];
-}
-
-function liveEnabled() {
-  return process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true";
-}
-
-function validateModeKey(mode: "TEST" | "LIVE", secretKey: string) {
-  if (mode === "LIVE") {
-    if (!secretKey.startsWith("sk_live_")) throw new Error("Chapter PayMongo LIVE configuration requires a live secret key.");
-    if (!liveEnabled()) throw new Error("PayMongo live processing is disabled pending test-mode signoff and explicit approval.");
-  } else if (!secretKey.startsWith("sk_test_")) {
-    throw new Error("Chapter PayMongo TEST configuration requires a test secret key.");
-  }
 }
 
 export async function getChapterPayMongoConfig(chapterId: string): Promise<ChapterPayMongoRuntimeConfig> {
@@ -38,16 +29,26 @@ export async function getChapterPayMongoConfig(chapterId: string): Promise<Chapt
     throw new Error("Online payment is not configured for this chapter.");
   }
 
-  const mode = config.mode === "LIVE" ? "LIVE" : "TEST";
-  const secretKey = decryptSecret(config.secretKeyCiphertext);
+  // The legacy-named secretKeyCiphertext column is intentionally retained for
+  // additive production compatibility. In linked-account mode it stores the
+  // encrypted PayMongo child Account-Id (org_*), never a chapter API secret.
+  const accountId = decryptSecret(config.secretKeyCiphertext);
   const webhookSecret = decryptSecret(config.webhookSecretCiphertext);
-  validateModeKey(mode, secretKey);
+  if (!accountId.startsWith("org_")) {
+    throw new Error("Chapter PayMongo linked account id is invalid.");
+  }
+
+  const mode = config.mode === "LIVE" ? "LIVE" : "TEST";
+  const platform = getPlatformPayMongoConfig();
+  if (platform.mode !== mode) {
+    throw new Error(`Chapter PayMongo mode ${mode} does not match the PSP platform PayMongo mode ${platform.mode}.`);
+  }
 
   return {
     chapterId: config.chapterId,
     chapterCode: config.chapter.code,
     mode,
-    secretKey,
+    accountId,
     webhookSecret,
     paymentMethods: normalizeMethods(config.paymentMethods),
   };
