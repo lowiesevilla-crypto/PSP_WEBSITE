@@ -1,96 +1,167 @@
-# PSP Payments & PayMongo Integration
+# PSP Payments & PayMongo Platforms Integration
 
-## Principle
+## Authoritative Model
 
-The PSP platform owns the member ledger. PayMongo is the payment gateway, not the accounting system of record.
+PSP owns the member ledger and payment classification. PayMongo is the payment/settlement gateway, not the accounting system of record.
 
-## Current Integration Target
+The member-mobile P0 release uses **PayMongo Platforms / Linked Accounts**:
 
-Use **PayMongo Hosted Checkout v2** for new payment development.
+- PSP PayMongo account = parent/platform account;
+- each PSP chapter = linked child PayMongo account;
+- PSP authenticates server-side with the parent platform secret key;
+- requests on behalf of a chapter include that chapter's linked `Account-Id` (`org_*`);
+- every online payment includes a separately disclosed **platform convenience fee**;
+- PayMongo `split_payment` sends the configured platform fee to the PSP parent/platform account;
+- the remainder is transferred/settled to the chapter linked account;
+- only the chapter amount affects dues, contribution totals, member ledger, and chapter collections.
 
-- Create checkout: `POST https://api.paymongo.com/v2/checkout_sessions`
-- Production webhook: `https://psp.hoahub.tech/api/webhooks/paymongo`
-- Primary success event: `checkout_session.payment.paid`
+No chapter API secret key is stored by PSP in linked-account mode.
 
-## Required Flow
+## Platform Convenience Fee
 
-1. Authenticated member selects an eligible unpaid or partially paid assessment.
-2. Server verifies member ownership, active membership, chapter scope, assessment eligibility, and amount.
-3. Server creates an internal `Payment` in `PENDING` state with a unique internal reference.
-4. Server calls PayMongo Hosted Checkout v2 using the server-only secret key.
-5. Send an `Idempotency-Key` on the PayMongo resource-creation request.
-6. Use the internal PSP reference as PayMongo `reference_number` and metadata where supported.
-7. PayMongo returns the checkout URL/session ID.
-8. Store the gateway/session reference on the internal Payment.
-9. Redirect the member to PayMongo hosted checkout.
-10. Browser success/cancel redirects are UX only and never authoritatively set `PAID`.
-11. PayMongo sends `checkout_session.payment.paid` to the PSP webhook.
-12. PSP verifies the raw webhook body signature before parsing or changing any database record.
-13. PSP enforces event/session idempotency.
-14. PSP matches the event to the internal Payment through trusted reference/session data.
-15. PSP changes Payment to `PAID`, records payment time and gateway transaction details.
-16. PSP writes one ledger `PAYMENT` entry.
-17. PSP issues one unique digital PSP receipt.
-18. Repeated webhook delivery returns success without duplicate financial posting.
+The exact business fee is an operations configuration, not hard-coded source code.
 
-## API Authentication
+Environment controls:
 
-The PayMongo secret API key is server-only. Hosted Checkout API authentication uses the secret key through HTTP Basic authentication as the username with an empty password.
+- `PLATFORM_CONVENIENCE_FEE_BPS` — percentage in integer basis points; `300` means `3.00%`;
+- `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS` — optional fixed PHP centavo amount;
+- either or both may be used.
 
-Never expose `sk_test_*` or `sk_live_*` in:
+Payments fail closed when both values are missing/zero. Never invent or silently default a fee.
 
-- browser/PWA code
-- manifests or service worker
-- GitHub
-- logs
-- HTML
-- URLs
+For every payment:
 
-## Webhook Signature Verification
+`gross total = chapter amount + platform convenience fee`
 
-PayMongo includes a `Paymongo-Signature` header. Verification must use the **raw, unmodified** request body and the endpoint signing secret.
+The fee preview must be shown before the member confirms payment.
 
-Expected signature components include:
+The persisted split evidence records:
 
-- `t` — timestamp
-- `te` — test-mode signature
-- `li` — live-mode signature
+- chapter amount and centavos;
+- platform fee and centavos;
+- total charged and centavos;
+- payment method;
+- child chapter Account ID;
+- parent platform Account ID;
+- PayMongo Payment Intent ID;
+- member/chapter/category/internal reference.
 
-Verification algorithm:
+This snapshot is immutable financial evidence. Later fee-config changes must not rewrite historical transactions.
 
-1. Read the raw request body.
-2. Parse `Paymongo-Signature` values.
-3. Build `${timestamp}.${rawBody}`.
-4. Compute HMAC-SHA256 with `PAYMONGO_WEBHOOK_SECRET`.
-5. Use timing-safe comparison.
-6. Compare against `te` for test-mode events or `li` for live-mode events.
-7. Reject invalid signatures before JSON parsing or database mutation.
-8. Enforce a reasonable timestamp tolerance to reduce replay risk.
+## Supported Member Payment Types
 
-## Idempotency
+- `DUES`
+- `CONTRIBUTION`
+- `OTHER`
 
-### Outbound creation
+Dues must reference an active payable dues assessment. Contributions may reference a contribution assessment or be a member-entered chapter contribution with purpose. Other payments require an amount and purpose.
 
-Send a stable `Idempotency-Key` on the PayMongo checkout creation POST so retries do not create multiple checkout resources.
+The platform fee is not part of any of these chapter categories.
 
-### Inbound webhook
+## Supported Payment Methods
 
-Persist unique PayMongo event ID and/or checkout session object ID. Replayed delivery must never:
+Current linked-account member flow supports:
 
-- create another Payment
-- create another ledger entry
-- issue another receipt
-- increment paid totals again
+- QR Ph (`qrph`)
+- GCash (`gcash`)
+- Maya (`paymaya`)
 
-Multiple-record payment posting uses a database transaction.
+Card payment is intentionally not implemented in the server-created linked-account Payment Method flow because sensitive card data must not be collected/handled by the PSP backend. Add cards only through a reviewed client-side PayMongo public-key/tokenization flow.
 
-## Amounts
+## Required Split-Payment Flow
 
-Database amounts use decimal PHP values. PayMongo amounts are integer centavos at the API boundary. Conversion must be exact and reject negative or unsupported fractional values.
+1. Authenticated active member selects Dues/Contribution/Other and a chapter amount.
+2. Server verifies member ownership, chapter scope, assessment/category/amount rules.
+3. PSP resolves the chapter linked child Account ID and enabled payment methods.
+4. PSP resolves the platform parent secret/account ID and configured convenience fee.
+5. PSP shows a fee preview: chapter amount, platform fee, total to pay.
+6. Member explicitly confirms the total.
+7. PSP creates an internal `Payment` with `Payment.amount = chapter amount` only.
+8. PSP creates a PayMongo Payment Intent on behalf of the child using parent authentication plus `Account-Id`.
+9. Payment Intent amount is the gross total.
+10. `split_payment.recipients` assigns the fixed platform-fee centavos to the PSP parent merchant/account.
+11. `split_payment.transfer_to` identifies the chapter child account for the remainder.
+12. PSP creates the selected Payment Method and attaches it to the Payment Intent.
+13. QR Ph renders the PayMongo QR image in the PWA and polls internal payment status; GCash/Maya redirects to the provider authorization flow.
+14. Browser redirect/polling is UX only and never authoritatively marks a payment PAID.
+15. PayMongo sends `payment.paid` or `payment.failed` to the child-account webhook.
+16. PSP verifies the raw webhook body signature before parsing/mutation.
+17. PSP enforces unique event idempotency and matches `payment_intent_id` to the internal Payment within the same chapter.
+18. PSP verifies webhook amount against the persisted gross total.
+19. On paid: PSP marks Payment PAID, creates one chapter ledger PAYMENT entry for chapter amount only, creates one receipt, and audits split settlement.
+20. On failed: PSP marks the payment failed without posting chapter ledger/receipt.
+21. Repeated webhook delivery returns success without duplicate financial posting.
+
+## Linked Chapter Configuration
+
+Chapter configuration stores:
+
+- linked child account ID (`org_*`) encrypted at rest;
+- child webhook signing secret encrypted at rest;
+- TEST/LIVE mode;
+- enabled payment methods;
+- enable/disable state.
+
+For production-schema compatibility, the internal Prisma field currently named `secretKeyCiphertext` stores the encrypted linked `org_*` child account ID. It **does not contain a chapter API secret key** in the linked-account architecture. This legacy field name must not be interpreted as a business/security model.
+
+Chapter Admin and Chapter Treasurer/Finance can manage finance configuration only for authorized chapter scope. Cross-chapter configuration/payment/webhook use is rejected server-side.
+
+## Child Webhook
+
+Canonical pattern:
+
+`https://psp.hoahub.tech/api/webhooks/paymongo/[CHAPTER_CODE]`
+
+PSP can create the child webhook using parent platform authentication plus the child `Account-Id`. The returned webhook signing secret is immediately encrypted and never returned to the browser.
+
+Linked-account payment events are reconciled on the chapter-specific webhook. Signature checks use that child's signing secret and TEST/LIVE signature selection.
+
+## Idempotency and Reconciliation
+
+Outbound Payment Intent creation uses the stable internal payment reference as an idempotency key.
+
+Inbound webhook processing persists unique PayMongo event IDs. Replays must never:
+
+- create another Payment;
+- create another chapter ledger entry;
+- issue another receipt;
+- increment chapter collections/contributions again;
+- recognize the platform fee twice.
+
+Multiple-record posting uses a database transaction.
+
+## Amount Semantics
+
+Three amounts must remain distinct:
+
+- **Chapter amount** — member obligation/contribution/other chapter payment; stored in `Payment.amount`; posted to chapter ledger.
+- **Platform convenience fee** — PSP platform revenue/fee; stored in immutable split audit metadata; never posted to chapter ledger.
+- **Total paid** — gross amount charged by PayMongo; chapter amount + platform fee.
+
+PayMongo API amounts are integer centavos. Conversion must be exact; negative values and unsupported fractions are rejected.
+
+## Receipts
+
+Every confirmed PSP digital receipt displays:
+
+- unique receipt number;
+- payment type and purpose;
+- member + membership number;
+- chapter;
+- payment method;
+- chapter amount;
+- platform convenience fee;
+- total paid;
+- internal PSP reference;
+- PayMongo Payment Intent reference;
+- confirmation/issue timestamps;
+- official PSP branding.
+
+The receipt explicitly states that the platform fee is not chapter dues/contribution/other chapter income.
 
 ## Effective-Dated Dues
 
-Each chapter can define its own dues amount by effective period. Once an assessment/charge is generated, the posted amount becomes historical and is not rewritten by a later rate change.
+Each chapter can define its own dues amount by effective period. Once an assessment/charge is posted, its amount is historical and is not rewritten by later rate changes.
 
 ## Payment States
 
@@ -104,62 +175,44 @@ Supported internal states:
 - `REFUNDED`
 - `PARTIALLY_REFUNDED`
 
-Browser redirect alone never sets `PAID`.
+A browser return never sets `PAID`.
 
-## PSP Digital Receipt
+## Server-Side Environment
 
-A PSP receipt is tied to the authoritative internal Payment and is separate from any optional gateway email receipt.
+Required for linked-account split payments:
 
-Receipt information includes:
+- `PAYMONGO_PLATFORM_SECRET_KEY`
+- `PAYMONGO_PLATFORM_ACCOUNT_ID`
+- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable random value, minimum 32 characters
+- `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`
+- `PAYMONGO_LIVE_ENABLED=false` until approved
+- `NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech`
 
-- unique receipt number
-- internal payment reference
-- PayMongo session/reference
-- member name and membership number
-- chapter
-- assessment/coverage
-- amount/currency
-- payment timestamp
-- issue timestamp
-- official PSP branding
+Legacy `PAYMONGO_SECRET_KEY` / `PAYMONGO_WEBHOOK_SECRET` may remain temporarily only for pre-linked-account transaction transition. New member payments must use linked-account split processing.
 
-Recommended configurable number pattern:
-
-`PSP-[CHAPTER]-[YYYY]-[SEQUENCE]`
-
-Receipt numbering is not used as financial truth.
-
-## Refunds and Corrections
-
-Do not delete successful payment history. Refunds, reversals, and corrections create explicit traceable records, ledger entries, and audit events. Gateway refund actions are implemented only after live PayMongo account capabilities and business approval are confirmed.
-
-## Production URLs
-
-- Success: `https://psp.hoahub.tech/payments/success`
-- Cancel: `https://psp.hoahub.tech/payments/cancelled`
-- Webhook: `https://psp.hoahub.tech/api/webhooks/paymongo`
+Never expose platform secret keys, webhook secrets, or encryption keys in browser/PWA code, manifests, service workers, GitHub, logs, screenshots, URLs, or documentation.
 
 ## Test-to-Live Gate
 
-Before enabling live PayMongo credentials:
+Live remains fail-closed until all of the following are evidenced in TEST mode:
 
-- test checkout creation succeeds
-- cancel leaves Payment unpaid
-- browser success return alone leaves Payment pending until webhook confirmation
-- valid signed test webhook posts payment exactly once
-- duplicate signed webhook does not double post
-- invalid signature is rejected
-- wrong-member/chapter/assessment access is rejected
-- receipt is unique
-- member payment history and finance reconciliation agree
-- internal and gateway references are traceable
+1. PayMongo Platforms/Linked Accounts capability is enabled for the PSP account.
+2. Parent platform account and at least one chapter child account are linked and active.
+3. Platform fee configuration is deliberately set.
+4. Chapter linked account can create a Payment Intent using parent auth + child Account-Id.
+5. DUES test payment succeeds.
+6. CONTRIBUTION test payment succeeds.
+7. OTHER test payment succeeds.
+8. Fee preview equals the amount encoded in the split Payment Intent.
+9. PayMongo gross charge equals chapter amount + platform fee.
+10. Platform account receives the configured fee and chapter child account receives the remainder.
+11. Valid signed child webhook posts exactly once.
+12. Invalid signature is rejected.
+13. Duplicate webhook is idempotent.
+14. Cross-chapter webhook/reference is rejected.
+15. Member chapter ledger posts chapter amount only.
+16. Contribution total excludes platform fee.
+17. Receipt displays chapter amount, fee, and total correctly.
+18. Member and admin reconciliation totals agree.
 
-## Secret Handling
-
-Required server-side environment values:
-
-- `PAYMONGO_SECRET_KEY`
-- `PAYMONGO_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech`
-
-Register the live webhook once after production HTTPS is online. Do not create a webhook per payment.
+Only after TEST signoff and explicit product-owner approval may `PAYMONGO_LIVE_ENABLED=true` be configured for a controlled low-value live validation.
