@@ -24,6 +24,12 @@ function categoryForAssessment(code: string): PaymentCategory {
   return PaymentCategory.OTHER;
 }
 
+type CheckoutAssessment = {
+  id: string;
+  title: string;
+  assessmentType: { code: string };
+};
+
 export async function POST(request: Request) {
   let paymentId: string | null = null;
 
@@ -34,16 +40,16 @@ export async function POST(request: Request) {
 
     const input = parsed.data;
     const chapterGateway = await getChapterPayMongoConfig(member.chapterId);
-    let assessment: Awaited<ReturnType<typeof prisma.assessment.findFirst>> & { assessmentType?: { code: string } } = null;
+    let assessment: CheckoutAssessment | null = null;
     let requestedAmount: Prisma.Decimal;
     let description: string;
 
     if (input.assessmentId) {
       assessment = await prisma.assessment.findFirst({
         where: { id: input.assessmentId, chapterId: member.chapterId, status: "ACTIVE" },
-        include: { assessmentType: { select: { code: true } } },
+        select: { id: true, title: true, assessmentType: { select: { code: true } } },
       });
-      if (!assessment || !assessment.assessmentType) {
+      if (!assessment) {
         return NextResponse.json({ message: "Assessment is unavailable." }, { status: 404 });
       }
 
