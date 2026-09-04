@@ -46,10 +46,9 @@ export async function DELETE(
 
     const now = new Date();
     const result = await prisma.$transaction(async (tx) => {
-      const activeOutsideAssignments = await tx.userRoleAssignment.count({
+      const outsideAssignments = await tx.userRoleAssignment.count({
         where: {
           userId: member.userId,
-          startsAt: { lte: now },
           OR: [{ endsAt: null }, { endsAt: { gt: now } }],
           AND: [
             {
@@ -111,7 +110,7 @@ export async function DELETE(
         data: { membershipStatus: "ARCHIVED" },
       });
 
-      const disableWholeUser = activeOutsideAssignments === 0;
+      const disableWholeUser = outsideAssignments === 0;
       if (disableWholeUser) {
         await tx.user.update({
           where: { id: member.userId },
