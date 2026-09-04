@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-export function PayButton({ assessmentId, outstanding }: { assessmentId: string; outstanding: string }) {
+export function PayButton({
+  assessmentId,
+  outstanding,
+  category,
+}: {
+  assessmentId: string;
+  outstanding: string;
+  category: "DUES" | "CONTRIBUTION" | "OTHER";
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +21,7 @@ export function PayButton({ assessmentId, outstanding }: { assessmentId: string;
       const response = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ assessmentId, requestId: crypto.randomUUID() }),
+        body: JSON.stringify({ category, assessmentId, requestId: crypto.randomUUID() }),
       });
       const payload = (await response.json()) as { checkoutUrl?: string; message?: string };
       if (!response.ok || !payload.checkoutUrl) throw new Error(payload.message ?? "Unable to start payment.");
@@ -26,7 +34,7 @@ export function PayButton({ assessmentId, outstanding }: { assessmentId: string;
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void pay()}>
+      <button className="btn btn-primary" type="button" disabled={busy} onClick={() => void pay()} style={{ width: "100%" }}>
         {busy ? "Opening PayMongo…" : `Pay ₱${Number(outstanding).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`}
       </button>
       {error ? <small role="alert" style={{ color: "#7b2424" }}>{error}</small> : null}
