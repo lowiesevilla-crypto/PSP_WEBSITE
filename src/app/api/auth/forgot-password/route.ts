@@ -5,6 +5,7 @@ import {
   applicationUrl,
   createPasswordResetToken,
 } from "@/lib/auth/account-tokens";
+import { chapterLogoPublicPath } from "@/lib/chapter/logo";
 import {
   emailActionButton,
   emailInfoCard,
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
           membershipNo: true,
           chapter: {
             select: {
+              id: true,
               name: true,
               logoUrl: true,
               email: true,
@@ -103,7 +105,10 @@ export async function POST(request: Request) {
         subject: "Reset your Psi Sigma Phi account password",
         preheader: "Use the secure PSP link to reset your account password. This link expires in 30 minutes.",
         brand: chapter
-          ? { chapterName: chapter.name, chapterLogoUrl: chapter.logoUrl }
+          ? {
+              chapterName: chapter.name,
+              chapterLogoUrl: chapterLogoPublicPath(chapter.id, chapter.logoUrl),
+            }
           : undefined,
         text: `Hello ${user.displayName},\n\nUse this secure link to reset your Psi Sigma Phi account password: ${resetUrl}\n\nThis link expires in 30 minutes. If you did not request this, you can ignore this email.`,
         html: `<p style="margin-top:0;">Hello <strong>${escapeHtml(user.displayName)}</strong>,</p><p>We received a request to reset your Psi Sigma Phi account password.</p>${accountDetails}${emailActionButton("Reset PSP Password", resetUrl)}<p style="margin:0 0 12px;color:#5f5a51;">This secure link expires in <strong>30 minutes</strong>.</p><p style="margin:0;color:#6c665c;font-size:13px;">If you did not request a password reset, you can safely ignore this email. Your existing password will remain unchanged.</p>`,
