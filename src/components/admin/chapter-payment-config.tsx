@@ -3,16 +3,18 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type Chapter = { id: string; name: string };
-type Method = "card" | "gcash" | "paymaya" | "qrph";
+type Method = "gcash" | "paymaya" | "qrph";
 type ConfigPayload = {
   config: null | {
     mode: "TEST" | "LIVE";
+    linkedAccountId: string | null;
     paymentMethods: unknown;
     isEnabled: boolean;
-    hasSecretKey: boolean;
     hasWebhookSecret: boolean;
   };
   webhookUrl?: string;
+  platformReady?: boolean;
+  platformMode?: "TEST" | "LIVE" | null;
   liveGloballyEnabled?: boolean;
   message?: string;
 };
@@ -21,7 +23,6 @@ const methods: Array<{ code: Method; label: string }> = [
   { code: "qrph", label: "QR Ph" },
   { code: "gcash", label: "GCash" },
   { code: "paymaya", label: "Maya" },
-  { code: "card", label: "Card" },
 ];
 
 export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
@@ -29,12 +30,9 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   const [mode, setMode] = useState<"TEST" | "LIVE">("TEST");
   const [selectedMethods, setSelectedMethods] = useState<Method[]>(["qrph"]);
   const [enabled, setEnabled] = useState(false);
-  const [secretKey, setSecretKey] = useState("");
-  const [webhookSecret, setWebhookSecret] = useState("");
-  const [hasSecretKey, setHasSecretKey] = useState(false);
-  const [hasWebhookSecret, setHasWebhookSecret] = useState(false);
+  const [linkedAccountId, setLinkedAccountId] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [liveGloballyEnabled, setLiveGloballyEnabled] = useState(false);
+  const [platformReady, setPlatformReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,18 +53,15 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         if (!response.ok) throw new Error(payload.message ?? "Unable to load payment configuration.");
         if (cancelled) return;
         const config = payload.config;
-        setMode(config?.mode === "LIVE" ? "LIVE" : "TEST");
+        setMode(payload.platformMode ?? (config?.mode === "LIVE" ? "LIVE" : "TEST"));
         setEnabled(Boolean(config?.isEnabled));
-        setHasSecretKey(Boolean(config?.hasSecretKey));
-        setHasWebhookSecret(Boolean(config?.hasWebhookSecret));
+        setLinkedAccountId(config?.linkedAccountId ?? "");
+        setPlatformReady(Boolean(payload.platformReady));
         const configuredMethods = Array.isArray(config?.paymentMethods)
           ? config.paymentMethods.filter((value): value is Method => methods.some((method) => method.code === value))
           : ["qrph" as Method];
         setSelectedMethods(configuredMethods.length ? configuredMethods : ["qrph"]);
         setWebhookUrl(payload.webhookUrl ?? "");
-        setLiveGloballyEnabled(Boolean(payload.liveGloballyEnabled));
-        setSecretKey("");
-        setWebhookSecret("");
       })
       .catch((cause) => !cancelled && setError(cause instanceof Error ? cause.message : "Unable to load payment configuration."))
       .finally(() => !cancelled && setBusy(false));
@@ -79,7 +74,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!chapterId || selectedMethods.length === 0) return;
+    if (!chapterId || selectedMethods.length === 0 || !linkedAccountId.startsWith("org_")) return;
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -90,22 +85,18 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         body: JSON.stringify({
           chapterId,
           mode,
-          secretKey: secretKey || undefined,
-          webhookSecret: webhookSecret || undefined,
+          linkedAccountId: linkedAccountId.trim(),
           paymentMethods: selectedMethods,
           isEnabled: enabled,
         }),
       });
       const payload = (await response.json()) as ConfigPayload;
-      if (!response.ok) throw new Error(payload.message ?? "Unable to save payment configuration.");
-      setHasSecretKey(true);
-      setHasWebhookSecret(true);
+      if (!response.ok) throw new Error(payload.message ?? "Unable to save linked PayMongo account.");
       setWebhookUrl(payload.webhookUrl ?? webhookUrl);
-      setSecretKey("");
-      setWebhookSecret("");
-      setMessage(`${currentChapter?.name ?? "Chapter"} PayMongo configuration saved securely.`);
+      setPlatformReady(true);
+      setMessage(`${currentChapter?.name ?? "Chapter"} linked PayMongo account saved. Child webhook signing is configured automatically.`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to save payment configuration.");
+      setError(cause instanceof Error ? cause.message : "Unable to save linked PayMongo account.");
     } finally {
       setBusy(false);
     }
@@ -115,31 +106,39 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 
   return (
     <section className="app-panel" style={{ marginTop: 18 }}>
-      <h2>Chapter Online Payment Gateway</h2>
-      <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
-        Each chapter owns its PayMongo configuration. Secret values are encrypted at rest and are never displayed again after saving.
-      </p>
-      <form onSubmit={submit} style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div>
+          <small style={{ color: "#806500", fontWeight: 900 }}>PAYMONGO PLATFORMS</small>
+          <h2 style={{ margin: "5px 0 6px" }}>Chapter Linked Payment Account</h2>
+          <p style={{ color: "#6b665c", lineHeight: 1.6, margin: 0, maxWidth: 760 }}>
+            PSP uses its platform PayMongo account as the parent. Each chapter is a linked child account. The disclosed PSP convenience fee is split to the platform automatically and the remaining amount is settled to the chapter.
+          </p>
+        </div>
+        <span style={{ padding: "7px 10px", borderRadius: 999, background: platformReady ? "#eef8ef" : "#fff6dd", fontWeight: 900, fontSize: ".78rem" }}>
+          {platformReady ? `PLATFORM ${mode}` : "PLATFORM CONFIG REQUIRED"}
+        </span>
+      </div>
+
+      <form onSubmit={submit} style={{ display: "grid", gap: 14, marginTop: 18 }}>
         <label style={labelStyle}><strong>Chapter</strong><select value={chapterId} onChange={(event) => setChapterId(event.target.value)} style={fieldStyle}>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></label>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>
-          <label style={labelStyle}><strong>PayMongo Mode</strong><select value={mode} onChange={(event) => setMode(event.target.value as "TEST" | "LIVE")} style={fieldStyle}><option value="TEST">TEST — required first</option><option value="LIVE">LIVE — after approval</option></select></label>
-          <label style={{ ...labelStyle, alignContent: "end" }}><span style={{ display: "flex", gap: 9, alignItems: "center", minHeight: 48 }}><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /><strong>Enable Online Payment</strong></span></label>
-        </div>
-        {mode === "LIVE" && !liveGloballyEnabled ? <div style={warningStyle}>LIVE configuration can be stored, but it cannot be enabled until PSP test-mode E2E is signed off and platform live processing is explicitly approved.</div> : null}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 12 }}>
-          <label style={labelStyle}><strong>{hasSecretKey ? "Rotate Secret Key (optional)" : "PayMongo Secret Key"}</strong><input type="password" autoComplete="off" value={secretKey} onChange={(event) => setSecretKey(event.target.value)} placeholder={hasSecretKey ? "Leave blank to keep current key" : mode === "LIVE" ? "sk_live_…" : "sk_test_…"} style={fieldStyle} /></label>
-          <label style={labelStyle}><strong>{hasWebhookSecret ? "Rotate Webhook Secret (optional)" : "Webhook Signing Secret"}</strong><input type="password" autoComplete="off" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} placeholder={hasWebhookSecret ? "Leave blank to keep current secret" : "Webhook signing secret"} style={fieldStyle} /></label>
-        </div>
+        <label style={labelStyle}>
+          <strong>PayMongo Linked Child Account ID</strong>
+          <input autoComplete="off" value={linkedAccountId} onChange={(event) => setLinkedAccountId(event.target.value)} placeholder="org_..." style={fieldStyle} />
+          <small style={{ color: "#6b665c" }}>Enter the chapter&apos;s PayMongo linked Account ID. Do not enter or store a chapter API secret key.</small>
+        </label>
+        <label style={labelStyle}><strong>PayMongo Mode</strong><input value={mode} readOnly style={{ ...fieldStyle, background: "#f5f1e7" }} /><small style={{ color: "#6b665c" }}>Chapter mode must match the PSP platform PayMongo mode.</small></label>
         <div>
           <strong>Accepted Payment Methods</strong>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 9 }}>
             {methods.map((method) => <label key={method.code} style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 11px", border: "1px solid #ddd5c1", borderRadius: 999, background: selectedMethods.includes(method.code) ? "#fff7d7" : "#fff" }}><input type="checkbox" checked={selectedMethods.includes(method.code)} onChange={() => toggleMethod(method.code)} />{method.label}</label>)}
           </div>
         </div>
-        {webhookUrl ? <div style={{ padding: 12, background: "#f7f4ec", borderRadius: 12, overflowWrap: "anywhere" }}><small style={{ color: "#746b5b" }}>Configure this exact PayMongo webhook endpoint for the chapter:</small><br/><strong>{webhookUrl}</strong></div> : null}
+        {webhookUrl ? <div style={{ padding: 12, background: "#f7f4ec", borderRadius: 12, overflowWrap: "anywhere" }}><small style={{ color: "#746b5b" }}>Chapter webhook endpoint</small><br/><strong>{webhookUrl}</strong><small style={{ display: "block", marginTop: 5, color: "#6b665c" }}>PSP creates/maintains this webhook on the linked child account and stores only the encrypted signing secret.</small></div> : null}
+        <label style={{ display: "flex", gap: 9, alignItems: "center", minHeight: 48 }}><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} disabled={!platformReady || !linkedAccountId.startsWith("org_")} /><strong>Enable Online Payment</strong></label>
+        {!platformReady ? <div style={warningStyle}>The PSP platform PayMongo parent account and convenience-fee configuration must be completed before a chapter can accept online payments.</div> : null}
         {message ? <div role="status" style={successStyle}>{message}</div> : null}
         {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
-        <button className="btn btn-primary" type="submit" disabled={busy || !selectedMethods.length} style={{ width: "100%" }}>{busy ? "Saving…" : "Save Chapter PayMongo"}</button>
+        <button className="btn btn-primary" type="submit" disabled={busy || !selectedMethods.length || !linkedAccountId.startsWith("org_")} style={{ width: "100%" }}>{busy ? "Saving…" : "Save Linked PayMongo Account"}</button>
       </form>
     </section>
   );
