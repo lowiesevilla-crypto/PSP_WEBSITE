@@ -141,6 +141,8 @@ Non-negotiable controls:
 - Never silently delete posted financial history.
 - Refunds, reversals, corrections, and reconciliation changes remain traceable.
 - Production webhook URL: `https://psp.hoahub.tech/api/webhooks/paymongo`.
+- **Test mode is mandatory before live mode.** A live secret being present in Hostinger is not authorization to process live payments.
+- Live checkout and live webhook acceptance remain fail-closed unless `PAYMONGO_LIVE_ENABLED=true` is explicitly configured after test-mode E2E signoff and live activation approval.
 
 ### Certificates
 
@@ -256,6 +258,7 @@ Mandatory:
 - Never log passwords, tokens, PayMongo secrets, or unnecessary personal data
 - Privacy-safe exports/reports
 - Backups and tested recovery before production
+- Any secret shown in chat, screenshots, tickets, logs, or other non-secret-safe channels is treated as exposed and must be rotated before final production signoff.
 
 Design for Philippine privacy obligations: purpose limitation, data minimization, access control, retention, appropriate notices/acknowledgement, and incident handling.
 
@@ -323,8 +326,10 @@ Committee and Notification entities are implemented and are part of the current 
 - Run Prisma validation, schema application against CI MySQL, seed checks, strict TypeScript, production build, runtime/security smoke tests, cross-chapter isolation tests, and runtime dependency audit in CI where applicable.
 - Production database is separate from development/QA and from HOAHub.
 - Production deployment target is `https://psp.hoahub.tech` on Hostinger.
-- Production PayMongo live credentials are not enabled until test-mode E2E passes.
-- Run post-deployment `/api/health` and E2E smoke checks before declaring a release complete.
+- Production liveness is `/api/health`; production datastore/auth readiness is `/api/health/ready`. Readiness must be green before authenticated production smoke or release closure.
+- Production smoke must verify the expected release marker so an old Hostinger deployment cannot satisfy the release gate accidentally.
+- Production PayMongo live credentials are not enabled until test-mode E2E passes and `PAYMONGO_LIVE_ENABLED=true` is explicitly approved/configured.
+- Run post-deployment `/api/health`, `/api/health/ready`, and E2E smoke checks before declaring a release complete.
 - Production startup must not destructively reseed customized roles/permissions/data on every restart. Baseline initialization is idempotent and full seed runs only when the required baseline is absent.
 
 ## 13. Knowledge Base Maintenance — Definition of Done
@@ -340,10 +345,12 @@ After every material task:
 5. Do not rely on chat history as the authoritative project state when repository documentation can be updated.
 6. Never mark credential-dependent or production-runtime validation complete without evidence or explicit product-owner confirmation of the relevant fact.
 
-## 14. Current Delivery Baseline — 2026-08-20
+## 14. Current Delivery Baseline — 2026-09-04
 
 - Production-oriented MVP application modules are implemented in the repository: identity, registration, membership, chapter administration, Member PWA, community, announcements/events, finance/ledger, PayMongo integration code, receipts, certificates/QR verification, reports, audit, committees, and notifications.
 - Cross-chapter isolation is enforced server-side and has automated CI negative tests.
-- PR #5 production bootstrap hardening passed PSP CI #253 and was merged into `main` on 2026-08-20 at merge commit `c00a511f2a1420e4de8c7befeef6d44c68a87ff7`.
+- PR #7 production admin-login/bootstrap hardening passed PSP CI #276 and is merged in `main` at `1e97e288bb7c8c852a6b9635f6268760f0621faf`.
+- PR #8 reconciled the authoritative status/deployment knowledge base and passed PSP CI #281.
+- PR #9 added secret-free live production smoke; its first production run proved DNS/HTTPS, `/api/health`, PSP public pages/PWA assets, and security headers, then exposed a remaining authentication datastore/runtime failure before credential validation.
 - Product owner confirmed `psp.hoahub.tech` is correctly mapped to the PSP Website application.
-- Remaining release work is external production validation requiring live runtime/integration evidence (for example SMTP delivery, PayMongo test-mode E2E, production health/QR/PWA checks, and backup/rollback confirmation). See `docs/STATUS.md` for the authoritative current checklist.
+- Remaining release work is live production closure: exact deployment/readiness evidence, overall `/admin` login, secret rotation after exposure, SMTP delivery, PayMongo test-mode E2E, production QR/PWA device checks, and backup/rollback confirmation. See `docs/STATUS.md` for the authoritative current checklist.

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -38,10 +39,26 @@ function isAllowedOrigin(request: Request) {
   return allowedOrigins.has(origin);
 }
 
-function serverErrorResponse() {
+function serverErrorResponse(error: unknown) {
+  const datastoreFailure =
+    error instanceof Prisma.PrismaClientInitializationError ||
+    error instanceof Prisma.PrismaClientKnownRequestError ||
+    error instanceof Prisma.PrismaClientRustPanicError;
+
   return NextResponse.json(
-    { message: "Sign-in is temporarily unavailable. Please try again after the server configuration is verified." },
-    { status: 500, headers: { "Cache-Control": "no-store" } },
+    datastoreFailure
+      ? {
+          message: "Sign-in is temporarily unavailable while the production datastore is being verified.",
+          code: "AUTH_DATASTORE_UNAVAILABLE",
+        }
+      : {
+          message: "Sign-in is temporarily unavailable. Please try again after the server configuration is verified.",
+          code: "AUTH_SERVER_UNAVAILABLE",
+        },
+    {
+      status: datastoreFailure ? 503 : 500,
+      headers: { "Cache-Control": "no-store" },
+    },
   );
 }
 
@@ -165,6 +182,6 @@ export async function POST(request: Request) {
       "AUTH_LOGIN_SERVER_ERROR",
       error instanceof Error ? error.name : "UnknownError",
     );
-    return serverErrorResponse();
+    return serverErrorResponse(error);
   }
 }
