@@ -12,7 +12,11 @@ function authConfigReady() {
   let appOriginReady = false;
 
   try {
-    appOriginReady = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin === CANONICAL_PRODUCTION_ORIGIN;
+    const origin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin;
+    appOriginReady =
+      process.env.APP_ENV === "production"
+        ? origin === CANONICAL_PRODUCTION_ORIGIN
+        : origin.startsWith("http://") || origin.startsWith("https://");
   } catch {
     appOriginReady = false;
   }
