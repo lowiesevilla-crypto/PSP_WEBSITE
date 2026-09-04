@@ -33,6 +33,8 @@ Palette:
 
 Member experience is **mobile-first/PWA-first**, premium/professional fraternity identity (`Ψ Σ Φ` acceptable), accessible contrast, touch-friendly controls, safe areas, no uncontrolled horizontal overflow.
 
+National and Chapter Administration use the same professional responsive application shell while retaining server-enforced RBAC and chapter scope. Administration must expose clear National-vs-Chapter context, permission-filtered navigation for convenience, touch-friendly mobile controls, and mobile-safe finance/report presentation. UI hiding is never authorization.
+
 ## 4. Core Business Scope
 
 ### Registration / membership
@@ -251,6 +253,14 @@ Authenticated/private/API/payment/certificate pages must not be cached as public
 
 Core mobile flows: registration, activation/login/recovery/passkey, dashboard/profile, chapter/officers, events/community, dues/payment, receipts, certificate, Digital Member ID, notifications.
 
+Administration responsive rules:
+
+- desktop may use compact navigation and semantic high-density tables;
+- tablet/mobile must use a touch-friendly administration menu;
+- controls should be approximately 44–48px minimum touch height;
+- finance and operational-report tables transform into labeled record cards below the mobile breakpoint when columns would become unusable;
+- normal admin work must not require phone users to zoom a desktop table.
+
 ## 10. Roles / Authorization / Isolation
 
 Authorization model:
@@ -324,31 +334,54 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Never pass Prisma `--accept-data-loss` for automatic production upgrade.
 - Production initialization must not destructively reseed customized operational data.
 - Member-mobile upgrade additively synchronizes Chapter Admin finance permissions and backfills Digital Member IDs idempotently.
-- For the member-mobile release, `/api/health/ready` must verify the new passkey, Digital Member ID and chapter payment configuration tables before returning ready; missing member-mobile schema is a deployment failure.
+- `/api/health/ready` must verify passkey, Digital Member ID and chapter payment configuration tables before returning ready; missing member-mobile schema is a deployment failure.
 - Readiness may expose non-secret operational flags for SMTP configuration, PayMongo platform configuration and the live-payment gate. These flags help diagnose production but do not replace real email/payment E2E evidence.
 - Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
+- Every production-significant release must use a new release/deployment generation marker when exact-generation proof is required; do not reuse an older marker and then treat a smoke pass as proof of the newer build.
 - Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
 
-Current production foundation is green through the Hostinger greenfield schema/bootstrap release and verified real System Administrator `/admin` browser login. Production remains on the pre-member-mobile generation until PR #13 is merged and Hostinger serves the new exact generation.
+### Member Mobile / PWA release
 
-Current P0 release:
+PR #13 is **MERGED** and the production member-mobile schema/runtime is verified.
 
-- branch `feat/member-mobile-core-2026-09-04`;
-- PR #13 `feat: complete mobile member PWA and PayMongo split payments`;
-- release identity is `2026-09-04-r3`, deployment generation `2026-09-04-member-mobile-v1`;
-- member registration/welcome, mobile dashboard, chapter/officers, balance/contributions, Digital Member ID, Chairman certificate, self-service profile, receipts, passkey, PWA and linked PayMongo split-payment implementation are present on the release branch;
-- PSP CI #337 failed typecheck because a validated WebAuthn challenge still had the inferred type `string | undefined`; the challenge verifier was narrowed to a required string type;
-- PSP CI #340 then passed typecheck/build but failed runtime smoke because CI still asserted the old `r2` release marker; the runtime gate was updated to require `r3` and `member-mobile-v1`;
-- exact technical candidate head `dc59a06b47d84b0e410699181500ecb15333dd2a` passed PSP CI #341, including Prisma/MySQL, seed/bootstrap, strict TypeScript, production build, runtime/security smoke, canonical admin login + `/admin` redirect, cross-chapter isolation and runtime dependency audit;
-- production readiness was subsequently strengthened so `memberMobileSchema=ok` is mandatory and non-secret `smtpConfig`, `payMongoPlatformConfig` and `payMongoLive` statuses are visible for operational diagnosis;
-- production smoke validates the actual Digital Member ID route `/verify/member/[token]` and certificate route `/verify/[token]`, and requires exact `r3` / `member-mobile-v1` deployment;
-- these final readiness/smoke/documentation commits require a fresh exact-head PSP CI before merge;
-- product owner reports Hostinger `SMTP_PASSWORD` configured; actual delivered Chairman welcome email remains unverified;
-- actual convenience-fee value has not been supplied, so split payments intentionally fail closed until operations configures it;
-- PayMongo Platforms capability/account linkage and TEST E2E remain external gates;
-- real Android/iOS PWA, passkey and QR smoke remain external gates.
+- PR #13: `feat: complete mobile member PWA and PayMongo split payments`
+- exact passing head: `bb2cd5dc0bc261ead7628b52ede46f91da87b2c5`
+- PSP CI #349: **PASSED**
+- merge SHA: `1e3a37fb9a01226b776932e0caeff9a70c124e0f`
+- production release observed: `2026-09-04-r3`
+- production generation observed: `2026-09-04-member-mobile-v1`
+- production readiness observed: `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`
+- production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`; linked-account payments therefore remain intentionally fail-closed until external configuration and TEST signoff are complete.
+
+### Professional responsive UI/UX release
+
+PR #14 is **MERGED** after exact-head CI.
+
+- PR #14: `feat: professional responsive UI for member and administration portals`
+- exact passing head: `b45165d5f845edacf3c53caafd6a347b08452fdf`
+- PSP CI #351: **PASSED**
+- no unresolved review threads
+- merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
+- scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
+
+Production Smoke #6 passed immediately after the UI merge, but PR #14 reused the prior `r3 / member-mobile-v1` markers. That smoke pass proves the production member-mobile runtime is healthy, but is not accepted as exact proof that the new UI merge was already the build being served at the first smoke attempt.
+
+Current release-proof branch: `release/prod-proof-ui-2026-09-04`.
+
+The branch changes the release identity to `2026-09-04-r4` and deployment generation to `2026-09-04-professional-ui-v1` and updates CI/Production Smoke assertions. Close the UI production deployment only after the exact branch head passes CI, is merged with `expected_head_sha`, and Production Smoke observes that new generation with readiness/security checks green.
+
+External gates still open and requiring real evidence:
+
+- controlled Chairman welcome email delivery;
+- physical Android/iOS PWA acceptance;
+- real passkey registration/authentication;
+- Digital Member ID second-device QR validation;
+- certificate second-device QR validation;
+- PayMongo Platforms capability/linkage, approved fee configuration and TEST split-settlement E2E;
+- database backup/restore drill;
+- security rotation/bootstrap cleanup where earlier values were exposed.
 
 Authoritative task/evidence status: `docs/STATUS.md`.  
 Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
@@ -357,7 +390,7 @@ Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
 
 After every material task:
 
-1. update this file when business/architecture/security/hosting/payment/isolation/delivery rules change;
+1. update this file when business/architecture/security/hosting/payment/isolation/delivery rules or current baseline state change;
 2. update `docs/STATUS.md` with current evidence/state;
 3. update the relevant detailed document (`BRD`, `ARCHITECTURE`, `DATA_MODEL`, `DEPLOYMENT`, `IMPLEMENTATION_PLAN`, `PAYMENTS`, `REGISTRATION`, `SECURITY`, `UI_UX`, `MEMBER_MOBILE_P0`);
 4. do not leave stale phase/deployment checklists;
