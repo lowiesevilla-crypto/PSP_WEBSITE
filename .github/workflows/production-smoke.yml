@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-04-r7
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-login-ux-v1
+      EXPECTED_RELEASE: 2026-09-04-r8
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-pwa-email-branding-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -94,10 +94,15 @@ jobs:
           curl --fail --silent --show-error "$PROD_URL/manifest.webmanifest" > /tmp/psp-manifest.json
           curl --fail --silent --show-error "$PROD_URL/privacy" > /dev/null
           curl --fail --silent --show-error "$PROD_URL/register" > /dev/null
-          curl --fail --silent --show-error "$PROD_URL/install" > /dev/null
+          curl --fail --silent --show-error "$PROD_URL/install" > /tmp/psp-install.html
           curl --fail --silent --show-error "$PROD_URL/login" > /tmp/psp-login.html
           grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
           grep -q '"start_url"' /tmp/psp-manifest.json
+          grep -q '"id":"/"' /tmp/psp-manifest.json
+          grep -q 'Install PSP App' /tmp/psp-install.html
+          grep -q 'One official PSP app identity' /tmp/psp-install.html
+          curl --fail --silent --show-error --location "$PROD_URL/api/public/chapters/prod-smoke-invalid/logo" > /tmp/psp-brand-logo
+          test -s /tmp/psp-brand-logo
           grep -q 'Welcome to PSP' /tmp/psp-login.html
           grep -q 'data-login-design="login-ux-v1"' /tmp/psp-login.html
           grep -q 'Forgot password?' /tmp/psp-login.html
