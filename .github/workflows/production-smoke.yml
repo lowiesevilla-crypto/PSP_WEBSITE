@@ -68,6 +68,7 @@ jobs:
           grep -q '"database":"ok"' /tmp/psp-readiness.json
           grep -q '"authSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"baseline":"ok"' /tmp/psp-readiness.json
+          grep -q '"memberMobileSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"authConfig":"ok"' /tmp/psp-readiness.json
 
       - name: Verify PSP public pages and PWA assets
