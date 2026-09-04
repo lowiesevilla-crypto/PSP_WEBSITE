@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 08:20 PHT  
+**Status timestamp:** 2026-09-04 09:20 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`
@@ -9,234 +9,315 @@
 
 ## Executive Status
 
-The production-oriented PSP MVP is implemented in the repository. Core identity, registration, membership, chapter administration, PWA member experience, community, events, finance, PayMongo integration code, receipts, certificates, reports, audit controls, committees, notifications, and cross-chapter isolation controls are present.
+The production-oriented PSP MVP is implemented and the public production runtime is now **AUTOMATED-READINESS GREEN** after PR #11.
 
-**Repository/code status:** GREEN through merged PR #9; new production-runtime remediation is in progress on `fix/production-runtime-readiness-2026-09-04`.  
-**Production operational validation:** IN PROGRESS / NOT COMPLETE.
+The production release has proven:
 
-The current P0 is production datastore/auth readiness and overall System Admin access. The next code release adds exact-deployment identification, safe database/auth readiness checks, Hostinger SMTP/payment-variable compatibility, and fail-closed live PayMongo activation.
+- exact Hostinger deployment generation is live;
+- MySQL connectivity is healthy;
+- required auth schema is present;
+- PSP baseline including `SYSTEM_ADMIN` exists;
+- auth configuration is healthy;
+- public PSP pages/PWA assets are reachable;
+- required security headers are present;
+- canonical production-origin login reaches credential validation and returns controlled responses;
+- malicious cross-site login requests remain rejected.
 
-## Closed Release Items
+**Repository/code status: GREEN through PR #11.**  
+**Automated production runtime status: GREEN.**  
+**Overall Admin incident: ONE MANUAL CLOSURE GATE REMAINS — successful real `/admin` login.**
 
-### PR #7 — Admin login/bootstrap hardening
+Do not declare the full operational release complete until the remaining external gates in this document are evidenced.
+
+## Latest Closed Release — PR #11
+
+### PR #11 — Hostinger greenfield production schema bootstrap
+
+- PR: `fix: bootstrap empty PSP schema during Hostinger production build`
+- Final passing head: `bd5f7dc3fd013867964d024251632de12ea00a87`
+- PSP CI #317: **PASSED**
+- Merge commit: `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`
+- Merged into `main`: 2026-09-04
+- Review threads at merge: none
+
+PR #11 added a guarded Hostinger build-time initializer because Hostinger's managed Next.js runtime does not reliably depend on the repository's custom `npm run start` hook.
+
+Safety behavior:
+
+- outside `APP_ENV=production`, production build initialization is skipped;
+- if the connected production database has zero tables, the approved Prisma schema is applied as an initial greenfield bootstrap;
+- if the database is non-empty but does not contain the complete required PSP baseline table set, automatic schema push is refused;
+- an existing complete PSP schema is never re-pushed automatically;
+- after an empty greenfield schema is created, the existing idempotent production baseline initializer runs;
+- configured System Admin/member bootstrap synchronization runs as part of that production initialization;
+- deployment fails instead of continuing if schema/baseline/admin synchronization fails.
+
+The deployment also exposes a non-secret `deploymentGeneration` marker so production smoke can prove that the intended Hostinger build is live rather than accidentally validating an older deployment.
+
+## Production Smoke #3 — PASSED
+
+GitHub Actions run: PSP Production Smoke #3  
+Run ID: `33824762794`  
+Target main commit: `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`  
+Result: **SUCCESS**
+
+### Exact deployment evidence
+
+Production `/api/health` returned:
+
+- HTTP 200
+- `status=ok`
+- `service=psi-sigma-phi-digital-platform`
+- `release=2026-09-04-r2`
+- `deploymentGeneration=2026-09-04-schema-bootstrap-v1`
+
+This proves Hostinger deployed the PR #11 generation rather than the earlier PR #10 runtime.
+
+### Datastore/auth readiness evidence
+
+Production `/api/health/ready` returned HTTP 200 with:
+
+- `status=ready`
+- `database=ok`
+- `authSchema=ok`
+- `baseline=ok`
+- `authConfig=ok`
+
+This closes the prior MySQL/schema incident:
+
+1. initial state: database connection failed;
+2. after Hostinger `DATABASE_URL` correction: `database=ok`, but `authSchema=error`, `baseline=error` because the dedicated PSP database was empty;
+3. after PR #11 deployment: schema and baseline initialized successfully and all readiness checks are green.
+
+### Public runtime/security evidence
+
+The same production smoke passed:
+
+- PSP home page;
+- privacy page;
+- registration page;
+- PWA manifest;
+- `X-Content-Type-Options`;
+- `X-Frame-Options`;
+- `Referrer-Policy`;
+- canonical production-origin invalid login returns HTTP 401 with controlled JSON `Invalid email or password.`;
+- malicious cross-site login returns HTTP 403.
+
+## Overall System Administrator
+
+**Status: PROVISIONED BY PRODUCTION BOOTSTRAP / MANUAL LOGIN VERIFICATION PENDING**
+
+The production build completed successfully while the configured `BOOTSTRAP_ADMIN_*` variables were present. The build initializer runs `scripts/production-init.mjs`, which in turn runs `scripts/bootstrap-admin.mjs` when bootstrap email/password are configured. That script fails the deployment if required roles/chapter are missing, if the member number conflicts, if the password is invalid, or if synchronization fails.
+
+The successful PR #11 Hostinger deployment plus green baseline readiness therefore provides evidence that production baseline initialization completed. However, per release policy, this is **not a substitute for a real browser login**.
+
+The incident closes only after the intended System Administrator:
+
+1. signs in at `https://psp.hoahub.tech/login` using the configured temporary credential;
+2. reaches `/admin`;
+3. retains national/unscoped `SYSTEM_ADMIN` access;
+4. has the intended Rho Alpha De Las Piñas member identity linked;
+5. changes/rotates the temporary password;
+6. has all `BOOTSTRAP_ADMIN_*` runtime variables removed;
+7. application is restarted/redeployed;
+8. normal administrator login is reconfirmed after bootstrap variables are removed.
+
+Do not remove bootstrap variables before the successful `/admin` verification.
+
+## Closed Code/Release Items
+
+### PR #7 — Production admin login/bootstrap hardening
 
 - Final passing head: `b4866840890dabe3d75a6f4ccb6a497d253f0ac0`
 - PSP CI #276: **PASSED**
 - Merge commit: `1e97e288bb7c8c852a6b9635f6268760f0621faf`
-- Delivered canonical production-origin handling, controlled auth JSON failures, member-linked System Admin bootstrap, `/admin` routing for national/System Admin accounts, and regression coverage.
+- Fixed canonical production-origin handling, controlled auth JSON failures, member-linked System Admin bootstrap, national-admin `/admin` routing, and regression coverage.
 
 ### PR #8 — Knowledge-base reconciliation
 
 - PSP CI #281: **PASSED**
 - Merge commit: `835f9eb8ea7b3bdb1b06d076e5b419af1592d958`
-- Reconciled status and deployment documentation after PR #7.
 
-### PR #9 — Automated public production smoke
+### PR #9 — Public production smoke automation
 
 - PSP CI #285: **PASSED**
 - Merge commit: `f5e863553c57290fa2f402bf553a20be7c275883`
-- Added secret-free GitHub production smoke against `https://psp.hoahub.tech`.
+- Added secret-free live production smoke.
 
-## Live Production Evidence — 2026-09-04
+### PR #10 — Runtime readiness and Hostinger variable compatibility
 
-The first GitHub production smoke successfully reached the real Hostinger deployment and proved:
+- Final passing head: `4fd9f33f3377bcdb4c95717017158e48aada2e00`
+- PSP CI #306: **PASSED**
+- Merge commit: `1553d841b7af5b31a8708f5f90103d9392f9be37`
+- Added `/api/health/ready`, safe datastore/auth classification, Hostinger SMTP aliases, PayMongo checkout-method alias, live-payment fail-closed gate, and production release identification.
 
-- DNS/HTTPS reachable — **PASS**
-- `GET /api/health` HTTP 200 — **PASS**
-- service identity `psi-sigma-phi-digital-platform` — **PASS**
-- PSP landing page — **PASS**
-- `/privacy` — **PASS**
-- `/register` — **PASS**
-- PWA manifest — **PASS**
-- required security headers — **PASS**
+### PR #11 — Greenfield schema/bootstrap compatibility
 
-The same smoke then exercised a canonical-origin invalid login using a unique nonexistent account. The origin gate passed, but production returned a controlled HTTP 500 server-configuration response instead of expected HTTP 401.
+- Final passing head: `bd5f7dc3fd013867964d024251632de12ea00a87`
+- PSP CI #317: **PASSED**
+- Merge commit: `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`
+- Production Smoke #3: **PASSED**
 
-This proves the earlier origin defect is no longer the active blocker. Because the request used a nonexistent account, the failure occurs before successful-session creation and points to production datastore/auth runtime readiness, such as database connectivity, required auth tables/schema, or baseline readiness.
+## Hostinger Environment Review
 
-## Hostinger Environment Review — 2026-09-04
+Confirmed present from product-owner evidence without recording secret values:
 
-The product owner supplied a Hostinger environment-variable screenshot for the PSP application.
-
-Confirmed present without recording values:
-
-- canonical application URL values;
-- bootstrap administrator email/password/name;
+- `NEXT_PUBLIC_APP_URL`;
+- bootstrap administrator variables;
 - `AUTH_SECRET`;
 - `NODE_ENV=production`;
 - `APP_ENV=production`;
 - `DATABASE_URL`;
-- storage root;
-- bootstrap chapter code and member number;
-- membership number prefix;
-- certificate dues policy;
-- SMTP host/port and username-style values;
+- persistent storage root;
+- bootstrap chapter/member values;
+- membership prefix;
+- certificate policy;
+- SMTP host/port/username-style values;
 - mail-from/reply-to values;
-- PayMongo secret/webhook and checkout-method variables;
-- cron/internal secret.
+- PayMongo secret/webhook and checkout-method values;
+- internal cron/shared-secret configuration.
 
-Detected configuration/code naming mismatches being remediated:
+PR #10 made the application accept the Hostinger variable aliases already in use:
 
-- Hostinger uses `SMTP_USERNAME`; current code canonical name was `SMTP_USER`.
-- Hostinger uses `MAIL_FROM_ADDRESS`; current code canonical name was `SMTP_FROM`.
-- Hostinger uses `PAYMONGO_CHECKOUT_METHODS`; current code canonical name was `PAYMONGO_PAYMENT_METHODS`.
+- `SMTP_USERNAME` as an alias for `SMTP_USER`;
+- `MAIL_FROM_ADDRESS` as an alias for `SMTP_FROM`;
+- `PAYMONGO_CHECKOUT_METHODS` as an alias for `PAYMONGO_PAYMENT_METHODS`.
 
-The remediation branch accepts those Hostinger aliases while preserving the canonical names.
+`SMTP_PASSWORD` was not visible in the supplied environment-variable screenshot. SMTP remains **NOT VERIFIED** until the password/app-password is securely configured and a real activation/recovery email is delivered.
 
-`SMTP_PASSWORD` was not visible in the supplied environment-variable list. SMTP delivery remains **NOT VERIFIED / NOT COMPLETE** and requires a server-side password/app-password configured directly in Hostinger; the value must never be shared in chat or documentation.
+## Security — Exposed Runtime Secrets
 
-## Security Incident — Exposed Runtime Secrets
+Several sensitive runtime values were visible in a troubleshooting screenshot. Their values are intentionally not copied into GitHub or this knowledge base.
 
-Several secret values were visibly exposed in the troubleshooting screenshot. Their actual values are intentionally not copied into GitHub or this status ledger.
+**ROTATION REQUIRED BEFORE FINAL OPERATIONAL SIGNOFF.**
 
-**Status: ROTATION REQUIRED BEFORE FINAL PRODUCTION SIGNOFF.**
+Rotate affected values in their authoritative systems, including as applicable:
 
-Affected classes include authentication/bootstrap, database connection credentials, PayMongo secret/webhook material, and internal shared-secret material visible in the screenshot. Rotate affected secrets in their authoritative systems, update Hostinger, restart/redeploy, and rerun readiness/smoke. Do not reuse the exposed values.
+- temporary/bootstrap admin password;
+- `AUTH_SECRET`;
+- production database user password / resulting `DATABASE_URL`;
+- PayMongo secret/webhook material;
+- internal cron/shared secrets;
+- SMTP password if it was ever exposed.
 
-## PayMongo Release Status
+After rotation, redeploy/restart and reconfirm `/api/health/ready` plus administrator login. Never store replacement values in documentation.
 
-The Hostinger screenshot shows live-mode PayMongo secret material is configured while test-mode E2E has not yet been signed off.
+## PayMongo Status
 
-**Live processing remains NOT APPROVED.**
+**Integration code: IMPLEMENTED.**  
+**Live processing: NOT APPROVED / FAIL-CLOSED.**
 
-The remediation branch adds fail-closed protection:
+The Hostinger screenshot showed live-mode key material while test-mode E2E has not been signed off. PR #10 therefore enforces:
 
-- live checkout is rejected unless `PAYMONGO_LIVE_ENABLED=true`;
-- live webhook signature processing is rejected unless `PAYMONGO_LIVE_ENABLED=true`;
-- Hostinger `PAYMONGO_CHECKOUT_METHODS` is accepted as an alias for the canonical payment-method variable;
-- `PAYMONGO_LIVE_ENABLED` must remain absent/false until test-mode checkout + signed webhook + idempotency + ledger + receipt + reconciliation are proven and explicit live activation is approved.
+- live checkout rejected unless `PAYMONGO_LIVE_ENABLED=true`;
+- live webhook signature processing rejected unless `PAYMONGO_LIVE_ENABLED=true`;
+- test-mode E2E is mandatory before live activation;
+- a configured live secret alone is not authorization to process production payments.
 
-## Active P0 — Production Runtime Readiness / Overall Admin Login
+Required test-mode evidence remains:
 
-**Status: IN PROGRESS / NOT COMPLETE**
+1. Checkout creation;
+2. success/cancel flow;
+3. matching webhook endpoint signing secret;
+4. valid raw-body signature verification;
+5. `checkout_session.payment.paid` handling;
+6. duplicate webhook/idempotency behavior;
+7. ledger posting;
+8. receipt generation;
+9. reconciliation.
 
-Current remediation branch: `fix/production-runtime-readiness-2026-09-04`
-
-Changes in progress:
-
-- release marker `2026-09-04-r2` added to `/api/health`;
-- new `/api/health/ready` safe readiness endpoint checks database connectivity, auth schema access, SYSTEM_ADMIN baseline, canonical app URL, and AUTH_SECRET readiness;
-- production smoke waits for the exact release marker so an old Hostinger deployment cannot accidentally satisfy the gate;
-- production smoke requires readiness HTTP 200 before login smoke;
-- Prisma/datastore login failures return sanitized HTTP 503 classification rather than opaque HTTP 500;
-- SMTP Hostinger aliases accepted;
-- PayMongo Hostinger method alias accepted;
-- live PayMongo processing fail-closed until explicit approval;
-- knowledge base/runbook reconciled.
-
-The overall-admin incident closes only after all of the following have evidence:
-
-1. remediation PR exact head passes required PSP CI;
-2. exact passing head is merged to `main`;
-3. Hostinger serves release marker `2026-09-04-r2` (or a documented newer approved marker);
-4. `/api/health/ready` returns HTTP 200 with database/auth/baseline/config checks `ok`;
-5. startup logs show System Admin synchronization while bootstrap variables remain configured;
-6. intended System Administrator signs in and reaches `/admin`;
-7. intended Rho Alpha De Las Piñas member identity is linked while national `SYSTEM_ADMIN` remains active;
-8. exposed bootstrap/admin credential is rotated;
-9. bootstrap variables are removed only after verified `/admin` success;
-10. app restarts and normal admin login is reconfirmed.
+Only after that signoff and explicit approval may `PAYMONGO_LIVE_ENABLED=true` be configured for one controlled low-value live validation.
 
 ## Completed Application Scope
 
-### Foundation and Security
+### Foundation / Security
 
-- Next.js 16 App Router / React 19 / TypeScript strict mode
+- Next.js 16 / React 19 / strict TypeScript
 - MySQL + Prisma
-- Zod validation at server/API boundaries
-- official PSP branding and seal
-- PWA manifest and service worker baseline
-- health endpoint
-- CI MySQL schema/seed/bootstrap validation
-- strict TypeScript and production build validation
-- runtime dependency audit gate
-- same-origin/state-changing request protections
-- approved canonical production-origin handling
-- server-side RBAC and chapter scoping
-- automated cross-chapter isolation negative tests
-- no production secrets committed
+- Zod validation
+- official branding/seal
+- PWA foundation
+- liveness + readiness endpoints
+- secure sessions/password hashing
+- origin/cross-site protections
+- server-side RBAC/chapter scope
+- cross-chapter negative tests
+- CI database/schema/seed/bootstrap/build/runtime/dependency gates
+- production greenfield schema bootstrap guard
 
-### Identity, Registration and Membership
+### Identity / Registration / Membership
 
-- secure login/logout/current-user flow
-- scrypt password hashing
-- secure signed sessions
+- login/logout/current-user
 - activation/recovery
-- auth rate limiting and audit events
+- rate limiting/audit
 - approved 11-field registration
 - separate membership/privacy acknowledgements
-- duplicate checks and scoped review workflow
-- Member + MembershipHistory creation on approval
-- unique PSP membership number
-- scoped member directory and transfers
-- national System Admin may also hold a chapter Member identity without losing `/admin` routing
+- scoped review/correction/rejection/approval
+- official Member + MembershipHistory
+- unique membership number
+- chapter transfers/history
+- System Admin may also hold chapter Member identity while retaining `/admin`
 
-### Chapter / Organization / Community
+### Administration / Community
 
 - national/system administration
-- chapter create/update/status administration
-- Chapter Administrator assignment
-- configurable positions/officer terms
-- committees/committee memberships
+- chapter lifecycle/admin assignment
+- positions/officer history
+- committees
 - dashboards
 - posts/images/comments
-- announcements/moderation/events
+- announcements/moderation
+- events
 - notifications
 
-### Finance / PayMongo Code
+### Finance / PayMongo / Receipts
 
 - effective-dated rates
-- assessments/member ledger/balances
-- pending Payment before gateway handoff
-- Hosted Checkout v2
-- creation idempotency
-- raw-body webhook signature validation
+- assessments/ledger/balance
+- pending internal Payment before checkout
+- PayMongo Hosted Checkout v2
+- idempotency
+- signed raw webhook handling
 - authoritative paid-event processing
-- idempotent ledger posting
 - digital receipts/reconciliation foundation
-- append/trace-oriented history
 
-### Certificates / Reporting / Audit
+### Certificates / Reports / Audit
 
-- membership certificate eligibility
+- membership certificate PDF
 - unique certificate number
-- PDF certificate
-- QR verification
-- revoke/supersede handling
-- member preview/download
-- operational reports
-- audit viewer
+- QR verification/revocation/supersede
+- reports
+- scoped audit viewer
 
 ## Pending External / Production Validation
 
-These remain open until evidenced:
+Priority order:
 
-1. Merge/deploy the production-runtime remediation exact passing head.
-2. `/api/health/ready` green in Hostinger production.
-3. Overall System Admin successful `/admin` login and member-link verification.
-4. Rotate all secrets exposed in the screenshot, redeploy, and reconfirm readiness/login.
-5. Remove bootstrap variables after successful `/admin`, restart, and reconfirm login.
-6. Verify production MySQL backup and rollback/restore evidence.
-7. Configure required SMTP password securely and prove activation/recovery email delivery.
-8. Run representative Android/iOS PWA install/responsive checks.
-9. Configure PayMongo **test mode** and run full checkout + signed webhook + idempotency + ledger + receipt + reconciliation E2E.
-10. Verify Certificate QR against live production origin.
-11. Only after item 9 and explicit approval, configure/enable controlled live PayMongo and run one low-value validation.
+1. **P0 — Real System Admin browser login reaches `/admin`.**
+2. Verify intended Rho Alpha member linkage in the authenticated admin/member context.
+3. Rotate temporary/exposed admin credential, remove all `BOOTSTRAP_ADMIN_*`, restart, and reconfirm login.
+4. Rotate other exposed production secrets and reconfirm readiness.
+5. Configure/verify SMTP password and prove activation + recovery delivery.
+6. Confirm production MySQL backup and tested rollback/restore evidence.
+7. Run representative Android/iOS PWA install/responsive checks.
+8. Run PayMongo **test-mode** E2E with signed webhook/idempotency/ledger/receipt/reconciliation evidence.
+9. Verify certificate QR against the live production origin.
+10. Only after test-mode PayMongo signoff and explicit approval, enable a controlled low-value live validation.
 
-These are release/operations gates, not missing MVP application modules.
+These are release/operations gates, not missing MVP modules.
 
-## Rules for Closing Work
+## Closure Rules
 
-A task may be marked `COMPLETE` only with appropriate evidence such as merged exact-head code plus required CI, successful automated/live tests, or explicit product-owner confirmation for a hosting/business fact that cannot be inferred from source.
+A task is `COMPLETE` only with appropriate evidence: exact-head merged code plus required CI, successful automated/live validation, or explicit product-owner confirmation for an external fact.
 
-Do not close credential-dependent, payment, email, backup, DNS, SSL, or production-runtime checks from source code alone.
+Credential-dependent, payment, email, backup, device, and production-runtime checks must not be closed from source code alone.
 
 ## Documentation Discipline
 
 After every material task:
 
-1. update `AGENTS.md` when a business, architecture, security, hosting, payment, isolation, or delivery rule changes;
-2. update this `docs/STATUS.md` with current evidence and pending state;
-3. update the relevant detailed document such as `DEPLOYMENT.md`, `PAYMENTS.md`, `SECURITY.md`, or other applicable documentation;
-4. never leave phase/release checklists stale;
+1. update `AGENTS.md` when business/architecture/security/hosting/payment/isolation/delivery rules change;
+2. update this status ledger;
+3. update the applicable detailed runbook/document;
+4. never leave deployment/phase checklists stale;
 5. documentation is part of Definition of Done.
