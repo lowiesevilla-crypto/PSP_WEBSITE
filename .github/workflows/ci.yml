@@ -132,8 +132,8 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r3"'
-          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-member-mobile-v1"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r4"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-professional-ui-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
