@@ -141,6 +141,7 @@ jobs:
           printf '%s' "$READINESS" | grep -q '"database":"ok"'
           printf '%s' "$READINESS" | grep -q '"authSchema":"ok"'
           printf '%s' "$READINESS" | grep -q '"baseline":"ok"'
+          printf '%s' "$READINESS" | grep -q '"memberMobileSchema":"ok"'
           printf '%s' "$READINESS" | grep -q '"authConfig":"ok"'
 
           curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /dev/null
