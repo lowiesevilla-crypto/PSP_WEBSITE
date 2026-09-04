@@ -17,6 +17,7 @@
 - Canonical production origin: `https://psp.hoahub.tech`
 - Local origin: `http://localhost:3000`
 - Production email links, PWA install links, verification QR URLs, payment return URLs and Chapter webhook URLs use the canonical PSP origin.
+- Public redirects and externally rendered asset URLs must also use the canonical application origin; never derive an external redirect from an internal reverse-proxy request origin such as `0.0.0.0:3000`.
 - QA/staging, when introduced, must use separate hostname, database and secrets.
 - Liveness: `/api/health`
 - Datastore/auth/member-mobile readiness: `/api/health/ready`
@@ -45,7 +46,7 @@ National and Chapter Administration share the professional responsive applicatio
 - Uploaded Chapter logos use the validated image-storage service: JPG, PNG or WEBP only, byte-signature validated, size governed by `MAX_IMAGE_UPLOAD_BYTES` with 5 MB default.
 - Runtime storage references remain `private:` references; arbitrary client-supplied filesystem paths are never accepted.
 - The intentionally public read-only branding endpoint is `/api/public/chapters/[id]/logo`.
-- If no custom Chapter logo exists or a stored logo cannot be read, use `/brand/psp-logo.jpg`.
+- If no custom Chapter logo exists or a stored logo cannot be read, use the official `/brand/psp-logo.jpg` fallback through the canonical PSP origin.
 - Replacing/removing a Chapter logo must clean up superseded private files after successful persistence and must be audit logged.
 - Making the Chapter branding image public does not change the authenticated/scoped rules for community, announcement or event private media.
 
@@ -116,9 +117,17 @@ Welcome / Resend Invitation content must include, as applicable:
 - current Chapter Chairman name/title;
 - Chapter reply-to email when configured.
 
+Admin approval behavior:
+
+- membership approval is committed independently of SMTP delivery so an email-provider failure does not roll back an already-approved member record;
+- the approval API returns `welcomeDelivery` and `activationRequired` status to the authorized Admin UI;
+- the Admin UI must clearly report whether the welcome/activation email was sent or failed;
+- a failed welcome email must create audit evidence and direct the Admin to verify the member email/SMTP configuration and use **Resend Invitation** where appropriate;
+- activation tokens remain only in the intended recipient email and must never be returned in Admin API/UI payloads or logs.
+
 Password-reset links remain short-lived and must never be logged or exposed through administrator UI.
 
-SMTP configuration/readiness does not prove actual inbox delivery. Real email delivery/rendering is an external acceptance gate.
+SMTP configuration/readiness does not prove actual inbox delivery. Real email delivery/rendering remains a controlled external acceptance gate until a real recipient confirms receipt.
 
 ## 6. Invitation Resend
 
@@ -389,6 +398,7 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - Runtime dependency audit is fail-closed: missing, malformed, stale, timed-out or operational-error audit evidence is not a clean audit.
 - Audit-source tolerance may use bounded independent retries, explicit fetch timeout and backoff only when every accepted report still passes trusted audit schema validation.
 - Hostinger/WAF browser challenges are operational reachability failures; inspect/rerun exact smoke. Never weaken application security merely to make a bot challenge pass.
+- Production smoke failures must identify and fix the exact failed public/auth/security assertion; diagnostic improvements may add labels/evidence but may not weaken or remove acceptance assertions.
 - Email/payment/passkey/device/QR/backup/authenticated production state-changing gates require real evidence; source code/public smoke alone cannot close them.
 
 ## 18. Current Delivery Baseline — 2026-09-04
@@ -404,38 +414,42 @@ Accepted `main` baseline includes:
 - PR #20 evidence reconciliation;
 - PR #21 private-media build-tracing correction;
 - PR #22 safe Member Delete/Archive + Resend Invitation;
-- PR #23 PSP login UX redesign.
+- PR #23 PSP login UX redesign;
+- PR #24 PWA install flow + shared branded PSP/Chapter email + Chapter logo management;
+- PR #25 r8 public-asset production diagnostic;
+- PR #26 canonical Chapter-logo fallback + Admin approval email-delivery visibility/CI contract;
+- PR #27 exact r9 production-smoke diagnostics.
 
 Current accepted main SHA:
 
-`c643791273ba4a233a530526cf9a34e9c333b218`
+`b14bb1b90eb38a703c233724ab77803f5838b17e`
 
 Current publicly proven production identity:
 
-- release `2026-09-04-r7`;
-- deployment generation `2026-09-04-login-ux-v1`;
-- post-merge PSP CI #438 / run `33877018203`: PASSED;
-- Production Smoke #15 / run `33877018268`: PASSED.
+- release `2026-09-04-r9`;
+- deployment generation `2026-09-04-chapter-logo-origin-fix-v1`;
+- PR #26 exact passing head `72c605dc2568c9acb362c481eebe58efd4ad5ec0`, PSP CI #468 / run `33882933038`: PASSED;
+- PR #26 merge SHA `b5788298d50981d26c531e746b55149daf1afb42`;
+- post-PR-#26 main PSP CI run `33883183121`: PASSED;
+- PR #27 exact passing head `d7655723676d21da5bdaae881f43510d39e82c05`, PSP CI #470 / run `33883716480`: PASSED;
+- PR #27 merge SHA / current main `b14bb1b90eb38a703c233724ab77803f5838b17e`;
+- post-PR-#27 main PSP CI run `33884003915`: PASSED;
+- Production Smoke run `33884003888`: PASSED every exact-r9 readiness, public/PWA, Chapter-logo fallback, security-header, login-origin/JSON-failure and public verification-route gate.
 
-### Active production-significant work — PR #24
+r8 incident evidence retained for traceability:
 
-Branch: `feat/pwa-install-email-branding-2026-09-04`
+- PR #24 exact head `30efed5f0f80a8e943ee9be0f89ae2cbbe98bcf2`, PSP CI #453 / run `33880569148`: PASSED; merge `aee0a73b694d9e84fec73129e1951fb214bbdb68`;
+- r8 became live and ready, but Production Smoke #16 failed because the Chapter-logo fallback redirect inherited Hostinger's internal request origin and pointed at `0.0.0.0:3000`;
+- PR #25 diagnostic isolated the failed redirect; PR #26 corrected external fallback generation to use PSP's canonical application origin and advanced release proof to r9;
+- the first r9 Production Smoke run `33883183222` still reported an aggregated public-assets failure; PR #27 preserved all assertions while adding per-assertion diagnostics, after which exact r9 Production Smoke `33884003888` passed the complete gate set.
 
-Target:
+Approval-email implementation evidence:
 
-- release `2026-09-04-r8`;
-- deployment generation `2026-09-04-pwa-email-branding-v1`.
-
-Scope:
-
-- reliable `/install` PWA prompt ownership/UX;
-- stable one-app PWA identity;
-- professional PSP shared email branding;
-- Chapter name/logo branding with PSP-logo fallback;
-- Chapter logo upload/removal and public branding delivery;
-- exact r8 CI and Production Smoke assertions.
-
-PR #24 is not accepted or production-proven until its final exact head passes complete PSP CI, all review threads are resolved, that exact head is merged, post-merge CI passes and Production Smoke proves exact r8 generation.
+- the approval route attempts the welcome/activation email after successful member creation and returns delivery status to the Admin UI;
+- Admin approval UI now surfaces sent versus failed delivery rather than showing only the Membership Number;
+- CI verifies that unconfigured SMTP reports `welcomeDelivery=failed`, preserves the approved membership transaction, and records `MEMBER_WELCOME_EMAIL_FAILED` audit evidence;
+- production readiness reports SMTP `configured`;
+- actual inbox receipt/rendering after a controlled real Admin approval is still an external acceptance item and must not be claimed solely from configuration/source/CI evidence.
 
 Detailed tracker: `docs/PWA_INSTALL_EMAIL_BRANDING_2026-09-04.md`.
 
@@ -446,14 +460,14 @@ Still require safe credentials, controlled records, representative devices or ex
 - controlled National/Chapter Admin lifecycle actions;
 - controlled member invitation delivery and archive/delete;
 - controlled Chapter logo upload/removal in production;
-- real branded welcome/application/password-reset email rendering;
+- real branded welcome/activation email receipt and rendering after a controlled Admin approval;
+- real application-status and password-reset email rendering;
 - Android PWA native installation acceptance;
 - iPhone/iPad Add-to-Home-Screen acceptance;
 - real passkey device acceptance;
 - second-device Digital Member ID QR validation;
 - second-device Certificate QR validation;
 - PayMongo Platforms/Linked Accounts TEST split-payment E2E;
-- real Chairman welcome-email delivery;
 - database backup/restore drill;
 - credential rotation/bootstrap cleanup where required.
 
@@ -462,6 +476,8 @@ Applicant onboarding improvements still identified but not yet implemented:
 - registration-submission confirmation email;
 - public applicant application-status checker;
 - public applicant resend-activation self-service.
+
+Current production readiness evidence keeps PayMongo platform configuration `not_configured` and live payments `disabled`; do not treat online-payment E2E as closed.
 
 ## 20. Documentation Definition of Done
 
