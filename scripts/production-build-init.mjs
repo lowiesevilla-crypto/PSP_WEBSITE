@@ -120,7 +120,8 @@ if (tableNames.size === 0) {
   console.log("Existing current PSP schema detected; automatic schema push skipped.");
 }
 
-console.log("Running idempotent PSP production baseline and configured administrator synchronization...");
+console.log("Running idempotent PSP production baseline and member-mobile synchronization...");
 runNode(path.join(process.cwd(), "scripts", "production-init.mjs"));
+runNode(path.join(process.cwd(), "scripts", "sync-member-mobile-rbac.mjs"));
 runNode(path.join(process.cwd(), "scripts", "backfill-digital-ids.mjs"));
 console.log("PSP production build initialization complete.");
