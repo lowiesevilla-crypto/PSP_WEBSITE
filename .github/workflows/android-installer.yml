@@ -55,7 +55,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          yes | sdkmanager --licenses >/dev/null
+          # setup-android already accepts the SDK licenses. Re-running
+          # `yes | sdkmanager --licenses` under pipefail causes `yes` to
+          # terminate with SIGPIPE after sdkmanager finishes and falsely
+          # fails this gate.
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
 
       - name: Assemble unsigned release APK
