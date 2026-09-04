@@ -3,12 +3,15 @@
 **Date:** 2026-09-04  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Working branch:** `fix/admin-lifecycle-content-media-2026-09-04`  
-**Latest implementation head before this documentation commit:** `1bdce47f4f118a3eab1ac163e81f75539d96035d`  
+**PR:** #16 — `fix: admin lifecycle and chapter content media`  
+**Latest release-candidate code/workflow head before this documentation commit:** `b1228318b89b7d60394a49272fc6046fdf74235d`  
+**Target production release:** `2026-09-04-r5`  
+**Target deployment generation:** `2026-09-04-admin-lifecycle-media-v1`  
 **Production branch:** `main`
 
 ## Objective
 
-Close the National Admin and Chapter Admin defects/enhancements reported from production while preserving PSP RBAC, chapter isolation, auditability, non-destructive history, and mobile-responsive member presentation.
+Close the National Admin and Chapter Admin defects/enhancements reported from production while preserving PSP RBAC, chapter isolation, auditability, non-destructive history, mobile-responsive member presentation, and exact production-generation proof.
 
 Required outcomes:
 
@@ -17,7 +20,8 @@ Required outcomes:
 - National Admin can activate, invite, suspend, or disable user accounts without deleting membership/finance/audit history.
 - Chapter Admin can create chapter-scoped announcements and events; National Admin retains national scope.
 - Announcement and event images can be uploaded securely and are viewable responsively by authorized members.
-- Changes must pass exact-head PSP CI before merge and must be verified in production after deployment.
+- Changes must pass exact-head PSP CI before merge.
+- Production closure must observe the unique `r5 / admin-lifecycle-media-v1` generation, not a prior release marker.
 
 ## Completed in the Working Branch
 
@@ -30,94 +34,107 @@ Required outcomes:
 
 ### 2. National Admin chapter lifecycle controls — CODE COMPLETE
 
-- Chapter Management now exposes National Admin lifecycle controls for:
-  - `ACTIVE`
-  - `INACTIVE` / deactivated
-  - `SUSPENDED`
-  - `ARCHIVED`
-- Lifecycle changes use the existing audited chapter PATCH API.
+- Chapter Management exposes National Admin lifecycle controls for `ACTIVE`, `INACTIVE`, `SUSPENDED`, and `ARCHIVED`.
+- Lifecycle changes use the audited chapter PATCH API.
 - Historical chapter/member/finance/audit records are not deleted.
 - Chapter cards remain responsive.
 
 ### 3. National Admin user lifecycle management — CODE COMPLETE
 
-- Added National Admin **User Management** screen under access governance.
-- Added account status control for:
-  - `ACTIVE`
-  - `INVITED`
-  - `SUSPENDED`
-  - `DISABLED`
-- Status changes are server-authorized by national `roles.manage` permission and audit logged.
+- Added National Admin **User Management** under access governance.
+- Added account status control for `ACTIVE`, `INVITED`, `SUSPENDED`, and `DISABLED`.
+- Status changes require national `roles.manage` and are audit logged.
 - Current National Admin cannot suspend/disable their own active session account through this control.
-- Disabling/suspending blocks login through the existing session/login status checks while preserving membership, chapter, finance, and audit history.
+- Disabling/suspending blocks login through existing status checks while preserving history.
 
-### 4. Chapter Admin announcements — EXISTING AUTHORIZATION CONFIRMED + MEDIA EXTENSION CODE COMPLETE
+### 4. Chapter Admin announcements + private media — CODE COMPLETE
 
-- Existing PSP RBAC already grants Chapter Admin `content.manage` for the assigned chapter.
-- Existing announcement API already enforces chapter scope server-side; Chapter Admin cannot publish national announcements unless holding national permission.
-- Announcement creation form supports secure image upload.
-- Accepted formats reuse PSP private-image validation: valid JPG, PNG, WEBP, subject to `MAX_IMAGE_UPLOAD_BYTES` (default 5 MB).
-- Announcement image storage is private; delivery uses an authenticated/scoped content-media route.
+- Existing PSP RBAC grants Chapter Admin `content.manage` only for the assigned chapter.
+- Chapter Admin cannot publish national announcements without national permission.
+- Announcement creation supports secure image upload.
+- Accepted images are validated JPG, PNG, or WEBP subject to `MAX_IMAGE_UPLOAD_BYTES` (default 5 MB).
+- Media storage is private and served through authenticated/scoped content-media delivery.
 - Admin recent-announcement view shows image previews.
-- Member Announcements page renders images responsively with bounded height and `object-fit`, avoiding mobile overflow.
+- Member Announcements renders images responsively without uncontrolled overflow.
 
 ### 5. Shared private content-media delivery — CODE COMPLETE
 
-- Added a reusable content-media URL helper and authenticated content-media delivery route for both `announcement` and `event` media.
-- Media access is evaluated against content audience, chapter membership, publication state, and the relevant scoped admin permission.
-- Cross-chapter member access is denied by server-side scope checks.
-- Images are returned with `private, no-store` caching, `nosniff`, and the detected image MIME type.
+- Reusable authenticated content-media delivery supports both `announcement` and `event` media.
+- Access is evaluated against audience, publication state, chapter membership, and relevant scoped admin permission.
+- Cross-chapter member access is denied server-side.
+- Images use private/no-store caching, no-sniff, and detected MIME type.
 
 ### 6. Chapter/National Event image upload and member rendering — CODE COMPLETE
 
 Implementation head: `1bdce47f4f118a3eab1ac163e81f75539d96035d`.
 
-- Event Manager now accepts an optional JPG, PNG, or WEBP image using the same PSP private-media validation and size limit used for announcements.
-- Event creation supports secure multipart submission while retaining JSON compatibility for existing API clients.
-- Uploaded media is stored outside the public web root and `Event.imageUrl` stores only the PSP private-media reference.
-- If event/database creation fails after a file was stored, the orphaned private file is removed.
-- Event creation audit metadata records whether an image was attached.
-- Notification failure after a successfully committed event is logged without returning a false creation failure to the user.
-- Admin Event Management renders the authorized image through the scoped content-media endpoint.
-- Member Events renders published national or same-chapter images responsively with bounded height and no uncontrolled overflow.
-- Chapter Admin remains constrained to its assigned chapter through `events.manage`; national event creation still requires national permission.
+- Event Manager accepts optional JPG, PNG, or WEBP image using PSP private-media validation/storage.
+- Event creation supports secure multipart submission while retaining JSON compatibility.
+- `Event.imageUrl` stores only the private media reference.
+- Failed event persistence cleans up a newly stored orphaned file.
+- Audit metadata records whether an image was attached.
+- Notification failure after a committed event is logged without falsely reporting that event creation failed.
+- Admin Event Management renders authorized images.
+- Member Events renders published national or same-chapter images responsively.
+- Chapter Admin remains constrained to its assigned chapter through `events.manage`.
+
+### 7. Exact release/deployment generation — CODE COMPLETE
+
+- Release ID advanced to `2026-09-04-r5`.
+- Deployment generation advanced to `2026-09-04-admin-lifecycle-media-v1`.
+- CI runtime smoke requires the new exact release/generation.
+- Production Smoke waits for the same exact release/generation after merge.
+- This prevents the previous `r4 / professional-ui-v1` marker from being reused as proof of this release.
+
+## Current CI / PR State
+
+PR #16 is open against `main`.
+
+An initial PR CI run (#382 / run `33846413588`) started on earlier head `95b901b4f4a770e1eaf03ca8ef3874f2a695432f`. That head was intentionally superseded before merge because it still reused the prior production release marker. Regardless of its eventual result, it is **not eligible for merge**.
+
+A fresh exact-head CI is required after the `r5 / admin-lifecycle-media-v1` marker changes and documentation reconciliation. Merge only the final exact head that passes every required gate.
+
+If any gate fails: inspect the failed job/log, fix the exact cause, push a new head, rerun, and continue.
 
 ## Pending Validation / Delivery
 
-### P0 — Automated validation and regression coverage
+### P0 — Exact-head CI
 
-Before PR closure:
+Required gate set includes:
 
-- run the repository’s required secret/security, Prisma/MySQL, typecheck, production-build, runtime/security, cross-chapter-isolation, and runtime-dependency gates;
-- validate chapter lifecycle authorization and audit behavior;
-- validate national user-status authorization, self-deactivation protection, and login blocking semantics;
-- validate announcement image upload behavior and scoped retrieval;
-- validate event image upload behavior and scoped retrieval;
-- confirm no cross-chapter content-media access.
+- committed high-risk secret scan;
+- security-header configuration;
+- dependency install;
+- Prisma validation/client generation/MySQL schema application;
+- baseline seed/bootstrap validation;
+- cross-chapter security fixtures;
+- strict TypeScript;
+- optimized production build;
+- runtime/security smoke with exact `r5 / admin-lifecycle-media-v1` identity;
+- cross-chapter isolation;
+- production runtime dependency audit.
 
-### P0 — PR / exact-head CI / merge
+### P0 — Merge
 
-- Open the PR only from the completed implementation/documentation branch head.
-- Merge only after every required PR gate passes on that exact head.
-- If any gate fails: inspect the failed job, fix the exact cause, push a new head, rerun, and merge only the exact passing head.
-- Do not treat a green run from an older branch head as approval for a newer commit.
+- Confirm PR head has not moved after the passing run.
+- Confirm no unresolved review threads that block closure.
+- Merge PR #16 only using the exact passing `expected_head_sha`.
 
-## Production Verification Status
+### P0 — Production verification after merge
 
-The current branch is **not yet in production**.
+Production closure requires:
 
-Separately, `main` currently points to `7269b9ab1bc3c60f015850e784f96923464bd2f5`, which carries release markers `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. The last recorded exact-generation Production Smoke run `33837001102` failed during the deployment wait because production remained healthy at HTTP 200 but continued serving `2026-09-04-r3 / 2026-09-04-member-mobile-v1` for all polling attempts. Re-check production before claiming the professional-UI generation is live.
+- `/api/health` exposes `release=2026-09-04-r5` and `deploymentGeneration=2026-09-04-admin-lifecycle-media-v1`;
+- `/api/health/ready` remains ready for database/auth/member-mobile schema;
+- public/PWA/security/origin verification in Production Smoke passes on that exact generation;
+- Chapter Admin assignment is verified through the actual National Admin UI without the reset error;
+- controlled chapter deactivate/reactivate is verified;
+- controlled user suspend/disable/reactivate is verified;
+- chapter-scoped announcement with image is visible to same-chapter member and denied cross-chapter;
+- chapter-scoped event with image is visible to same-chapter member and denied cross-chapter;
+- responsive member image presentation is verified on a representative mobile viewport.
 
-After this branch is merged, production verification must additionally cover:
-
-- exact new release/deployment generation is served;
-- Chapter Admin assignment from the actual National Admin UI without the reset error;
-- chapter status transition and reactivation;
-- user suspend/disable/reactivate behavior with a controlled test account;
-- Chapter Admin chapter-scoped announcement with image, visible to a member in the same chapter and not another chapter;
-- Chapter Admin chapter-scoped event with image, visible to a member in the same chapter and not another chapter;
-- responsive image display on representative mobile viewport;
-- health/readiness/security checks on the exact deployed release generation.
+Automated/public production checks may close from Production Smoke evidence. Authenticated admin/content workflows must not be claimed complete without controlled authenticated production evidence.
 
 ## External Gates Still Open
 
@@ -136,8 +153,9 @@ Unchanged external evidence items remain open until proven with real services/de
 
 This task is complete only when:
 
-1. all required regression and PSP CI gates pass on one exact head;
-2. that exact head is merged;
-3. production serves the new exact release generation;
-4. production functional checks for admin lifecycle, user lifecycle, chapter-scoped announcements/events, media access, and mobile rendering pass or are explicitly identified as requiring controlled authenticated/device evidence;
-5. `AGENTS.md`, `docs/STATUS.md`, and this tracker are reconciled with final PR/head/merge/run/production evidence.
+1. all required PSP CI gates pass on one exact final head;
+2. that exact head is merged using expected-head protection;
+3. production serves `2026-09-04-r5 / 2026-09-04-admin-lifecycle-media-v1`;
+4. automated production health/readiness/security smoke passes on that exact generation;
+5. authenticated production admin/content checks are completed or explicitly remain open for controlled credentials/device evidence;
+6. `AGENTS.md`, `docs/STATUS.md`, and this tracker are reconciled with final PR/head/merge/run/production evidence.
