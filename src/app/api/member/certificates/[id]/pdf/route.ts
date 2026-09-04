@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateMembershipCertificatePdf } from "@/lib/certificates/generator";
 import { getAuthContext, hasPermission } from "@/lib/auth/context";
+import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,20 @@ export async function GET(
     const manager = hasPermission(context, "certificates.manage", certificate.chapterId);
     if (!owner && !manager) return NextResponse.json({ message: "Access denied." }, { status: 403 });
 
+    let signatoryName = certificate.signatoryName;
+    let signatoryTitle = certificate.signatoryTitle;
+    if (!signatoryName || !signatoryTitle) {
+      const chairman = await getCurrentChapterChairman(certificate.chapterId);
+      if (!chairman) {
+        return NextResponse.json(
+          { message: "Chapter Chairman signatory is not configured for this certificate." },
+          { status: 409 },
+        );
+      }
+      signatoryName = chairman.name;
+      signatoryTitle = chairman.title;
+    }
+
     const memberName = [certificate.member.firstName, certificate.member.middleInitial, certificate.member.lastName]
       .filter(Boolean)
       .join(" ");
@@ -37,6 +52,8 @@ export async function GET(
       certificateNumber: certificate.certificateNumber,
       issuedAt: certificate.issuedAt,
       verificationToken: certificate.verificationToken,
+      signatoryName,
+      signatoryTitle,
     });
 
     return new Response(Buffer.from(pdf), {
