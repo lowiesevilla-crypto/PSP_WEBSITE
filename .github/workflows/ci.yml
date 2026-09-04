@@ -132,7 +132,8 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r2"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r3"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-member-mobile-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
@@ -145,6 +146,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /dev/null
           curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
           curl --fail --silent http://127.0.0.1:3000/register > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/install > /dev/null
 
           CROSS_SITE_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -X POST \
