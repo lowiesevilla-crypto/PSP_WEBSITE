@@ -1,10 +1,10 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 16:42 PHT  
+**Status timestamp:** 2026-09-04 17:51 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA:** `8d4cdec1ad315640bad4361f98ac121800dc165e`
+**Current main SHA:** `0b10f2bf98678c5cda74450d0c55389895338949`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Do not claim credential-dependent or device-dependent production behavior without direct evidence.
 
@@ -17,15 +17,15 @@ Current production identity:
 - release: `2026-09-04-r5`
 - deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 - Production Smoke #9 / run `33851027538`: **PASSED**
-- Production Smoke #10 / run `33854088783`: **PASSED** after the documentation closure merge
-- post-merge PSP CI #402 / run `33851027472`: **PASSED**
-- PR #18 exact-head PSP CI #407 / run `33853697584`: **PASSED**
-- PR #18 merge SHA: `8d4cdec1ad315640bad4361f98ac121800dc165e`
-- post-merge PSP CI #408 / run `33854088784`: **PASSED**
+- Production Smoke #10 / run `33854088783`: **PASSED**
+- Production Smoke #11 / run `33859569443`: **PASSED** after PR #19 merge
+- PR #19 exact-head PSP CI #409 / run `33855025604`: **PASSED**
+- PR #19 merge SHA: `0b10f2bf98678c5cda74450d0c55389895338949`
+- post-merge PSP CI #410 / run `33859569625`: attempt 1 **FAILED CLOSED** because both bounded npm-audit calls timed out without trusted vulnerability evidence; attempt 2 on the same merge SHA **PASSED** the complete gate set.
 
-Production Smoke #10 again passed exact-generation health, readiness, public/PWA, security-header, origin-control, and public verification-route checks on current `main`. PSP CI #408 subsequently completed successfully across the full gate set.
+Production Smoke #11 again passed exact-generation health, readiness, public/PWA, security-header, origin-control, and public verification-route checks. The first PSP CI #410 attempt did not expose an application regression: every application/build/runtime/isolation gate had passed and the only failure was the intentionally fail-closed dependency-audit evidence step. The exact failed job was inspected, then rerun without bypassing the gate; attempt 2 obtained valid audit evidence and passed.
 
-Production readiness observed:
+Production readiness previously observed:
 
 - `database=ok`
 - `authSchema=ok`
@@ -39,8 +39,6 @@ Production readiness observed:
 Therefore the automated/public production deployment gate for the current implementation is **CLOSED / PASSED**. Linked-account online payments remain intentionally fail-closed because PayMongo Platforms configuration and TEST settlement evidence are still external prerequisites.
 
 Controlled authenticated workflows introduced or changed by PR #16 are still an evidence gate. They must not be marked production-proven until executed with controlled production credentials/test records.
-
-A separate CI reliability/security hardening task is now active because successful CI evidence exposed that `npm audit` can return an npm-registry error payload after several minutes and the existing enforcement script can mistakenly treat missing vulnerability data as a clean audit. This does not invalidate the already-passed application/runtime gates, but the dependency-audit gate must be made fail-closed and bounded before further release work.
 
 ## Completed — P0 Member Mobile / PWA + PayMongo Architecture
 
@@ -112,9 +110,31 @@ PR #18: `docs: close r5 public production proof`
 - Production Smoke #10 / run `33854088783`: **PASSED**
 - post-merge PSP CI #408 / run `33854088784`: **PASSED**
 
+## Completed — PR #19 Runtime Dependency Audit Gate Hardening
+
+PR #19: `ci: fail closed on invalid runtime audit evidence`
+
+- exact passing head: `6e8d530f4449c3f335be7f9562eca40bbf80008e`
+- PSP CI #409 / run `33855025604`: **PASSED**
+- merge SHA: `0b10f2bf98678c5cda74450d0c55389895338949`
+- Production Smoke #11 / run `33859569443`: **PASSED**
+- post-merge PSP CI #410 / run `33859569625`: attempt 1 failed only at the hardened evidence-generation gate because both 90-second npm-audit attempts timed out; exact logs confirmed the application/build/runtime/isolation gates were green; attempt 2 on the same merge SHA completed **SUCCESS** across all gates, including valid audit evidence and runtime severity enforcement.
+
+Delivered controls:
+
+- malformed JSON and npm operational-error payloads are rejected;
+- npm audit report version, vulnerability object, and vulnerability metadata are required;
+- audit generation is bounded and retried once;
+- missing/untrusted audit evidence fails closed;
+- valid evidence remains subject to the narrow Prisma development-tool allow-list and HIGH/CRITICAL runtime blocking policy.
+
+This closes the false-green dependency-audit defect without weakening release security. npm currently reports its Security Audit component operational, but runner-level or regional transport unavailability can still occur; such a condition must be handled as an external CI security-gate failure and rerun, never as an automatic pass.
+
+Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
+
 ## Completed — Automated/Public r5 Production Verification
 
-Production Smoke #9 / run `33851027538` and Production Smoke #10 / run `33854088783`: **PASSED**.
+Production Smoke #9 / run `33851027538`, #10 / run `33854088783`, and #11 / run `33859569443`: **PASSED**.
 
 Observed production evidence:
 
@@ -128,35 +148,11 @@ Observed production evidence:
 - Digital Member ID verification route: no application 500;
 - certificate verification route: no application 500.
 
-The prior Production Smoke #8 failures are retained as historical deployment/reachability evidence only. They are superseded for current production proof by successful Production Smokes #9 and #10.
-
-## Active — Runtime Dependency Audit Gate Hardening
-
-Branch: `ci/fail-closed-runtime-audit-2026-09-04`.
-
-Exact defect discovered from successful post-merge PSP CI evidence:
-
-- `npm audit --omit=dev --json` waited roughly seven minutes while the npm audit endpoint returned HTTP 503;
-- the workflow used `|| true`, so transport/registry failure did not fail the generation step;
-- `scripts/check-runtime-audit.mjs` defaulted a missing `vulnerabilities` object to `{}`, so an npm error payload could be reported as `Runtime dependency audit gate passed.`
-
-Hardening implemented on the branch:
-
-- validate JSON parseability and npm audit report schema before vulnerability enforcement;
-- reject npm `error` payloads, missing report version, missing `vulnerabilities`, or missing vulnerability metadata;
-- add `--validate-only` mode for evidence validation;
-- bound each npm audit attempt to 90 seconds;
-- allow two bounded attempts to tolerate a transient registry interruption;
-- fail closed if trusted vulnerability evidence cannot be obtained;
-- retain the existing narrow Prisma development-tool allow-list and HIGH/CRITICAL runtime enforcement.
-
-This task is not merge-eligible until its final exact head passes the complete PSP CI gate set and review state is clear.
-
-Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
+The prior Production Smoke #8 failures are retained as historical deployment/reachability evidence only. They are superseded for current production proof by successful Production Smokes #9, #10, and #11.
 
 ## Pending — Controlled Authenticated Production Acceptance
 
-These checks require controlled production credentials and safe test records. They are the next implementation-acceptance gate after CI hardening:
+These checks require controlled production credentials and safe test records. They are the next implementation-acceptance gate:
 
 - Chapter Administrator assignment through the actual National Admin UI without the former reset error;
 - controlled chapter deactivate/reactivate;
@@ -165,7 +161,13 @@ These checks require controlled production credentials and safe test records. Th
 - chapter-scoped event with image visible to a same-chapter member and denied cross-chapter;
 - representative mobile rendering of the authenticated Member/Admin flows.
 
-Public smoke proves that the exact implementation generation is deployed and its public/runtime/security surface is healthy. It does not prove those authenticated state-changing workflows.
+Public smoke proves that the exact implementation generation is deployed and its public/runtime/security surface is healthy. It does not prove those authenticated state-changing workflows. No safe production credentials/test records are available through the current automation/tooling context, so these checks must remain open rather than be simulated against live data.
+
+## Next Non-Credential Internal Quality Task
+
+Current production builds also emit two Turbopack whole-project tracing warnings from `src/lib/storage/private-media.ts` around dynamic storage-root resolution and private-file reads. The warnings do not currently fail build/runtime smoke, but Turbopack reports that they can unnecessarily trace the entire project into server output and increase deployment size/risk.
+
+The next unblocked engineering task is to remove those build-tracing warnings without weakening path traversal checks, private-media access control, file validation, or runtime storage semantics. Completion requires an exact-head CI build showing the warning is removed or otherwise deliberately resolved.
 
 ## External / Credential-Dependent Gates Still Open
 
