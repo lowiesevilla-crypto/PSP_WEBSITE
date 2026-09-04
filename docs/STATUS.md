@@ -1,23 +1,26 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-05 07:20 PHT  
+**Status timestamp:** 2026-09-05 07:38 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA before r10:** `78b58a4437cb92c64f131f252dbace2c73fa3df7`  
-**Accepted production-code baseline SHA:** `b14bb1b90eb38a703c233724ab77803f5838b17e`
+**Current main SHA:** `642f430194537e8be144f097f226e20565c2f251`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Never claim credential-dependent, device-dependent, payment, email-inbox, backup or production state-changing behavior without direct evidence.
 
 ## Executive Status
 
-The currently proven public production generation remains:
+PR #30 is merged and the exact **r10** application runtime is live, but r10 is **NOT accepted as complete production proof** because production served stale `/install` HTML after the new health/readiness generation became visible.
 
-- release: `2026-09-04-r9`
-- deployment generation: `2026-09-04-chapter-logo-origin-fix-v1`
-- production-code baseline merge SHA: `b14bb1b90eb38a703c233724ab77803f5838b17e`
-- post-PR-#27 PSP CI run `33884003915`: **PASSED**
-- Production Smoke run `33884003888`: **PASSED**
+Current observed production runtime identity:
+
+- release: `2026-09-05-r10`
+- deployment generation: `2026-09-05-simple-pwa-install-v1`
+- PR #30 exact passing head: `da6902fd51161473a250a984ec1a2fa69ec19951`
+- PSP CI #497 / run `33929737781`: **PASSED**
+- PR #30 merge SHA: `642f430194537e8be144f097f226e20565c2f251`
+- post-merge PSP CI #498 / run `33929909162`: **PASSED**
+- Production Smoke run `33929909263`, attempts 1 and 2: **FAILED** only at the new `/install` content assertion
 - database: **ok**
 - auth schema: **ok**
 - baseline: **ok**
@@ -27,9 +30,18 @@ The currently proven public production generation remains:
 - PayMongo Platforms configuration: **not configured**
 - PayMongo live gate: **disabled**
 
-The r9 public smoke passed exact release identity, readiness, public/PWA assets, Chapter-logo fallback, production security headers, canonical/cross-site login behavior and public Digital Member ID / Certificate verification-route availability.
+Both failed Production Smoke attempts reached exact r10 health/readiness successfully, then received HTTP 200 from `/install` with the previous r9 installer HTML (`PSP Mobile App`, `Android / Chrome / Edge`, `No app-store download required`) instead of the r10 marker/action. Exact retry reproduced the same result. This is deterministic stale public-page/cache behavior, not evidence of a database, authentication or application-startup regression.
 
-A new **r10 simplified PWA-only installer release is ACTIVE / NOT YET MERGED**. It replaces the abandoned native-APK experiment and must pass exact-head PSP CI, exact-head merge and exact r10 Production Smoke before being called production-proven.
+The active corrective release is **r11**:
+
+- branch: `fix/pwa-install-cache-refresh-2026-09-05`
+- target release: `2026-09-05-r11`
+- target generation: `2026-09-05-pwa-install-cache-fix-v1`
+- `/install` is forced dynamic with revalidation disabled;
+- CI and Production Smoke require the simplified installer marker and a cache-control response containing `no-store` or `no-cache`;
+- all existing readiness, security, origin-control, isolation and runtime dependency-audit gates remain unchanged.
+
+r11 is **NOT MERGE-ELIGIBLE / NOT PRODUCTION-PROVEN** until the final exact corrective PR head passes all required CI, is merged with exact-head protection, and exact r11 Production Smoke passes every gate.
 
 ## Completed Delivery History
 
@@ -61,10 +73,6 @@ Delivered Chapter Administrator assignment reset correction, Chapter/user lifecy
 
 ### PR #19 / #20 — Runtime Dependency Audit + Evidence Reconciliation
 
-- PR #19 exact head `6e8d530f4449c3f335be7f9562eca40bbf80008e`
-- PSP CI #409: **PASSED**
-- merge `0b10f2bf98678c5cda74450d0c55389895338949`
-
 Runtime vulnerability evidence remains fail-closed when trusted audit data cannot be obtained. PR #20 reconciled retry evidence while retaining the same security requirement.
 
 ### PR #21 — Private-Media Turbopack Build-Tracing Correction
@@ -73,8 +81,6 @@ Runtime vulnerability evidence remains fail-closed when trusted audit data canno
 - PSP CI #428 / run `33863646214`: **PASSED**
 - merge `6fac2b58b9bc94d55958680ce44f90613d1c4fde`
 - post-merge PSP CI #429: **PASSED**
-
-Private runtime storage no longer causes whole-project build tracing while path containment, image validation, RBAC and Chapter isolation remain intact.
 
 ### PR #22 — Member Delete / Archive + Resend Invitation
 
@@ -93,17 +99,15 @@ Member Delete is non-destructive archival. Resend Invitation is Chapter-scoped, 
 - merge `c643791273ba4a233a530526cf9a34e9c333b218`
 - post-merge PSP CI #438 / run `33877018203`: **PASSED**
 - Production Smoke #15 / run `33877018268`: **PASSED**
-- exact identity `2026-09-04-r7 / 2026-09-04-login-ux-v1`
 
 ### PR #24 — PWA Install + Shared PSP/Chapter Email Branding
 
 - exact head `30efed5f0f80a8e943ee9be0f89ae2cbbe98bcf2`
 - PSP CI #453 / run `33880569148`: **PASSED**
 - merge `aee0a73b694d9e84fec73129e1951fb214bbdb68`
-- post-merge PSP CI run `33880808705`: **PASSED**
-- r8 identity became live and readiness was green
+- post-merge PSP CI `33880808705`: **PASSED**
 
-Delivered shared `beforeinstallprompt` ownership, stable manifest identity, responsive PSP/Chapter email shell, Chapter-aware member emails and Chapter logo management. r8 was not final production proof because the Chapter-logo fallback exposed a reverse-proxy origin defect.
+Delivered shared `beforeinstallprompt` ownership, stable manifest identity, responsive PSP/Chapter email shell, Chapter-aware member emails and Chapter-logo management.
 
 ### PR #25 / #26 / #27 — r8 Diagnosis and r9 Production Closure
 
@@ -113,109 +117,100 @@ Delivered shared `beforeinstallprompt` ownership, stable manifest identity, resp
 - post-PR-#27 PSP CI run `33884003915`: **PASSED**
 - exact-r9 Production Smoke run `33884003888`: **PASSED every gate**
 
-The Chapter-logo fallback now uses the configured canonical PSP origin. Admin approval email result visibility was also added: approval stays committed if SMTP fails, the Admin sees sent/failed state, and failure is audit logged.
+The Chapter-logo fallback uses the configured canonical PSP origin. Admin approval email result visibility reports sent/failed state, preserves approved membership when SMTP fails, and audit logs failure.
 
-### PR #28 — r9 Evidence Documentation Reconciliation
+### PR #28 — r9 Documentation Reconciliation
 
-- merged to main; current main SHA before r10 work: `78b58a4437cb92c64f131f252dbace2c73fa3df7`
-- documentation-only reconciliation; r9 production-code proof remains based on PR #27 / `b14bb1b90eb38a703c233724ab77803f5838b17e` and Production Smoke `33884003888`.
+- merged main SHA after documentation closure: `78b58a4437cb92c64f131f252dbace2c73fa3df7`
 
-## Closed Unmerged — PR #29 Native Android Installer Experiment
+### PR #30 — Simplified Cross-Platform PWA Installation
 
-PR #29 was **closed without merge** by explicit product direction.
+Product direction is PWA-only. PR #29's native Android/APK experiment was closed without merge.
 
-- no APK/TWA/native Android distribution changes from PR #29 are on `main`;
-- PSP does not currently require APK, IPA, Play Store or App Store distribution;
-- canonical mobile distribution is the existing cross-platform PWA.
+PR #30 delivered:
 
-This closure prevents unnecessary signing/store complexity and keeps one PSP web-app identity.
+- simplified `/install` experience;
+- Android `beforeinstallprompt` support and browser-menu fallback;
+- iPhone/iPad Safari Add-to-Home-Screen flow;
+- in-app browser detection and guidance;
+- standalone installed-state handling;
+- stable manifest `id: "/"` retained;
+- no APK/IPA/App Store distribution language;
+- exact r10 release marker and installer content assertions.
 
-## Active — r10 Simple Cross-Platform PWA Installer
+Evidence:
 
-Branch: `fix/simple-cross-platform-pwa-install-2026-09-05`
+- exact passing head `da6902fd51161473a250a984ec1a2fa69ec19951`
+- PSP CI #497 / run `33929737781`: **PASSED**
+- no unresolved review threads
+- merge `642f430194537e8be144f097f226e20565c2f251`
+- post-merge PSP CI #498 / run `33929909162`: **PASSED**
+- exact r10 health/readiness observed live
+- Production Smoke `33929909263`: attempts 1 and 2 **FAILED** at `/install` because stale r9 HTML remained publicly served
+
+PR #30 is merged, but r10 production closure is intentionally **OPEN** because exact runtime identity alone did not prove release-consistent installer HTML.
+
+## Active — r11 PWA Installer Cache/Freshness Correction
+
+Branch: `fix/pwa-install-cache-refresh-2026-09-05`
 
 Target identity:
 
-- release `2026-09-05-r10`
-- generation `2026-09-05-simple-pwa-install-v1`
+- `2026-09-05-r11`
+- `2026-09-05-pwa-install-cache-fix-v1`
 
-Implemented scope:
+Changes:
 
-- simplified `/install` page focused on one action: install/add PSP to the phone;
-- Android detects and uses `beforeinstallprompt` when the browser exposes it;
-- Android fallback is browser menu → **Install app / Add to Home screen**;
-- iPhone/iPad guidance is Safari → **Share → Add to Home Screen → Add**;
-- iPad desktop-mode user-agent handling included;
-- Messenger/Facebook/Instagram and other common in-app browsers are detected because they can suppress PWA install capability;
-- in-app browser users are directed to Chrome/Samsung Internet on Android or Safari on iOS;
-- standalone mode reports PSP as installed and offers **Open PSP**;
-- stable manifest `id: "/"` is preserved so releases do not intentionally create multiple PSP identities;
-- same PSP account/backend is used from every installed device;
-- no APK/IPA/App Store language remains in the canonical member installation experience;
-- CI and Production Smoke are being advanced to assert exact r10 identity and the `simple-cross-platform-pwa-v1` installer marker.
+- `/install` uses `dynamic = "force-dynamic"`;
+- `/install` uses `revalidate = 0`;
+- simplified PWA marker remains `simple-cross-platform-pwa-v1`;
+- CI requires `/install` to contain the new installer actions/marker and return non-stale cache-control;
+- Production Smoke verifies the same behavior after exact r11 deployment;
+- no security, RBAC, finance, membership, email or PayMongo behavior is weakened or altered.
 
-**Current gate:** NOT MERGE-ELIGIBLE until the newest exact branch head passes complete PSP CI and has no unresolved review threads. After merge, exact r10 Production Smoke must pass before production closure.
+If CI shows that framework-level dynamic/no-revalidate output does not produce adequate cache-control, fix the exact response behavior (for example with an explicit route/header policy) rather than weakening the production freshness assertion.
 
 ## Admin Approval Email — Current Verified Behavior
 
-The approval path has been checked end-to-end at code/CI-contract level:
+The approval path is verified at code/CI-contract level:
 
 1. authorized Chapter/National Admin approves a pending application;
 2. User/Member, MembershipHistory, MEMBER role, Membership Number and Digital Member ID are created transactionally;
-3. the application becomes `APPROVED`;
-4. the server determines whether activation is required;
-5. it attempts the branded welcome/activation email using the applicant email, Chapter name/logo/fallback, Membership Number, secure 24-hour activation action, `/install` action and current Chapter Chairman sign-off;
-6. the API returns `welcomeDelivery: "sent" | "failed"` and `activationRequired` to the Admin UI;
-7. the Admin UI displays the actual delivery result;
-8. if delivery fails, approval remains valid, failure is audit logged and Resend Invitation is the recovery workflow.
+3. application becomes `APPROVED`;
+4. server determines activation requirement;
+5. branded welcome/activation email is attempted using applicant email, Chapter name/logo/fallback, Membership Number, secure 24-hour activation action, `/install` action and current Chapter Chairman sign-off;
+6. API returns `welcomeDelivery: "sent" | "failed"` and `activationRequired`;
+7. Admin UI displays actual delivery result;
+8. delivery failure does not roll back approval, is audit logged, and Resend Invitation is the recovery workflow.
 
-**Production evidence:** `/api/health/ready` reports SMTP `configured`.  
-**Not yet proven:** a real controlled recipient inbox has not yet been observed receiving/rendering this approval email. Configuration plus CI/source evidence is not treated as inbox-delivery proof.
+**Production evidence:** readiness reports SMTP `configured`.  
+**Still external:** actual inbox receipt/rendering after a controlled production approval has not yet been observed.
 
-## Pending — Controlled Authenticated Production Acceptance
+## Pending — Controlled / External Acceptance
 
-Public smoke proves release/runtime/public-security surfaces. The following still require safe production credentials, controlled records, representative devices or recipient access:
+These still require safe credentials, controlled records, representative devices or external provider access:
 
-- controlled Chapter Administrator assignment through National Admin UI;
-- controlled Chapter deactivate/reactivate;
-- controlled user suspend/disable/reactivate;
-- same-Chapter announcement/event image access and live cross-Chapter denial;
-- authenticated mobile Member/Admin rendering;
-- actual branded welcome/activation email receipt after controlled Admin approval;
-- Chapter Admin and National Admin Resend Invitation with actual recipient evidence;
-- controlled Chapter Admin / National Admin member archive/delete;
+- controlled National/Chapter Admin lifecycle actions;
+- controlled member invitation delivery and archive/delete;
 - controlled Chapter logo upload/removal in production;
+- real branded welcome/activation email receipt and rendering;
+- real application-status and password-reset email rendering;
 - physical Android PWA installation acceptance;
 - physical iPhone/iPad Add-to-Home-Screen acceptance;
-- real passkey registration/authentication;
-- Digital Member ID QR validation on a second device;
-- Membership Certificate QR validation on a second device.
+- real passkey device acceptance;
+- second-device Digital Member ID QR validation;
+- second-device Certificate QR validation;
+- PayMongo Platforms/Linked Accounts TEST split-payment E2E;
+- database backup/restore drill;
+- credential rotation/bootstrap cleanup where required.
 
-Do not perform destructive-looking or identity-changing tests against real production members without an explicitly controlled test record.
-
-## Pending — Applicant Onboarding Improvements
-
-Still identified but not implemented:
+Applicant onboarding improvements still identified but not yet implemented:
 
 - registration-submission confirmation email;
 - public applicant application-status checker;
-- applicant-facing resend-activation self-service independent of an administrator.
+- public applicant resend-activation self-service.
 
-Administrator Resend Invitation solves the approved-member support case but does not provide public applicant self-service before approval.
-
-## External / Credential-Dependent Gates Still Open
-
-- real branded Chairman welcome/activation email receipt after controlled approval;
-- PayMongo Platforms / Linked Accounts capability enabled for PSP;
-- PSP parent platform account confirmation;
-- at least one Chapter child `org_*` linked in TEST mode;
-- approved platform convenience fee configured;
-- PayMongo TEST split settlement for DUES / CONTRIBUTION / OTHER and QR Ph / GCash / Maya;
-- valid/invalid/duplicate child webhook E2E evidence;
-- database backup/restore drill;
-- security cleanup/credential rotation/bootstrap cleanup where required.
-
-Current readiness evidence explicitly shows PayMongo platform configuration `not_configured` and live payments `disabled`.
+Current readiness evidence keeps PayMongo platform configuration `not_configured` and live payments `disabled`.
 
 ## Closure Rules
 
