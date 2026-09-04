@@ -34,7 +34,7 @@ export async function POST(
           passwordHash: true,
         },
       },
-      chapter: { select: { id: true, name: true, email: true } },
+      chapter: { select: { id: true, name: true, email: true, logoUrl: true } },
     },
   });
 
