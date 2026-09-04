@@ -350,54 +350,60 @@ PR #13 is **MERGED** and the production member-mobile schema/runtime is verified
 - exact passing head: `bb2cd5dc0bc261ead7628b52ede46f91da87b2c5`
 - PSP CI #349: **PASSED**
 - merge SHA: `1e3a37fb9a01226b776932e0caeff9a70c124e0f`
-- production release observed: `2026-09-04-r3`
-- production generation observed: `2026-09-04-member-mobile-v1`
-- production readiness observed: `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`
-- production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`; linked-account payments therefore remain intentionally fail-closed until external configuration and TEST signoff are complete.
+- production readiness includes `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`.
 
 ### Professional responsive UI/UX release
 
 PR #14 is **MERGED** after exact-head CI.
 
-- PR #14: `feat: professional responsive UI for member and administration portals`
 - exact passing head: `b45165d5f845edacf3c53caafd6a347b08452fdf`
 - PSP CI #351: **PASSED**
-- no unresolved review threads
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
-- scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
+- National Admin, Chapter Admin and Member responsive UI is included in the current proven production generation.
 
-The professional-UI release-proof change reached `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` with `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. That generation was subsequently observed by the first PR #16 post-merge Production Smoke attempt, so r4 is now historical production evidence rather than the current target.
+### Admin lifecycle + announcement/event media — DEPLOYED; AUTOMATED PUBLIC PROOF COMPLETE
 
-### PR #16 Admin lifecycle + announcement/event media — MERGED; PRODUCTION PROOF OPEN
+PR #16:
 
-- PR #16: `fix: admin lifecycle and chapter content media`
 - exact passing head: `971c9f7551f402b0c503c560e6fc292954c7b47f`
 - PSP CI #394 / run `33846881681`: **PASSED**
-- unresolved review threads: **none**
 - merge SHA: `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`
 - post-merge PSP CI #395 / run `33847400145`: **PASSED**
-- target release: `2026-09-04-r5`
-- target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 
-Merged scope includes:
+PR #17 Production Smoke reliability/status follow-up:
 
-- Chapter Administrator assignment async form-reset correction;
-- National Admin chapter lifecycle controls (`ACTIVE`, `INACTIVE`, `SUSPENDED`, `ARCHIVED`);
-- National Admin user lifecycle controls (`ACTIVE`, `INVITED`, `SUSPENDED`, `DISABLED`) with audit logging and self-deactivation protection;
-- secure private announcement image upload and scoped member/admin delivery;
-- secure private event image upload and scoped member/admin delivery;
-- responsive announcement/event image presentation for members;
-- non-destructive chapter/user status changes and server-enforced chapter isolation.
+- exact passing head: `44b8a711f773cc546993fb9b8e981c5e55edb81d`
+- PSP CI #401 / run `33850830369`: **PASSED**
+- merge SHA: `2a1e9a1d40d4b92e407068626744f101b9ff2cd0`
+- post-merge PSP CI #402 / run `33851027472`: **PASSED**
 
-Production Smoke #8 / run `33847400143` has **not closed production deployment proof**:
+Current production proof:
 
-- attempt 1 reached production with HTTP 200 for all 40 polls but still observed `2026-09-04-r4 / 2026-09-04-professional-ui-v1`, so the merged r5 generation had not deployed within the window;
-- attempt 2 was immediately retried, but every completed poll returned network-level HTTP `000` due 10-second connection timeouts; the 15-minute job limit cancelled the job during poll 36 before the loop could produce its normal diagnostic failure;
-- therefore production cannot yet be claimed to serve `r5 / admin-lifecycle-media-v1`, and authenticated PR #16 workflows are also not yet production-proven.
+- Production Smoke #9 / run `33851027538`: **PASSED**
+- exact production release: `2026-09-04-r5`
+- exact deployment generation: `2026-09-04-admin-lifecycle-media-v1`
+- `/api/health/ready`: ready
+- database/auth/baseline/member-mobile/auth-config: green
+- public/PWA routes: green
+- required security headers: green
+- canonical-origin invalid login: expected 401
+- cross-site login: rejected 403
+- member/certificate public verification routes: no application 500
 
-Follow-up branch `docs/reconcile-pr16-prod-status-2026-09-04` fixes the Production Smoke reliability defect by extending the job timeout to 20 minutes and explicitly distinguishing all-network-failure reachability from a healthy-but-stale generation. This operational/documentation branch must itself pass exact-head CI and be merged only on that passing head; its merge will trigger another exact production smoke/deployment observation without changing the r5 application release identity.
+Merged/deployed scope includes the Chapter Administrator form-reset correction, National Admin chapter lifecycle controls, National Admin user lifecycle controls, secure private announcement/event image handling, authenticated/scoped media delivery, cross-chapter denial enforcement, and responsive member image presentation.
 
-Authenticated production checks remain open until controlled credentials/evidence are available: Chapter Admin assignment, chapter deactivate/reactivate, user suspend/disable/reactivate, same-chapter announcement/event image access with cross-chapter denial, and representative mobile rendering.
+Production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`. Linked-account payments remain intentionally fail-closed until PayMongo Platforms configuration and TEST settlement signoff are complete.
+
+### Next acceptance gate — controlled authenticated production workflows
+
+The exact r5 implementation is live and its automated/public surface is proven. These state-changing/scoped flows still require controlled production credentials and safe test records before they may be called production-proven:
+
+- Chapter Administrator assignment through the actual National Admin UI;
+- controlled chapter deactivate/reactivate;
+- controlled user suspend/disable/reactivate;
+- same-chapter announcement image access with cross-chapter denial;
+- same-chapter event image access with cross-chapter denial;
+- representative authenticated mobile Member/Admin rendering.
 
 External gates still open and requiring real evidence:
 
@@ -407,6 +413,7 @@ External gates still open and requiring real evidence:
 - Digital Member ID second-device QR validation;
 - certificate second-device QR validation;
 - PayMongo Platforms capability/linkage, approved fee configuration and TEST split-settlement E2E;
+- valid/invalid/duplicate child webhook E2E;
 - database backup/restore drill;
 - security rotation/bootstrap cleanup where earlier values were exposed.
 
