@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { FinanceManager } from "@/components/admin/finance-manager";
+import { ChapterPaymentConfig } from "@/components/admin/chapter-payment-config";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
+import { SPLIT_PAYMENT_AUDIT_ACTION, splitAmountsFromMetadata } from "@/lib/paymongo/split-metadata";
 import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -56,13 +58,39 @@ export default async function AdminFinancePage() {
     }),
   ]);
 
+  const splitAudits = payments.length
+    ? await prisma.auditLog.findMany({
+        where: {
+          action: SPLIT_PAYMENT_AUDIT_ACTION,
+          entityType: "Payment",
+          entityId: { in: payments.map((payment) => payment.id) },
+        },
+        orderBy: { createdAt: "desc" },
+        select: { entityId: true, metadataJson: true },
+      })
+    : [];
+  const splitByPaymentId = new Map<string, unknown>();
+  for (const audit of splitAudits) {
+    if (audit.entityId && !splitByPaymentId.has(audit.entityId)) splitByPaymentId.set(audit.entityId, audit.metadataJson);
+  }
+
   const totals = payments.reduce((acc, payment) => {
-    if (payment.status === "PAID") acc.paid = acc.paid.plus(payment.amount);
-    if (payment.status === "PENDING" || payment.status === "PROCESSING") acc.pending = acc.pending.plus(payment.amount);
-    if (payment.status === "FAILED") acc.failed = acc.failed.plus(payment.amount);
-    if (payment.status === "REFUNDED" || payment.status === "PARTIALLY_REFUNDED") acc.refunded = acc.refunded.plus(payment.amount);
+    const split = splitAmountsFromMetadata(splitByPaymentId.get(payment.id), payment.amount);
+    if (payment.status === "PAID") {
+      acc.chapterPaid = acc.chapterPaid.plus(split.chapterAmount);
+      acc.platformFees = acc.platformFees.plus(split.platformFee);
+      acc.grossPaid = acc.grossPaid.plus(split.totalAmount);
+    }
+    if (payment.status === "PENDING" || payment.status === "PROCESSING") acc.pending = acc.pending.plus(split.totalAmount);
+    if (payment.status === "FAILED") acc.failed = acc.failed.plus(split.totalAmount);
     return acc;
-  }, { paid: new Prisma.Decimal(0), pending: new Prisma.Decimal(0), failed: new Prisma.Decimal(0), refunded: new Prisma.Decimal(0) });
+  }, {
+    chapterPaid: new Prisma.Decimal(0),
+    platformFees: new Prisma.Decimal(0),
+    grossPaid: new Prisma.Decimal(0),
+    pending: new Prisma.Decimal(0),
+    failed: new Prisma.Decimal(0),
+  });
 
   const balances = new Map<string, { member: typeof ledger[number]["member"]; balance: Prisma.Decimal }>();
   for (const entry of ledger) {
@@ -70,38 +98,51 @@ export default async function AdminFinancePage() {
     current.balance = current.balance.plus(ledgerSignedAmount(entry));
     balances.set(entry.memberId, current);
   }
-  const outstanding = Array.from(balances.values()).filter((item) => item.balance.greaterThan(0)).sort((a, b) => b.balance.comparedTo(a.balance)).slice(0, 100);
+  const outstanding = Array.from(balances.values())
+    .filter((item) => item.balance.greaterThan(0))
+    .sort((a, b) => b.balance.comparedTo(a.balance))
+    .slice(0, 100);
 
   return (
     <main className="app-shell">
       <div className="container app-main">
-        <div className="app-greeting"><p>Finance</p><h1>Billing & Reconciliation</h1></div>
+        <div className="app-greeting"><p>Finance</p><h1>Billing, Split Settlement & Reconciliation</h1></div>
 
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14, marginBottom: 18 }}>
-          <Metric label="Confirmed Collections" value={php(totals.paid)} />
-          <Metric label="Pending Payments" value={php(totals.pending)} />
-          <Metric label="Failed Payments" value={php(totals.failed)} />
-          <Metric label="Refunded" value={php(totals.refunded)} />
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginBottom: 18 }}>
+          <Metric label="Chapter Collections" value={php(totals.chapterPaid)} />
+          <Metric label="Platform Convenience Fees" value={php(totals.platformFees)} />
+          <Metric label="Gross Paid" value={php(totals.grossPaid)} />
+          <Metric label="Pending Gross" value={php(totals.pending)} />
+          <Metric label="Failed Gross" value={php(totals.failed)} />
         </section>
 
-        {manageableChapters.length > 0 && <FinanceManager chapters={manageableChapters} assessmentTypes={assessmentTypes} />}
+        {manageableChapters.length > 0 ? <ChapterPaymentConfig chapters={manageableChapters} /> : null}
+        {manageableChapters.length > 0 ? <FinanceManager chapters={manageableChapters} assessmentTypes={assessmentTypes} /> : null}
 
         <section className="app-panel" style={{ marginTop: 18, overflowX: "auto" }}>
-          <h2>PayMongo Reconciliation</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 850 }}>
-            <thead><tr><th align="left">Date</th><th align="left">Member</th><th align="left">Chapter</th><th align="left">Assessment</th><th align="right">Amount</th><th align="left">Status</th><th align="left">Reference</th><th align="left">Receipt</th></tr></thead>
-            <tbody>{payments.map((payment) => (
-              <tr key={payment.id} style={{ borderTop: "1px solid #eee5d4" }}>
-                <td>{payment.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</td>
-                <td>{payment.member.membershipNo} · {payment.member.firstName} {payment.member.lastName}</td>
-                <td>{payment.chapter.name}</td>
-                <td>{payment.assessment?.title ?? "PSP Payment"}</td>
-                <td align="right">{php(payment.amount)}</td>
-                <td>{payment.status}</td>
-                <td><small>{payment.internalReference}<br />{payment.gatewayReference ?? "—"}</small></td>
-                <td>{payment.receipt ? <a href={`/api/payments/receipts/${payment.receipt.id}/pdf`}>{payment.receipt.receiptNumber}</a> : "—"}</td>
-              </tr>
-            ))}</tbody>
+          <h2>PayMongo Split Reconciliation</h2>
+          <p style={{ color: "#6b665c", lineHeight: 1.55 }}>
+            Chapter amount is the value credited to the member ledger and chapter collections. Platform fee is separately settled to the PSP platform PayMongo account.
+          </p>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
+            <thead><tr><th align="left">Date</th><th align="left">Member</th><th align="left">Chapter</th><th align="left">Type</th><th align="right">Chapter</th><th align="right">Platform Fee</th><th align="right">Total</th><th align="left">Status</th><th align="left">Reference</th><th align="left">Receipt</th></tr></thead>
+            <tbody>{payments.map((payment) => {
+              const split = splitAmountsFromMetadata(splitByPaymentId.get(payment.id), payment.amount);
+              return (
+                <tr key={payment.id} style={{ borderTop: "1px solid #eee5d4" }}>
+                  <td>{payment.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</td>
+                  <td>{payment.member.membershipNo} · {payment.member.firstName} {payment.member.lastName}</td>
+                  <td>{payment.chapter.name}</td>
+                  <td>{payment.category}<br/><small>{payment.assessment?.title ?? payment.description ?? "PSP Payment"}</small></td>
+                  <td align="right">{php(split.chapterAmount)}</td>
+                  <td align="right">{php(split.platformFee)}</td>
+                  <td align="right"><strong>{php(split.totalAmount)}</strong></td>
+                  <td>{payment.status}</td>
+                  <td><small>{payment.internalReference}<br />{payment.gatewayReference ?? "—"}<br/>{split.paymentMethod?.toUpperCase() ?? "PAYMONGO"}</small></td>
+                  <td>{payment.receipt ? <a href={`/api/payments/receipts/${payment.receipt.id}/pdf`}>{payment.receipt.receiptNumber}</a> : "—"}</td>
+                </tr>
+              );
+            })}</tbody>
           </table>
         </section>
 
@@ -141,5 +182,5 @@ export default async function AdminFinancePage() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="app-panel"><small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small><strong style={{ display: "block", marginTop: 8, fontSize: "1.5rem" }}>{value}</strong></div>;
+  return <div className="app-panel"><small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small><strong style={{ display: "block", marginTop: 8, fontSize: "1.35rem" }}>{value}</strong></div>;
 }
