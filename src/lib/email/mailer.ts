@@ -9,6 +9,7 @@ export class EmailConfigurationError extends Error {
 }
 
 export type EmailBrand = {
+  chapterId?: string | null;
   chapterName?: string | null;
   chapterLogoUrl?: string | null;
 };
@@ -39,10 +40,14 @@ function smtpConfig() {
   };
 }
 
-function resolveEmailLogoUrl(chapterLogoUrl?: string | null) {
+function resolveEmailLogoUrl(brand?: EmailBrand) {
   const fallback = applicationUrl("/brand/psp-logo.jpg");
-  const candidate = chapterLogoUrl?.trim();
+  const candidate = brand?.chapterLogoUrl?.trim();
   if (!candidate) return fallback;
+
+  if (candidate.startsWith("private:") && brand?.chapterId) {
+    return applicationUrl(`/api/public/chapters/${encodeURIComponent(brand.chapterId)}/logo`);
+  }
 
   if (candidate.startsWith("/")) {
     return applicationUrl(candidate);
@@ -67,7 +72,7 @@ function renderBrandedEmail(options: {
   preheader?: string;
 }) {
   const chapterName = options.brand?.chapterName?.trim() || "Psi Sigma Phi Philippines Inc.";
-  const logoUrl = resolveEmailLogoUrl(options.brand?.chapterLogoUrl);
+  const logoUrl = resolveEmailLogoUrl(options.brand);
   const preheader = options.preheader?.trim() || options.subject;
 
   return `<!doctype html>
