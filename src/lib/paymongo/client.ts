@@ -42,11 +42,23 @@ interface CreateCheckoutInput {
   memberId: string;
   assessmentId?: string | null;
   chapterId: string;
+  paymentCategory?: "DUES" | "CONTRIBUTION" | "OTHER";
   idempotencyKey: string;
+  gatewayConfig?: {
+    secretKey: string;
+    paymentMethods: string[];
+  };
 }
 
 export async function createPayMongoCheckout(input: CreateCheckoutInput) {
-  const secret = getSecretKey();
+  const secret = input.gatewayConfig?.secretKey ?? getSecretKey();
+  const methods = input.gatewayConfig?.paymentMethods?.length
+    ? input.gatewayConfig.paymentMethods
+    : configuredPaymentMethods();
+  if (secret.startsWith("sk_live_") && !livePaymentsEnabled()) {
+    throw new Error("PayMongo live processing is disabled until production approval.");
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (!appUrl) throw new Error("Application URL is not configured.");
 
@@ -74,7 +86,7 @@ export async function createPayMongoCheckout(input: CreateCheckoutInput) {
               quantity: 1,
             },
           ],
-          payment_method_types: configuredPaymentMethods(),
+          payment_method_types: methods,
           reference_number: input.referenceNumber,
           send_email_receipt: false,
           show_description: true,
@@ -84,6 +96,7 @@ export async function createPayMongoCheckout(input: CreateCheckoutInput) {
             member_id: input.memberId,
             chapter_id: input.chapterId,
             assessment_id: input.assessmentId ?? "",
+            payment_category: input.paymentCategory ?? "OTHER",
           },
         },
       },
