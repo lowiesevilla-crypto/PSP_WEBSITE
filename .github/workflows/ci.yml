@@ -68,7 +68,7 @@ jobs:
           grep -q 'X-Frame-Options' next.config.ts
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Upload generated dependency lockfile
         uses: actions/upload-artifact@v4
@@ -130,7 +130,18 @@ jobs:
             sleep 2
           done
 
-          curl --fail --silent http://127.0.0.1:3000/api/health
+          HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
+          echo "$HEALTH"
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r2"'
+
+          READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
+          echo "$READINESS"
+          printf '%s' "$READINESS" | grep -q '"status":"ready"'
+          printf '%s' "$READINESS" | grep -q '"database":"ok"'
+          printf '%s' "$READINESS" | grep -q '"authSchema":"ok"'
+          printf '%s' "$READINESS" | grep -q '"baseline":"ok"'
+          printf '%s' "$READINESS" | grep -q '"authConfig":"ok"'
+
           curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /dev/null
           curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
           curl --fail --silent http://127.0.0.1:3000/register > /dev/null
