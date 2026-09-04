@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Psi Sigma Phi Philippines Inc.",
     short_name: "PSP Philippines",
-    description: "Official Psi Sigma Phi Philippines Inc. digital membership platform.",
+    description: "Official Psi Sigma Phi Philippines Inc. mobile-first digital membership platform.",
     start_url: "/member",
     scope: "/",
     display: "standalone",
@@ -25,6 +25,12 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/svg+xml",
         purpose: "maskable",
       },
+    ],
+    shortcuts: [
+      { name: "Member Home", short_name: "Home", url: "/member" },
+      { name: "Digital ID", short_name: "ID", url: "/member/id" },
+      { name: "Payments & Receipts", short_name: "Payments", url: "/payments" },
+      { name: "Certificate", short_name: "Certificate", url: "/certificate" },
     ],
     categories: ["social", "business", "productivity"],
   };
