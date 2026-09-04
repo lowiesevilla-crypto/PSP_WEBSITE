@@ -339,6 +339,7 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
 - Every production-significant release must use a new release/deployment generation marker when exact-generation proof is required; do not reuse an older marker and then treat a smoke pass as proof of the newer build.
 - Runtime dependency-audit evidence is a required security gate: registry/transport errors, timeouts, malformed reports, or missing vulnerability metadata must fail closed rather than be interpreted as zero vulnerabilities.
+- A dependency-audit failure caused solely by unavailable evidence is an external CI security-gate condition, not proof of an application regression. Inspect the exact log and rerun the exact job/head; never bypass or reinterpret the missing evidence as a pass.
 - Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
@@ -389,6 +390,7 @@ Current production proof:
 
 - exact production release: `2026-09-04-r5`
 - exact deployment generation: `2026-09-04-admin-lifecycle-media-v1`
+- Production Smoke #11 / run `33859569443`: **PASSED** after PR #19 merge
 - `/api/health/ready`: ready
 - database/auth/baseline/member-mobile/auth-config: green
 - public/PWA routes: green
@@ -401,15 +403,19 @@ Merged/deployed scope includes the Chapter Administrator form-reset correction, 
 
 Production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`. Linked-account payments remain intentionally fail-closed until PayMongo Platforms configuration and TEST settlement signoff are complete.
 
-### Runtime dependency-audit hardening — ACTIVE
+### Runtime dependency-audit hardening — MERGED; POST-MERGE CI PASSED
 
-A successful CI run exposed that npm registry/audit service failure could previously be represented as an empty vulnerability set because the audit command used `|| true` and the enforcement script defaulted missing `vulnerabilities` to `{}`.
+PR #19: `ci: fail closed on invalid runtime audit evidence`.
 
-Current hardening branch: `ci/fail-closed-runtime-audit-2026-09-04`.
+- exact passing PR head: `6e8d530f4449c3f335be7f9562eca40bbf80008e`
+- PSP CI #409 / run `33855025604`: **PASSED** on that exact head
+- merge SHA: `0b10f2bf98678c5cda74450d0c55389895338949`
+- Production Smoke #11 / run `33859569443`: **PASSED**
+- post-merge PSP CI #410 / run `33859569625`: attempt 1 failed exactly as designed because both bounded npm-audit attempts timed out without trusted vulnerability evidence; attempt 2 was rerun on the same merge SHA and **PASSED** the complete gate set, including valid audit evidence and runtime vulnerability enforcement.
 
-The branch validates npm audit report structure and rejects operational error payloads, bounds audit attempts, retries once for transient registry interruption, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
+The hardened gate validates npm audit report structure, rejects operational error payloads, bounds audit attempts, retries once for transient registry interruption, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
 
-Merge this hardening only after its exact final head passes the full PSP CI gate set. Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
+Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
 
 ### Next acceptance gate — controlled authenticated production workflows
 
@@ -421,6 +427,8 @@ The exact r5 implementation is live and its automated/public surface is proven. 
 - same-chapter announcement image access with cross-chapter denial;
 - same-chapter event image access with cross-chapter denial;
 - representative authenticated mobile Member/Admin rendering.
+
+When those credentials/test records are not available to automation, do not fabricate completion. The next non-credential internal quality item is to eliminate the Turbopack whole-project tracing warnings from `src/lib/storage/private-media.ts` while preserving private-media path traversal protections and runtime storage semantics.
 
 External gates still open and requiring real evidence:
 
