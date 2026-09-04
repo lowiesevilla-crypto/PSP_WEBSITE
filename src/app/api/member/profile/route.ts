@@ -5,10 +5,34 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+const optionalText = (max: number) =>
+  z.string().trim().max(max).optional().transform((value) => value || null);
+const optionalDate = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value, context) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) {
+      context.addIssue({ code: "custom", message: "Invalid date." });
+      return z.NEVER;
+    }
+    return date;
+  });
+
 const profileSchema = z.object({
-  mobile: z.string().trim().max(30).optional().transform((value) => value || null),
-  address: z.string().trim().max(500).optional().transform((value) => value || null),
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  middleInitial: optionalText(5),
+  mobile: optionalText(30),
+  address: optionalText(500),
+  dateSurvive: optionalDate,
+  surviveLocation: optionalText(500),
+  birthDate: optionalDate,
 });
+
+const PROTECTED_FIELDS = ["chapterId", "chapter", "membershipNo", "pspBirthdayCode", "email"];
 
 function errorResponse(error: unknown) {
   if (error instanceof Error && error.name === "AuthenticationRequiredError") {
@@ -53,6 +77,18 @@ export async function PATCH(request: Request) {
   try {
     const { context, member } = await requireCurrentMember();
     const body = await request.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ message: "Invalid profile request." }, { status: 400 });
+    }
+
+    const protectedAttempt = PROTECTED_FIELDS.find((field) => field in body);
+    if (protectedAttempt) {
+      return NextResponse.json(
+        { message: "Chapter, membership number, PSP code, and login email are protected membership/account fields and cannot be changed from the member profile." },
+        { status: 400 },
+      );
+    }
+
     const parsed = profileSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -61,21 +97,41 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updated = await prisma.member.update({
-      where: { id: member.id },
-      data: parsed.data,
-      select: { id: true, mobile: true, address: true, updatedAt: true },
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        actorUserId: context.user.id,
-        chapterId: member.chapterId,
-        action: "MEMBER_PROFILE_UPDATED",
-        entityType: "Member",
-        entityId: member.id,
-        metadataJson: { fields: Object.keys(parsed.data) },
-      },
+    const displayName = [parsed.data.firstName, parsed.data.middleInitial, parsed.data.lastName]
+      .filter(Boolean)
+      .join(" ");
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.member.update({
+        where: { id: member.id },
+        data: parsed.data,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          middleInitial: true,
+          mobile: true,
+          address: true,
+          dateSurvive: true,
+          surviveLocation: true,
+          birthDate: true,
+          updatedAt: true,
+        },
+      });
+      await tx.user.update({
+        where: { id: context.user.id },
+        data: { displayName },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorUserId: context.user.id,
+          chapterId: member.chapterId,
+          action: "MEMBER_PROFILE_UPDATED",
+          entityType: "Member",
+          entityId: member.id,
+          metadataJson: { fields: Object.keys(parsed.data) },
+        },
+      });
+      return result;
     });
 
     return NextResponse.json({ member: updated }, { headers: { "Cache-Control": "no-store" } });
