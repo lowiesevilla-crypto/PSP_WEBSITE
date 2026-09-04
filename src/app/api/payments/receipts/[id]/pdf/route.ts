@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext, hasPermission } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
+import { getPersistedSplitAmounts } from "@/lib/paymongo/split-metadata";
 import { generateReceiptPdf } from "@/lib/receipts/generator";
 
 export const dynamic = "force-dynamic";
@@ -21,18 +22,33 @@ export async function GET(
           include: {
             assessment: { select: { title: true } },
             chapter: { select: { name: true } },
-            member: { select: { id: true, firstName: true, middleInitial: true, lastName: true, membershipNo: true } },
+            member: {
+              select: {
+                id: true,
+                firstName: true,
+                middleInitial: true,
+                lastName: true,
+                membershipNo: true,
+              },
+            },
           },
         },
       },
     });
-    if (!receipt || receipt.payment.status !== "PAID") return NextResponse.json({ message: "Receipt not found." }, { status: 404 });
+    if (!receipt || receipt.payment.status !== "PAID") {
+      return NextResponse.json({ message: "Receipt not found." }, { status: 404 });
+    }
 
     const owner = context.user.member?.id === receipt.payment.memberId;
     const finance = hasPermission(context, "finance.view", receipt.payment.chapterId);
     if (!owner && !finance) return NextResponse.json({ message: "Access denied." }, { status: 403 });
 
-    const memberName = [receipt.payment.member.firstName, receipt.payment.member.middleInitial, receipt.payment.member.lastName].filter(Boolean).join(" ");
+    const split = await getPersistedSplitAmounts(receipt.payment.id, receipt.payment.amount);
+    const memberName = [
+      receipt.payment.member.firstName,
+      receipt.payment.member.middleInitial,
+      receipt.payment.member.lastName,
+    ].filter(Boolean).join(" ");
     const pdf = await generateReceiptPdf({
       receiptNumber: receipt.receiptNumber,
       issuedAt: receipt.issuedAt,
@@ -40,8 +56,12 @@ export async function GET(
       memberName,
       membershipNo: receipt.payment.member.membershipNo,
       chapterName: receipt.payment.chapter.name,
-      assessmentTitle: receipt.payment.assessment?.title ?? "PSP Payment",
-      amount: receipt.payment.amount.toFixed(2),
+      assessmentTitle: receipt.payment.assessment?.title ?? receipt.payment.description ?? "PSP Payment",
+      paymentCategory: receipt.payment.category,
+      paymentMethod: split.paymentMethod,
+      chapterAmount: split.chapterAmount.toFixed(2),
+      platformFee: split.platformFee.toFixed(2),
+      totalAmount: split.totalAmount.toFixed(2),
       internalReference: receipt.payment.internalReference,
       gatewayReference: receipt.payment.gatewayReference,
     });
