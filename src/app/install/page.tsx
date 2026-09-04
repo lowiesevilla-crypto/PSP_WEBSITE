@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { PwaInstallCard } from "@/components/pwa-install-card";
 
+// `/install` is an operational entry point linked from activation emails and
+// shared directly with members. Host/CDN caches must not keep an older install
+// experience after an exact PSP release has become live.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "Install PSP Mobile App",
   description: "Add the official Psi Sigma Phi Philippines Inc. PWA to your phone Home Screen.",
