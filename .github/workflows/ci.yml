@@ -203,11 +203,11 @@ jobs:
         run: |
           set -Eeuo pipefail
           valid=false
-          for attempt in 1 2; do
+          for attempt in 1 2 3 4 5; do
             rm -f runtime-audit.json
             set +e
-            timeout --signal=TERM --kill-after=10s 90s \
-              npm audit --omit=dev --json > runtime-audit.json
+            timeout --signal=TERM --kill-after=5s 45s \
+              npm audit --omit=dev --json --fetch-timeout=30000 --fetch-retries=0 > runtime-audit.json
             audit_status=$?
             set -e
 
@@ -221,8 +221,8 @@ jobs:
               echo "npm audit did not return valid vulnerability evidence on attempt $attempt." >&2
             fi
 
-            if [ "$attempt" -lt 2 ]; then
-              sleep 10
+            if [ "$attempt" -lt 5 ]; then
+              sleep $((attempt * 5))
             fi
           done
 

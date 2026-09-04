@@ -1,10 +1,10 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 17:51 PHT  
+**Status timestamp:** 2026-09-04 18:28 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA:** `0b10f2bf98678c5cda74450d0c55389895338949`
+**Current main SHA:** `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Do not claim credential-dependent or device-dependent production behavior without direct evidence.
 
@@ -22,8 +22,12 @@ Current production identity:
 - PR #19 exact-head PSP CI #409 / run `33855025604`: **PASSED**
 - PR #19 merge SHA: `0b10f2bf98678c5cda74450d0c55389895338949`
 - post-merge PSP CI #410 / run `33859569625`: attempt 1 **FAILED CLOSED** because both bounded npm-audit calls timed out without trusted vulnerability evidence; attempt 2 on the same merge SHA **PASSED** the complete gate set.
+- PR #20 exact passing head: `ea1af066eb2034d504322160eec37f81f0c9e588`
+- PR #20 merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
+- post-merge PSP CI #416 / run `33861307069`: **PASSED**
+- Production Smoke #12 / run `33861307005`: attempt 1 was blocked by Hostinger's browser challenge with HTTP 403 on all health requests; the exact smoke job was rerun and attempt 2 **PASSED** every production smoke step.
 
-Production Smoke #11 again passed exact-generation health, readiness, public/PWA, security-header, origin-control, and public verification-route checks. The first PSP CI #410 attempt did not expose an application regression: every application/build/runtime/isolation gate had passed and the only failure was the intentionally fail-closed dependency-audit evidence step. The exact failed job was inspected, then rerun without bypassing the gate; attempt 2 obtained valid audit evidence and passed.
+The failed first Production Smoke #12 attempt was a hosting/WAF reachability condition rather than an application regression. Its health body was Hostinger's `Checking your browser before accessing` JavaScript challenge. The exact retry later reached the application and passed release/generation, readiness, public/PWA, security-header, origin-control and public-verification checks.
 
 Production readiness previously observed:
 
@@ -97,7 +101,7 @@ PR #17: `ci: reconcile PR16 production proof and smoke diagnostics`
 - merge SHA: `2a1e9a1d40d4b92e407068626744f101b9ff2cd0`
 - post-merge PSP CI #402 / run `33851027472`: **PASSED**
 
-The Production Smoke wait logic now has a 20-minute job timeout, explicit network-failure accounting, and resolver diagnostics while retaining the exact r5 generation assertion fail-closed.
+The Production Smoke wait logic has a 20-minute job timeout, explicit network-failure accounting, and resolver diagnostics while retaining the exact r5 generation assertion fail-closed.
 
 ## Completed — PR #18 r5 Production-Proof Documentation Closure
 
@@ -124,21 +128,34 @@ Delivered controls:
 
 - malformed JSON and npm operational-error payloads are rejected;
 - npm audit report version, vulnerability object, and vulnerability metadata are required;
-- audit generation is bounded and retried once;
+- audit generation is bounded;
 - missing/untrusted audit evidence fails closed;
 - valid evidence remains subject to the narrow Prisma development-tool allow-list and HIGH/CRITICAL runtime blocking policy.
 
-This closes the false-green dependency-audit defect without weakening release security. npm currently reports its Security Audit component operational, but runner-level or regional transport unavailability can still occur; such a condition must be handled as an external CI security-gate failure and rerun, never as an automatic pass.
+This closes the false-green dependency-audit defect without weakening release security. Runner-level or regional transport unavailability can still occur; such a condition is an external CI security-gate failure and must never be converted into an automatic pass.
 
 Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
 
+## Completed — PR #20 PR19 Evidence Reconciliation
+
+PR #20: `docs: reconcile PR19 post-merge CI evidence`.
+
+- exact passing head: `ea1af066eb2034d504322160eec37f81f0c9e588`
+- PSP CI #415 / run `33860642511`: attempt 1 failed only because both bounded npm-audit attempts timed out; exact-job retry attempt 2 **PASSED** the complete gate set
+- unresolved review threads: **none**
+- merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
+- post-merge PSP CI #416 / run `33861307069`: **PASSED**
+- Production Smoke #12 / run `33861307005`: attempt 1 Hostinger challenge 403; exact retry attempt 2 **PASSED**
+
+The Hostinger challenge is retained as operational evidence because it can transiently block GitHub-runner health checks even when the application is healthy. Production smoke remains fail-closed and must be rerun rather than bypassed when this occurs.
+
 ## Completed — Automated/Public r5 Production Verification
 
-Production Smoke #9 / run `33851027538`, #10 / run `33854088783`, and #11 / run `33859569443`: **PASSED**.
+Production Smokes #9, #10, #11 and the successful second attempt of #12 prove the current public r5 generation.
 
 Observed production evidence:
 
-- `/api/health`: HTTP 200 with `release=2026-09-04-r5` and `deploymentGeneration=2026-09-04-admin-lifecycle-media-v1`;
+- `/api/health`: HTTP 200 with `release=2026-09-04-r5` and `deploymentGeneration=2026-09-04-admin-lifecycle-media-v1` on successful smoke attempts;
 - `/api/health/ready`: HTTP 200 / `status=ready`;
 - database/auth/baseline/member-mobile/auth-config readiness: green;
 - home page, manifest, privacy, registration, and install routes: green;
@@ -148,7 +165,26 @@ Observed production evidence:
 - Digital Member ID verification route: no application 500;
 - certificate verification route: no application 500.
 
-The prior Production Smoke #8 failures are retained as historical deployment/reachability evidence only. They are superseded for current production proof by successful Production Smokes #9, #10, and #11.
+Historical Hostinger challenge/reachability failures are not application proof and are not hidden. Current production proof is based only on successful exact-generation smoke evidence.
+
+## Active — PR #21 Private-Media Build-Tracing + Audit Availability Refinement
+
+PR #21: `fix: prevent private media whole-project build tracing`.
+
+Initial implementation head: `19395bbbbd62b7234c321dd538a7f2400eeeee33`.
+
+Repeated PSP CI #420 / run `33861414990` attempts established:
+
+- secret/header/Prisma/seed/bootstrap/typecheck gates green;
+- production build green;
+- the two former `src/lib/storage/private-media.ts` Turbopack whole-project tracing warnings are absent;
+- production runtime/security smoke green;
+- cross-chapter isolation green;
+- failures occurred only because the external npm audit evidence call timed out twice per attempt, and the hardened gate correctly failed closed.
+
+The audit evidence-generation loop has now been refined to use more independent, shorter bounded attempts with an npm fetch timeout and workflow-controlled backoff. Trusted audit-report validation remains mandatory before acceptance; missing, stale, malformed or operational-error evidence is never accepted. The separate runtime vulnerability enforcement policy remains unchanged.
+
+PR #21 is **NOT MERGE-ELIGIBLE** until its newest documentation-reconciled exact head passes the complete PSP CI gate set. Detailed tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.
 
 ## Pending — Controlled Authenticated Production Acceptance
 
@@ -165,9 +201,7 @@ Public smoke proves that the exact implementation generation is deployed and its
 
 ## Next Non-Credential Internal Quality Task
 
-Current production builds also emit two Turbopack whole-project tracing warnings from `src/lib/storage/private-media.ts` around dynamic storage-root resolution and private-file reads. The warnings do not currently fail build/runtime smoke, but Turbopack reports that they can unnecessarily trace the entire project into server output and increase deployment size/risk.
-
-The next unblocked engineering task is to remove those build-tracing warnings without weakening path traversal checks, private-media access control, file validation, or runtime storage semantics. Completion requires an exact-head CI build showing the warning is removed or otherwise deliberately resolved.
+After PR #21 closes, the next available internal task is documentation-baseline reconciliation. `docs/IMPLEMENTATION_PLAN.md` still contains superseded Hosted Checkout v2 and Digital Member ID baseline language that conflicts with the current canonical `AGENTS.md` linked-account payment architecture and mandatory member-mobile requirements. Reconcile that document, and any directly affected payment/implementation references, through a separate exact-head CI-reviewed PR rather than allowing stale implementation guidance to remain authoritative-looking.
 
 ## External / Credential-Dependent Gates Still Open
 

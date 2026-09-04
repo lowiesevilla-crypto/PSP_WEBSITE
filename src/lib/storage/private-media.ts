@@ -5,7 +5,10 @@ import { randomUUID } from "node:crypto";
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 
 function storageRoot() {
-  return path.resolve(process.env.STORAGE_ROOT ?? path.join(process.cwd(), "storage"));
+  const configuredRoot = process.env.STORAGE_ROOT;
+  return configuredRoot
+    ? path.resolve(/*turbopackIgnore: true*/ configuredRoot)
+    : path.join(process.cwd(), "storage");
 }
 
 function maxBytes() {
@@ -67,7 +70,7 @@ export async function readPrivateFile(storageKey: string) {
   const root = storageRoot();
   const absolute = path.resolve(root, storageKey);
   if (!absolute.startsWith(`${root}${path.sep}`)) throw new Error("Invalid storage path.");
-  return readFile(absolute);
+  return readFile(/*turbopackIgnore: true*/ absolute);
 }
 
 export async function removePrivateFile(storageKey: string) {
