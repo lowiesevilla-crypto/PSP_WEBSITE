@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 15
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-04-r2
+      EXPECTED_RELEASE: 2026-09-04-r3
 
     steps:
       - name: Wait for exact deployed main release
