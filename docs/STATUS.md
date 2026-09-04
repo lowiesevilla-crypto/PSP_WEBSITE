@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 16:38 PHT  
+**Status timestamp:** 2026-09-04 16:42 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
@@ -21,8 +21,9 @@ Current production identity:
 - post-merge PSP CI #402 / run `33851027472`: **PASSED**
 - PR #18 exact-head PSP CI #407 / run `33853697584`: **PASSED**
 - PR #18 merge SHA: `8d4cdec1ad315640bad4361f98ac121800dc165e`
+- post-merge PSP CI #408 / run `33854088784`: **PASSED**
 
-Production Smoke #10 again passed exact-generation health, readiness, public/PWA, security-header, origin-control, and public verification-route checks on current `main`.
+Production Smoke #10 again passed exact-generation health, readiness, public/PWA, security-header, origin-control, and public verification-route checks on current `main`. PSP CI #408 subsequently completed successfully across the full gate set.
 
 Production readiness observed:
 
@@ -39,7 +40,7 @@ Therefore the automated/public production deployment gate for the current implem
 
 Controlled authenticated workflows introduced or changed by PR #16 are still an evidence gate. They must not be marked production-proven until executed with controlled production credentials/test records.
 
-A separate CI reliability/security hardening task is now active because a successful earlier CI run exposed that `npm audit` can return an npm-registry error payload after several minutes and the existing enforcement script can mistakenly treat missing vulnerability data as a clean audit. This does not invalidate the already-passed application/runtime gates, but the dependency-audit gate must be made fail-closed and bounded before further release work.
+A separate CI reliability/security hardening task is now active because successful CI evidence exposed that `npm audit` can return an npm-registry error payload after several minutes and the existing enforcement script can mistakenly treat missing vulnerability data as a clean audit. This does not invalidate the already-passed application/runtime gates, but the dependency-audit gate must be made fail-closed and bounded before further release work.
 
 ## Completed — P0 Member Mobile / PWA + PayMongo Architecture
 
@@ -109,7 +110,7 @@ PR #18: `docs: close r5 public production proof`
 - unresolved review threads: **none**
 - merge SHA: `8d4cdec1ad315640bad4361f98ac121800dc165e`
 - Production Smoke #10 / run `33854088783`: **PASSED**
-- post-merge PSP CI #408 / run `33854088784`: running at the time this status update branch was cut; all observed gates through production runtime/security smoke were green and the job had reached production dependency audit generation.
+- post-merge PSP CI #408 / run `33854088784`: **PASSED**
 
 ## Completed — Automated/Public r5 Production Verification
 
@@ -133,7 +134,7 @@ The prior Production Smoke #8 failures are retained as historical deployment/rea
 
 Branch: `ci/fail-closed-runtime-audit-2026-09-04`.
 
-Exact defect discovered from successful post-merge PSP CI #402 evidence:
+Exact defect discovered from successful post-merge PSP CI evidence:
 
 - `npm audit --omit=dev --json` waited roughly seven minutes while the npm audit endpoint returned HTTP 503;
 - the workflow used `|| true`, so transport/registry failure did not fail the generation step;
