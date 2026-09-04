@@ -4,70 +4,91 @@
 
 - Application: Psi Sigma Phi Philippines Inc. Digital Membership Platform
 - Repository: `lowiesevilla-crypto/PSP_WEBSITE`
-- Hosting: Hostinger Node.js Web App
+- Hosting: Hostinger managed Next.js / Node.js web application
 - Canonical URL: `https://psp.hoahub.tech`
 - Production branch: `main`
 - Runtime: Node.js 22+
-- Database: dedicated PSP MySQL database, separate from HOAHub
+- Database: dedicated PSP MySQL database, completely separate from HOAHub
 
 ## Current Deployment Status — 2026-09-04
 
-- `psp.hoahub.tech` is correctly mapped to the PSP Website application — product-owner confirmed.
-- Production bootstrap restart behavior is safe/idempotent through PR #5.
-- Production admin-login/bootstrap code hardening is complete through PR #7.
-- PR #8 reconciled post-PR7 status documentation.
-- PR #9 added secret-free GitHub production smoke.
-- First PR #9 production smoke proved DNS/HTTPS, `/api/health`, PSP public pages/PWA assets, and security headers.
-- The same live smoke showed canonical-origin invalid login returning a controlled server error before credential validation, which points to production datastore/runtime readiness rather than the earlier origin bug.
-- The Hostinger environment screenshot confirms the core canonical URL, bootstrap administrator metadata, auth secret, application mode, database URL, storage root, membership prefix, certificate policy, SMTP host/port/user-style values, and PayMongo-related variables are present. Secret values are intentionally not copied into this repository.
-- Several secrets were visibly exposed in the troubleshooting screenshot. Treat them as compromised and rotate them before final production signoff.
-- Live PayMongo credentials being present does not authorize live processing. Live checkout/webhook processing remains fail-closed until `PAYMONGO_LIVE_ENABLED=true` is explicitly approved after test-mode E2E signoff.
+Production automated readiness is **GREEN** through PR #11.
 
-## Release Preconditions
+Current production main commit:
 
-Do not declare the production release complete until:
+```text
+1ab1d49512eadab99fe78fc378b7b8f3ea4b1647
+```
 
-- exact release commit CI is green;
-- Hostinger serves the expected release marker from `/api/health`;
-- `/api/health/ready` is green for database, auth schema, baseline, and auth configuration;
-- Prisma schema validates and applies against CI MySQL;
-- baseline seed and System Admin bootstrap pass;
-- strict TypeScript and production build pass;
-- runtime/security smoke and cross-chapter isolation tests pass;
-- runtime dependency audit passes;
-- no real secrets exist in GitHub;
-- exposed production secrets have been rotated;
-- production database/backup/rollback evidence exists;
-- a production System Admin successfully authenticates and reaches `/admin`;
-- production SMTP, PWA, certificate, and health smoke checks pass;
-- PayMongo test-mode E2E passes before live processing is enabled.
+Evidence:
+
+- PR #11 exact head `bd5f7dc3fd013867964d024251632de12ea00a87` passed PSP CI #317.
+- PR #11 merged to `main` at `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`.
+- PSP Production Smoke #3 (run `33824762794`) passed against the real Hostinger site.
+- `/api/health` served deployment generation `2026-09-04-schema-bootstrap-v1`.
+- `/api/health/ready` returned HTTP 200 with `database=ok`, `authSchema=ok`, `baseline=ok`, and `authConfig=ok`.
+- PSP home, privacy, registration, PWA manifest, security headers, canonical-origin invalid-login behavior, and malicious cross-site rejection passed.
+
+The remaining P0 is manual verification that the intended real System Administrator successfully reaches `/admin`.
 
 ## Hostinger Application Setup
 
-The PSP application must be a separate Node.js Web App, not a route inside HOAHub.
-
-Required deployment configuration:
+Required production configuration:
 
 ```text
 Repository: lowiesevilla-crypto/PSP_WEBSITE
 Branch: main
 Node.js: 22 or later compatible LTS
 Build command: npm run build
-Start command: npm run start
 Canonical URL: https://psp.hoahub.tech
 ```
 
-`npm run start` intentionally runs `scripts/production-init.mjs` before `next start`. If Hostinger bypasses this command, bootstrap synchronization and baseline initialization will not run.
+The repository still provides:
+
+```text
+Start command: npm run start
+```
+
+but Hostinger's managed Next.js deployment may control the runtime start process itself. For this reason, PSP no longer depends exclusively on the custom start hook for first-time production initialization.
+
+## Greenfield Production Schema Initialization
+
+PR #11 added `scripts/production-build-init.mjs`, invoked by `npm run build` before `next build`.
+
+The initializer runs only when:
+
+```text
+APP_ENV=production
+```
+
+### Safety rules
+
+1. It requires `DATABASE_URL`.
+2. It queries only `information_schema` to inspect the connected database.
+3. If the database has **zero tables**, it is treated as a new dedicated PSP greenfield database and the approved Prisma schema is applied with `prisma db push --skip-generate`.
+4. If the database is non-empty but does not contain the complete required PSP baseline table set, the build **fails closed** and refuses automatic schema push.
+5. If the PSP schema already exists, automatic greenfield schema push is skipped.
+6. After schema readiness, the existing idempotent `scripts/production-init.mjs` runs.
+7. If baseline or configured System Admin/member synchronization fails, the build fails and Hostinger must not publish that deployment.
+
+This is a **greenfield-only bootstrap mechanism**, not the migration strategy for a populated production system.
+
+Once real member/financial data exists:
+
+- do not rely on automatic `prisma db push` for schema evolution;
+- use reviewed Prisma migrations/change plans;
+- take a verified backup first;
+- document rollback/recovery before applying schema-changing releases.
 
 ## Production Environment Variables
 
-### Core application/runtime
+### Core runtime
 
 ```text
 NODE_ENV=production
 APP_ENV=production
 NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech
-DATABASE_URL=mysql://<user>:<password>@<host>:3306/<psp_database>
+DATABASE_URL=mysql://<user>:<password>@<host>:3306/<dedicated_psp_database>
 AUTH_SECRET=<strong-random-secret-at-least-32-characters>
 MEMBERSHIP_NUMBER_PREFIX=PSP
 CERTIFICATE_REQUIRE_CURRENT_DUES=false
@@ -75,63 +96,16 @@ STORAGE_ROOT=<persistent-private-storage-path>
 MAX_IMAGE_UPLOAD_BYTES=5242880
 ```
 
-`DATABASE_URL` must point to a dedicated PSP MySQL database/user. Never reuse the HOAHub database.
+Requirements:
 
-`STORAGE_ROOT` must be a persistent private path. Do not rely on an ephemeral deployment directory for member/community uploads.
+- `DATABASE_URL` must point to the dedicated PSP database, never HOAHub.
+- credentials/special characters must be URL-safe/encoded as required by the connection string.
+- `STORAGE_ROOT` must be persistent and private.
+- no production secret belongs in GitHub or documentation.
 
-### Production email
+### Overall System Admin bootstrap
 
-Canonical names:
-
-```text
-SMTP_HOST=<smtp-host>
-SMTP_PORT=<provider-port>
-SMTP_USER=<psp-mailbox>
-SMTP_PASSWORD=<mailbox-password-or-app-password>
-SMTP_FROM=<approved-from-address>
-```
-
-Hostinger aliases accepted by the application:
-
-```text
-SMTP_USERNAME=<alias for SMTP_USER>
-MAIL_FROM_ADDRESS=<alias for SMTP_FROM>
-MAIL_FROM_NAME=<optional display name>
-MAIL_REPLY_TO=<optional reply-to>
-SMTP_ENCRYPTION=ssl   # optional; port 465 also enables implicit TLS automatically
-```
-
-`SMTP_PASSWORD` remains required. Do not send or store it in chat, screenshots, GitHub, or documentation.
-
-### PayMongo — test mode first
-
-Canonical names:
-
-```text
-PAYMONGO_SECRET_KEY=<test-secret-key>
-PAYMONGO_WEBHOOK_SECRET=<matching-test-endpoint-signing-secret>
-PAYMONGO_PAYMENT_METHODS=qrph
-PAYMONGO_LIVE_ENABLED=false
-```
-
-The application also accepts `PAYMONGO_CHECKOUT_METHODS` as an alias for `PAYMONGO_PAYMENT_METHODS`.
-
-Webhook endpoint:
-
-```text
-https://psp.hoahub.tech/api/webhooks/paymongo
-```
-
-Controls:
-
-- Test mode E2E is mandatory before live activation.
-- A configured `sk_live_*` secret is rejected for checkout while `PAYMONGO_LIVE_ENABLED` is absent/false.
-- Live webhook signature processing is also rejected while live mode is not explicitly enabled.
-- Set `PAYMONGO_LIVE_ENABLED=true` only after test-mode checkout, signed webhook, idempotency, ledger posting, receipt generation, reconciliation, and explicit live activation approval all pass.
-
-## Overall System Administrator Bootstrap
-
-Temporary bootstrap values are server-side runtime variables only:
+Temporary runtime variables:
 
 ```text
 BOOTSTRAP_ADMIN_EMAIL=
@@ -145,26 +119,94 @@ BOOTSTRAP_ADMIN_LAST_NAME=
 
 Rules:
 
-- `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` are required together when synchronization is intended.
-- `BOOTSTRAP_ADMIN_MEMBER_NO` and `BOOTSTRAP_ADMIN_CHAPTER_CODE` are optional and must be supplied together when the System Administrator should also have a PSP Member identity.
-- First/last-name values are optional overrides; otherwise bootstrap derives them from the configured display name when possible.
-- National `SYSTEM_ADMIN` remains unscoped (`chapterId = null`).
-- Optional member identity receives chapter-scoped MEMBER assignment and MembershipHistory without removing national admin access.
-- Membership-number collisions with another user are rejected.
-- Never commit bootstrap credentials or production secrets.
+- email/password must be configured together;
+- member number/chapter code must be configured together when member linkage is required;
+- national `SYSTEM_ADMIN` remains unscoped (`chapterId=null`);
+- optional chapter member identity also receives the chapter MEMBER role/history;
+- membership-number collision causes bootstrap failure;
+- bootstrap sets the user ACTIVE and email-verified and synchronizes the configured password hash.
 
-### Credential-removal gate
+### Bootstrap removal gate
 
-Keep required `BOOTSTRAP_ADMIN_*` values configured while troubleshooting, redeploying, and testing. **Remove them only after a real production login successfully reaches `/admin`.** Startup logs alone are insufficient evidence.
+**Do not remove any required `BOOTSTRAP_ADMIN_*` variables until the intended real administrator successfully logs in and reaches `/admin`.**
 
 After successful `/admin` verification:
 
-1. rotate any temporary/bootstrap password that was exposed during troubleshooting;
-2. remove all `BOOTSTRAP_ADMIN_*` variables from Hostinger;
-3. restart/redeploy once more;
-4. reconfirm normal administrator login still works.
+1. rotate/change the temporary password;
+2. remove all `BOOTSTRAP_ADMIN_*` variables;
+3. restart/redeploy;
+4. verify `/api/health/ready` remains green;
+5. reconfirm normal admin login without bootstrap variables.
 
-## Production Readiness Endpoints
+## Email / SMTP
+
+Canonical variables:
+
+```text
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+```
+
+Hostinger-compatible aliases accepted by the application:
+
+```text
+SMTP_USERNAME=<alias for SMTP_USER>
+MAIL_FROM_ADDRESS=<alias for SMTP_FROM>
+MAIL_FROM_NAME=<optional>
+MAIL_REPLY_TO=<optional>
+SMTP_ENCRYPTION=ssl   # optional; port 465 also enables implicit TLS
+```
+
+`SMTP_PASSWORD` is mandatory for authenticated SMTP. It was not visibly confirmed in the latest configuration evidence and email delivery remains an open production gate until a real activation/recovery message is successfully delivered.
+
+## PayMongo
+
+Canonical configuration:
+
+```text
+PAYMONGO_SECRET_KEY=<test key first>
+PAYMONGO_WEBHOOK_SECRET=<matching endpoint signing secret>
+PAYMONGO_PAYMENT_METHODS=qrph
+PAYMONGO_LIVE_ENABLED=false
+```
+
+Accepted alias:
+
+```text
+PAYMONGO_CHECKOUT_METHODS=<alias for PAYMONGO_PAYMENT_METHODS>
+```
+
+Production webhook URL:
+
+```text
+https://psp.hoahub.tech/api/webhooks/paymongo
+```
+
+### Live-payment gate
+
+A live key being present is not authorization to process live payments.
+
+The application rejects live checkout and live webhook acceptance while `PAYMONGO_LIVE_ENABLED` is absent or false.
+
+Set `PAYMONGO_LIVE_ENABLED=true` only after all test-mode checks pass:
+
+1. checkout session creation;
+2. success/cancel flow;
+3. correct webhook signing secret;
+4. raw-body `Paymongo-Signature` validation;
+5. authoritative `checkout_session.payment.paid` handling;
+6. duplicate webhook/idempotency verification;
+7. ledger posting;
+8. receipt generation;
+9. reconciliation;
+10. explicit approval for live activation.
+
+Then run only one controlled low-value live validation first.
+
+## Production Health / Readiness
 
 ### Liveness
 
@@ -172,7 +214,14 @@ After successful `/admin` verification:
 GET https://psp.hoahub.tech/api/health
 ```
 
-Returns service identity, release marker, and timestamp. This proves the HTTP process is alive but does **not** prove MySQL/auth readiness.
+Current production evidence includes:
+
+```text
+status=ok
+service=psi-sigma-phi-digital-platform
+release=2026-09-04-r2
+deploymentGeneration=2026-09-04-schema-bootstrap-v1
+```
 
 ### Datastore/auth readiness
 
@@ -180,131 +229,126 @@ Returns service identity, release marker, and timestamp. This proves the HTTP pr
 GET https://psp.hoahub.tech/api/health/ready
 ```
 
-Returns only safe aggregate checks:
+HTTP 200 is required with:
 
-- database connectivity;
-- required auth tables/schema access;
-- SYSTEM_ADMIN baseline presence;
-- canonical app URL + AUTH_SECRET readiness;
-- current release marker.
+```text
+status=ready
+database=ok
+authSchema=ok
+baseline=ok
+authConfig=ok
+```
 
-HTTP 200 means ready. HTTP 503 means degraded. No secret values or database details are returned.
+No database URL, password, secret, or internal schema detail is returned by the endpoint.
 
-Production smoke must wait for the expected release marker before evaluating readiness so an old Hostinger deployment cannot accidentally satisfy the gate.
+## Production Smoke Automation
 
-## Production Database
+`.github/workflows/production-smoke.yml` runs after `main` pushes.
 
-Initial greenfield production flow:
+It verifies:
 
-1. Set the dedicated PSP `DATABASE_URL`.
-2. Back up any existing PSP production data before schema-changing work.
-3. Apply the approved Prisma schema.
-4. Run approved baseline initialization.
-5. Keep bootstrap values configured for System Admin synchronization.
-6. Redeploy using `npm run start`.
-7. Verify logs show `Synchronizing configured PSP System Administrator` and `System Administrator is ready`.
-8. Verify `/api/health/ready` returns 200.
-9. Verify the administrator actually reaches `/admin`.
-10. Remove bootstrap values only after that verified login.
+1. exact deployment generation is live;
+2. datastore/auth readiness is green;
+3. PSP public pages and PWA manifest load;
+4. production security headers are present;
+5. canonical-origin invalid credentials produce controlled HTTP 401 JSON;
+6. malicious cross-site login is rejected with HTTP 403.
 
-`prisma db push` is acceptable only for initial greenfield creation before production member/financial records exist. Once production data exists, schema changes require reviewed migrations plus backup/recovery planning.
+Production Smoke #3 passed all of these against PR #11 production deployment.
 
-Production restarts must not overwrite customized permissions or operational data. The national organization and Rho Alpha De Las Piñas baseline are created only when absent; full seed runs only when the required baseline is missing.
+The workflow deliberately does **not** contain production admin credentials or PayMongo secrets.
 
-## Origin / Request Security
+## Admin Login Closure
 
-Canonical approved production origin:
+Automated readiness being green does not close the real-admin incident.
+
+Required manual evidence:
+
+1. intended administrator opens `https://psp.hoahub.tech/login`;
+2. login succeeds with the currently configured temporary credential;
+3. browser reaches `/admin`;
+4. administrator has national/System Admin capability;
+5. linked Rho Alpha member identity is correct;
+6. temporary password is changed;
+7. bootstrap variables are removed;
+8. app is restarted and admin login is repeated successfully.
+
+## Secret Exposure / Rotation
+
+Any secret visible in a screenshot/chat/log must be treated as compromised even if the screenshot was shared only for troubleshooting.
+
+Rotate affected values before final production signoff, including as applicable:
+
+- temporary admin/bootstrap password;
+- `AUTH_SECRET`;
+- production DB user password and resulting `DATABASE_URL`;
+- PayMongo API/webhook secrets;
+- internal cron/shared secrets;
+- SMTP password if exposed.
+
+After rotations:
+
+- redeploy/restart;
+- confirm `/api/health/ready` remains green;
+- repeat real administrator login;
+- repeat applicable payment/email tests.
+
+Never record replacement values in GitHub docs.
+
+## PWA Production Checks
+
+Automated public PWA manifest checks have passed. Physical-device validation remains required:
+
+- Android install/standalone launch;
+- iOS Add to Home Screen behavior;
+- mobile/tablet responsive layouts;
+- portrait/landscape;
+- safe-area handling;
+- no uncontrolled horizontal overflow;
+- auth/payment API responses not cached as false offline state.
+
+## Certificate QR Gate
+
+Production certificate validation remains open until a real generated certificate QR is scanned and resolves under:
 
 ```text
 https://psp.hoahub.tech
 ```
 
-The API proxy and login route recognize this canonical origin while explicit malicious `Sec-Fetch-Site: cross-site` requests remain rejected. Do not add wildcard origins or disable origin checks to work around hosting configuration.
+Public verification must expose only appropriate minimal data.
 
-## Admin Login Recovery
+## Backup / Recovery Gate
 
-If production login fails:
+Before final operational release:
 
-1. use exactly `https://psp.hoahub.tech/login`;
-2. verify `/api/health` shows the expected release marker;
-3. verify `/api/health/ready` and identify which aggregate check is degraded;
-4. verify `NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech`;
-5. verify `AUTH_SECRET` exists and is at least 32 characters;
-6. verify the dedicated PSP `DATABASE_URL` is present/reachable and the auth schema exists;
-7. keep bootstrap email/password/name configured;
-8. configure optional member/chapter bootstrap values if member linkage is required;
-9. redeploy/restart using `npm run start`;
-10. inspect startup logs for bootstrap synchronization success;
-11. test login and verify `/admin` access;
-12. only then remove bootstrap variables.
+1. create/confirm a current production MySQL backup;
+2. document the restore procedure;
+3. verify a recovery/restore method is actually available;
+4. retain last known-good Git release SHA;
+5. do not perform destructive schema rollback after member/financial records exist without a reviewed recovery plan.
 
-The login API returns controlled JSON failures. Datastore/Prisma failures use a sanitized service-unavailable response rather than exposing database details.
+## Current Post-Deployment Checklist
 
-## Secret Exposure / Rotation
+- [x] canonical domain / HTTPS
+- [x] exact Hostinger deployment generation
+- [x] production database connectivity
+- [x] PSP auth schema present
+- [x] PSP baseline present
+- [x] auth runtime configuration ready
+- [x] public PSP pages
+- [x] PWA manifest public smoke
+- [x] security headers
+- [x] canonical invalid-login behavior
+- [x] cross-site login rejection
+- [ ] real System Admin reaches `/admin`
+- [ ] verify linked Rho Alpha member identity in real session
+- [ ] rotate temporary/exposed credentials and remove bootstrap variables
+- [ ] reconfirm admin login after bootstrap removal
+- [ ] SMTP activation/recovery delivery
+- [ ] MySQL backup/restore evidence
+- [ ] Android/iOS PWA physical-device checks
+- [ ] PayMongo test-mode E2E
+- [ ] live certificate QR verification
+- [ ] controlled PayMongo live validation after explicit approval
 
-Any password, connection URL containing credentials, API secret, webhook secret, session secret, cron secret, or similar value visible in chat/screenshots/logs must be treated as exposed.
-
-Before final production signoff, rotate all affected values in their authoritative systems, including as applicable:
-
-- bootstrap/admin password;
-- `AUTH_SECRET`;
-- production database user password and resulting `DATABASE_URL`;
-- PayMongo secret/webhook credentials;
-- cron/internal shared secrets;
-- SMTP password if it was ever exposed.
-
-After rotation, restart/redeploy and rerun readiness + production smoke. Do not record replacement values in documentation.
-
-## PWA Production Checks
-
-- manifest loads over HTTPS;
-- service worker scope is correct;
-- branded icon loads;
-- Android installation works where supported;
-- iOS Add to Home Screen guidance works;
-- start URL remains under `psp.hoahub.tech`;
-- sensitive auth/payment API responses are not cached;
-- representative mobile layouts have no uncontrolled horizontal overflow.
-
-## Post-Deployment Smoke Tests
-
-1. `/api/health` returns correct service and expected release marker.
-2. `/api/health/ready` returns HTTP 200 and all core readiness checks `ok`.
-3. Landing page is PSP-branded with no HOAHub redirect.
-4. Registration loads active chapters and enforces both acknowledgements.
-5. Canonical invalid-login returns controlled 401; malicious cross-site request returns 403.
-6. System Admin login succeeds and reaches `/admin`.
-7. Chapter creation/Chapter Admin assignment succeeds.
-8. Applicant approval creates Member and sends activation email.
-9. Activated member sees only authorized chapter data.
-10. Cross-chapter negative authorization behavior is verified.
-11. PWA manifest/service worker and representative Android/iOS install/layout checks pass.
-12. SMTP activation/recovery delivery succeeds.
-13. PayMongo test checkout + signed webhook + ledger + receipt succeeds.
-14. Certificate QR verification resolves under `psp.hoahub.tech`.
-15. Rotated secrets are deployed and readiness/smoke remain green.
-
-Do not infer live results from source code or local CI. Record evidence in `STATUS.md`.
-
-## Rollback / Recovery
-
-- Keep the last known-good Git release SHA.
-- Back up the production database before schema-changing releases.
-- Document how to restore/verify the backup before production is considered fully released.
-- If application deployment fails, redeploy the last known-good commit.
-- Do not perform destructive schema rollback after member/financial data exists without a reviewed recovery plan.
-
-## Monitoring
-
-Investigate and record:
-
-- repeated 5xx/503 responses;
-- readiness degradation;
-- authentication failures/lockouts;
-- webhook signature failures;
-- payment reconciliation mismatches;
-- email delivery failures;
-- storage exhaustion;
-- dependency vulnerability alerts.
-
-A release is not complete until post-deployment smoke checks pass and the knowledge base is reconciled.
+See `STATUS.md` for authoritative operational state.
