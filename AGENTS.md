@@ -1,74 +1,49 @@
 # AGENTS.md — Psi Sigma Phi Philippines Inc. Digital Platform
 
-> **Mandatory project knowledge base.** Every AI agent and developer must read this file before changing code, schema, UI, security, payments, deployment, or documentation. Update it whenever an approved business or architecture decision changes.
+> **Mandatory project knowledge base.** Every AI agent and developer must read this file plus `docs/STATUS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Update it whenever an approved business/architecture/security/payment/delivery rule changes.
 
 ## 1. Project Identity
 
 - **Project:** Psi Sigma Phi Philippines Inc. Digital Membership Platform
 - **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`
-- **Project type:** Greenfield application; completely separate from HOAHub application data, database, secrets, and runtime.
-- **Product form:** Public website + installable mobile-first PWA + Member Portal + Chapter Admin Portal + National/System Admin Portal.
-- **Organization hierarchy:** `National Organization → Chapter → Officers/Committees → Members`
+- **Product form:** public website + installable mobile-first PWA + Member Portal + Chapter Admin Portal + National/System Admin Portal.
+- **Organization:** `National Organization → Chapter → Officers/Committees → Members`
+- **Isolation:** PSP is completely separate from HOAHub application data, database, secrets and runtime. Never reuse or mix them.
 
-## 2. Production Hosting & URL
+## 2. Production Hosting / Canonical Origin
 
-- **Production hosting target:** Hostinger
-- **Official production URL:** `https://psp.hoahub.tech`
-- This URL is the canonical production origin unless explicitly changed by the product owner.
-- Production PWA metadata, email links, PayMongo success/cancel URLs, webhook configuration, certificate QR verification links, receipt links, and public verification URLs use `https://psp.hoahub.tech`.
-- Do not publish to a different production hostname without explicit approval.
-- Local development uses `http://localhost:3000`.
-- QA/staging, when introduced, uses a separate hostname and separate secrets/database.
-- Production deployment requires CI, QA, security, database, and payment readiness gates.
-- **Product-owner confirmation (2026-08-20):** `psp.hoahub.tech` is correctly mapped to the PSP Website application.
+- Hosting: Hostinger
+- Production: `https://psp.hoahub.tech`
+- Local: `http://localhost:3000`
+- Production email links, PWA links, verification QR URLs, payment return URLs and chapter webhook URLs use the canonical production origin.
+- QA/staging, when introduced, must use separate hostname, secrets and database.
+- Production liveness: `/api/health`
+- Production datastore/auth/member-mobile readiness: `/api/health/ready`
 
-## 3. Official Branding
+## 3. Official Branding / UX
 
-Use the official Psi Sigma Phi Philippines Inc. seal supplied by the product owner as the primary mark.
+Official PSP seal is the primary mark.
 
-Approved palette:
+Palette:
 
-- Gold: `#FEC009`
-- Black: `#000000`
-- Charcoal: `#151515`
-- White: `#FFFFFF`
+- Gold `#FEC009`
+- Black `#000000`
+- Charcoal `#151515`
+- White `#FFFFFF`
 
-Design direction: premium, prestigious, modern, professional fraternity/sorority identity. Greek identity may use `Ψ Σ Φ`. Maintain accessible contrast and touch usability.
+Member experience is **mobile-first/PWA-first**, premium/professional fraternity identity (`Ψ Σ Φ` acceptable), accessible contrast, touch-friendly controls, safe areas, no uncontrolled horizontal overflow.
 
-## 4. Core Product Scope
+## 4. Core Business Scope
 
-### Public Website
+### Registration / membership
 
-- Home / organization landing page
-- About / history / mission / vision
-- Public chapter directory
-- Public activities/events
-- Membership information
-- Online registration
-- Member login
-- Contact information
+Registration never automatically creates an active member. Chapter approval is required.
 
-### Membership
-
-- Online application
-- Chapter selection
-- Applicant review/approval
-- Member activation
-- Secure login/recovery
-- Member profile
-- Unique membership number
-- Membership status/history
-- Chapter assignment and transfer history
-
-**Registration never automatically creates an active member. Approval is required.**
-
-### Approved Member Registration Fields
-
-The online registration form uses the following business-approved fields, in this order:
+Approved registration fields, in order:
 
 1. First Name
 2. Last Name
-3. MI (Middle Initial)
+3. MI
 4. Address
 5. Email
 6. Mobile No.
@@ -78,288 +53,313 @@ The online registration form uses the following business-approved fields, in thi
 10. Date of Birth
 11. Select Chapter
 
-Do not reintroduce suffix, full middle name, or other registration fields without approval. PSP-specific data (`dateSurvive`, `surviveLocation`, `pspBirthdayCode`) must survive approval into the official Member record.
+Final registration requires two separate server-validated acknowledgements: Membership Application and Data Privacy. Current privacy notice version: `2026-08-20-v1`.
 
-### Registration Acknowledgements
+After APPROVED:
 
-The final registration review step requires **two separate checkboxes**:
+- create/activate User/Member as applicable;
+- create MembershipHistory;
+- assign Member permission scope;
+- create unique membership number;
+- create Digital Member ID;
+- identify current Chapter Chairman;
+- send welcome/activation email signed by Chapter Chairman;
+- welcome email includes login email, membership number, secure activation/login link and `/install` PWA link;
+- never email a plaintext password;
+- create in-app welcome notification.
 
-1. Membership Application Acknowledgement — confirms information accuracy and understanding that submission is subject to approval.
-2. Data Privacy Acknowledgement — confirms the applicant has read and understood the PSP Data Privacy Notice.
+### Member self-service
 
-Both are required in the UI **and** validated server-side. Record the privacy acknowledgement timestamp and privacy notice version for auditability. Current notice version: `2026-08-20-v1`.
+Member may update approved personal/contact fields. Member self-service must **not** change:
 
-### Chapter Management
+- chapter;
+- membership number/code;
+- PSP Birthday Code;
+- login email/credential identity.
 
-- System Admin creates/activates/deactivates/suspends/archives chapters.
-- Each chapter may have different officers, positions, committees, members, events, announcements, contribution rates, assessments, and reports.
-- Organization structures are configurable; never hardcode one structure for all chapters.
+Chapter transfer is an authorized admin workflow with history/audit.
+
+### Chapter / organization
+
+- System Admin creates/changes chapter lifecycle.
+- Chapter Admin reviews applications and manages authorized chapter operations.
+- Chapter structures/officers/committees are configurable; never hardcode one officer hierarchy for every chapter.
 - Officer assignments retain term history.
+- Member sees their chapter information and current officers.
 
-### Community
+### Member mobile dashboard
 
-- Member posts
-- Image uploads
-- Comments
-- Chapter-only and National/all-member visibility
-- Announcements
-- Content moderation
-- Events
+Core member PWA must expose directly or within one tap:
 
-### Finance
+- chapter + officers;
+- outstanding balance;
+- total confirmed contributions;
+- Pay Now;
+- Digital Member ID;
+- membership certificate;
+- receipts;
+- profile/security/passkey;
+- PWA install guidance;
+- announcements/events/community/notifications.
 
-- Chapter-specific monthly dues/fund
-- National dues when configured
-- Special assessments
-- Event contributions
-- Membership fees
-- Donations/other approved collections
-- Member ledger
-- Balances/payment history
-- Digital receipts
-- Reconciliation
+### Community / events
 
-Rates are configurable and **effective-dated**. Changing a current rate must never alter historical assessments.
+Posts, images, comments, announcements, moderation, events and notifications remain chapter/national scoped as authorized.
 
-### PayMongo
+## 5. Finance / Accounting Invariants
 
-Use PayMongo for online payments.
+Supported member payment categories:
 
-Current integration direction for new development: **PayMongo Hosted Checkout v2**.
+- `DUES`
+- `CONTRIBUTION`
+- `OTHER`
 
-Non-negotiable controls:
+Rates are chapter-specific and effective-dated. Historical assessments are not rewritten by later rate changes.
 
-- Secret keys are server-only.
-- Browser redirect is not proof of successful payment.
-- Create an internal pending Payment before handing off to PayMongo.
-- Use PayMongo resource-creation idempotency keys.
-- Confirm payment using trusted server-side webhook processing.
-- Verify the raw webhook body against `Paymongo-Signature` with the endpoint signing secret before parsing/processing.
-- `checkout_session.payment.paid` is the authoritative Hosted Checkout success event.
-- Webhook/event processing is idempotent.
-- Store internal transaction reference and PayMongo reference/session ID.
-- Never silently delete posted financial history.
-- Refunds, reversals, corrections, and reconciliation changes remain traceable.
-- Production webhook URL: `https://psp.hoahub.tech/api/webhooks/paymongo`.
-- **Test mode is mandatory before live mode.** A live secret being present in Hostinger is not authorization to process live payments.
-- Live checkout and live webhook acceptance remain fail-closed unless `PAYMONGO_LIVE_ENABLED=true` is explicitly configured after test-mode E2E signoff and live activation approval.
+Financial invariants:
 
-### Certificates
+- posted financial history is append/trace oriented;
+- corrections use adjustments/reversals/refunds rather than destructive edits;
+- Payment becomes PAID only from trusted server/webhook evidence;
+- webhook processing is idempotent;
+- receipt is unique per confirmed internal Payment;
+- chapter scope is server validated;
+- platform convenience fee is **never** credited to dues, contribution totals, member ledger, or chapter collections.
 
-- Eligible members can download Certificate of Membership.
-- Include member name, member number, chapter, unique certificate number, issue date, signatories, and official seal as applicable.
-- QR verification is mandatory.
-- Public verification exposes only minimal appropriate data.
-- Statuses may include Valid, Revoked, Superseded, and Expired if expiry is enabled.
-- Revocation never destroys historical records.
-- Production QR verification resolves under `https://psp.hoahub.tech`.
+## 6. PayMongo Platforms / Linked Accounts — Canonical Architecture
 
-## 5. PWA & Responsive Requirements
+The canonical architecture for **new member payments** is PayMongo Platforms / Linked Accounts, not per-chapter API-secret Hosted Checkout.
 
-The member experience is **mobile-first and installable as a PWA**.
+- PSP PayMongo account = parent/platform account.
+- Each PSP chapter = linked child PayMongo account (`org_*`).
+- Parent platform secret key exists only in server environment.
+- PSP acts for a child using parent authentication plus PayMongo `Account-Id` header.
+- No chapter PayMongo API secret key is stored by PSP in linked-account mode.
+- Child `org_*` Account ID and child webhook signing secret are encrypted at rest.
+- Chapter payment configuration is server-side chapter scoped.
 
-Mandatory:
+### Platform Convenience Fee
 
-- Web app manifest
-- Service worker
-- Standalone install where supported
-- Android installation support
-- iPhone/iPad Add-to-Home-Screen guidance
-- Branded app icon
-- Responsive mobile/tablet/laptop/desktop layouts
-- Portrait/landscape support
-- Safe-area handling
-- Touch-friendly controls
-- No uncontrolled horizontal overflow
-- Mobile-friendly tables/cards
+Every online member payment includes a separately disclosed **Platform Convenience Fee**.
 
-Reference viewport ranges:
+Configured by operations through:
 
-- Mobile: `<768px`
-- Tablet: `768–1023px`
-- Laptop: `1024–1439px`
-- Desktop/wide: `>=1440px`
+- `PLATFORM_CONVENIENCE_FEE_BPS` — integer basis points (`300 = 3.00%`);
+- `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS` — optional fixed centavos;
+- either or both may be used.
 
-These are guidance, not rigid device assumptions.
+Do not invent a default rate. Payments fail closed if both are unset/zero.
 
-Core flows that must work fully on mobile:
+Amount definitions:
 
-- Registration
-- Activation/login/recovery
-- Dashboard/profile
-- Chapter/officer view
-- Announcements/events
-- Post/image upload/comment
-- Dues/balance/payment
-- Receipt/history
-- Certificate view/download/verification
-- Notifications
+- **chapter amount** = member obligation/contribution/other amount credited to chapter records;
+- **platform fee** = PSP platform convenience fee;
+- **gross total** = chapter amount + platform fee.
 
-Offline/cache behavior must never create false financial state. Financial writes require live server connectivity.
+`Payment.amount` remains the chapter amount. Historical split amounts are snapshotted in immutable audit metadata so later fee changes do not rewrite prior transactions.
 
-## 6. Roles & Authorization
+### Split settlement
 
-Initial role families:
+PayMongo Payment Intent:
 
-- System/National Administrator
-- National Officer
-- Chapter Administrator
-- Chapter Officer
-- Chapter Treasurer/Finance
-- Content/Moderation role when configured
-- Member
-- Applicant
+- gross amount = total paid;
+- `split_payment.recipients` sends the configured fixed platform fee to the PSP parent/platform account;
+- `split_payment.transfer_to` identifies the chapter linked account for the remainder.
 
-Permissions are configurable and scoped. Avoid authorization based only on role names.
+Supported member methods in the current linked-account server flow:
+
+- QR Ph
+- GCash
+- Maya
+
+Do not collect/process raw card details on the PSP backend. Card support, if later approved, requires a reviewed client-side PayMongo public-key/tokenization flow.
+
+### Webhook / reconciliation
+
+Canonical child webhook pattern:
+
+`https://psp.hoahub.tech/api/webhooks/paymongo/[CHAPTER_CODE]`
+
+Controls:
+
+- verify raw body using child webhook signing secret before parsing/mutation;
+- handle `payment.paid` / `payment.failed` for linked Payment Intents;
+- match Payment Intent ID to internal Payment within the same chapter;
+- compare gateway amount with persisted gross total;
+- unique gateway event prevents duplicate posting;
+- paid chapter ledger entry posts **chapter amount only**;
+- receipt shows chapter amount, platform fee and total paid;
+- failed event posts no chapter ledger payment/receipt.
+
+### Live gate
+
+`PAYMONGO_LIVE_ENABLED=false` remains mandatory until TEST-mode split-payment E2E passes and explicit product-owner live approval is given. Presence of a live key is not approval.
+
+External PayMongo Platforms/Linked Accounts capability must be verified before release closure.
+
+See `docs/PAYMENTS.md` for the complete flow/test matrix.
+
+## 7. Certificates / Digital Member ID
+
+### Certificate
+
+- active eligible member may self-generate;
+- current Chapter Chairman required at issue time;
+- Chairman name/title captured as signatory snapshot;
+- unique certificate number + verification token;
+- PDF includes signatory and official seal;
+- QR verification mandatory under production origin;
+- revoked/superseded/expired history is preserved;
+- public verification exposes minimum appropriate data.
+
+### Digital Member ID
+
+- one Digital Member ID per member with unique verification token;
+- created at approval; existing active members backfilled idempotently;
+- mobile card at `/member/id`;
+- public verification at `/verify/member/[token]`;
+- verification exposes only membership/chapter/status information required to establish validity.
+
+## 8. Passkey / Authentication
+
+- passwords remain strongly hashed; never plaintext.
+- passkeys use WebAuthn discoverable credentials and require user verification.
+- verified passkey creates the normal PSP secure session.
+- passkey registration/authentication/revocation are audit logged.
+- after passkey enablement on a device, login hides email/password by default and prioritizes passkey.
+- password fallback remains deliberately available for recovery.
+- session/RBAC/chapter scope remain server enforced regardless of login method.
+
+## 9. PWA / Responsive Requirements
+
+Mandatory member experience:
+
+- valid web app manifest;
+- service worker;
+- standalone installation where supported;
+- Android install support;
+- iOS/iPad Add-to-Home-Screen guidance;
+- branded icons;
+- portrait/landscape support;
+- safe areas;
+- touch-friendly controls;
+- no uncontrolled horizontal overflow;
+- mobile cards instead of desktop-only tables for core member finance/status;
+- PWA shortcuts to Member Home, Digital ID, Payments and Certificate.
+
+Authenticated/private/API/payment/certificate pages must not be cached as public offline content. Financial writes require live connectivity. Offline behavior must never fabricate payment state.
+
+Core mobile flows: registration, activation/login/recovery/passkey, dashboard/profile, chapter/officers, events/community, dues/payment, receipts, certificate, Digital Member ID, notifications.
+
+## 10. Roles / Authorization / Isolation
 
 Authorization model:
 
-`Authenticated User + Role + Permission + Chapter Scope + Record Ownership (when applicable)`
+`Authenticated User + Permission + Chapter Scope + Record Ownership (when applicable)`
 
-Authorization must be enforced server-side. UI hiding is not authorization.
+UI hiding is not authorization.
 
-Chapter users must never obtain another chapter's restricted information via UI, API, URL manipulation, exports, search, reports, object IDs, or files. National cross-chapter access requires explicit National/System permission.
+Role families include System/National Admin, Chapter Admin, Chapter Treasurer/Finance, Chapter Officer, Member and other configured roles.
 
-## 7. Data Isolation
+Chapter Administrator is permitted to view/manage chapter finance so they can configure the linked chapter PayMongo account; Chapter Treasurer/Finance retains finance permissions. Existing production CHAPTER_ADMIN permissions are synchronized additively during the member-mobile production upgrade.
 
-All applicable chapter-owned entities carry explicit chapter scope, including:
+Chapter users must never access another chapter through APIs, IDs, exports, files, reports, payment configuration or webhooks. National cross-chapter access requires explicit national/system permission.
 
-- Members/applications
-- Posts/comments
-- Announcements/events
-- Positions/officer assignments
-- Committees/committee memberships
-- Assessments/rates
-- Ledger entries
-- Payments/receipts
-- Certificates
-- Reports/configuration
+Chapter-owned entities include Members/applications, positions/officers, committees, content/events, assessments/rates, ledger, payments/receipts, certificates, Digital Member ID status, payment configuration and reports.
 
-Never trust a client-supplied `chapterId` without verifying authenticated authority. Prefer central scope/service helpers over ad-hoc filters.
+Never trust client-supplied `chapterId` without authenticated authority; member payment chapter must be derived from authenticated membership.
 
-## 8. Security Baseline
+## 11. Security Baseline
 
 Mandatory:
 
-- HTTPS in production
-- Strong password hashing; no plaintext passwords
-- Server-side session/auth validation
-- Appropriate CSRF/origin protections for state-changing browser requests
-- Secure cookies for cookie sessions
-- Input validation at trust boundaries
-- XSS/output safety
-- Rate limiting for login, recovery, registration, verification, and abuse-prone APIs
-- IDOR/BOLA protection
-- Least-privilege RBAC
-- Secure file type/size/content validation
-- No arbitrary executable uploads
-- Secrets only via environment/secret store
-- Audit privileged/financial actions
-- Never log passwords, tokens, PayMongo secrets, or unnecessary personal data
-- Privacy-safe exports/reports
-- Backups and tested recovery before production
-- Any secret shown in chat, screenshots, tickets, logs, or other non-secret-safe channels is treated as exposed and must be rotated before final production signoff.
+- HTTPS production;
+- secure cookie sessions;
+- origin/CSRF protections for browser writes;
+- Zod/input validation at trust boundaries;
+- rate limiting for auth/registration/verification/abuse-prone APIs;
+- IDOR/BOLA protection;
+- least privilege;
+- secure upload validation;
+- secrets only in environment/secret store;
+- no secret/password/token/PayMongo-key logging;
+- audit privileged/financial/security actions;
+- backups + tested recovery before final production signoff;
+- secrets shown in chat/screenshots/tickets/logs are considered exposed and require rotation.
 
-Design for Philippine privacy obligations: purpose limitation, data minimization, access control, retention, appropriate notices/acknowledgement, and incident handling.
+Linked-payment secrets:
 
-## 9. Technology Baseline
+- `PAYMONGO_PLATFORM_SECRET_KEY` — server only;
+- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable minimum 32 chars; server only;
+- child webhook signing secrets — encrypted at rest;
+- never expose these in PWA/browser/manifest/service worker/GitHub/logs/screenshots.
+
+Design for Philippine privacy obligations: purpose limitation, minimization, access control, notice/acknowledgement, retention and incident handling.
+
+## 12. Technology / Domain Baseline
 
 - Next.js App Router 16.x
 - React 19.x
-- TypeScript strict mode
-- MySQL
-- Prisma ORM
-- Server-side service/domain layer
-- Zod validation at API/server boundaries
-- PWA manifest + service worker
-- Media/object storage abstraction
-- Server-only PayMongo service
-- Email notification abstraction
-- QR generation/verification
-- PDF certificate/receipt generation
+- strict TypeScript
+- Node 22+
+- MySQL + Prisma
+- Zod
+- SimpleWebAuthn
+- PWA manifest/service worker
+- Nodemailer abstraction
+- PayMongo server integration
+- QR/PDF generation
 
-Do not tightly couple domain logic to Hostinger. Infrastructure adapters remain replaceable.
+Core entities include Organization, Chapters, User, Role/Permission/Assignment, MembershipApplication, Member/History, ChapterPosition/OfficerAssignment, Committee/Membership, content/events/notifications, assessments/rates/ledger, Payment/Transaction/Receipt, Certificate, PasskeyCredential, DigitalMemberId, ChapterPaymentConfig and AuditLog.
 
-## 10. Domain Model
+## 13. Production Deployment Rules
 
-Core entities include:
-
-- Organization
-- Chapters
-- User
-- Role / Permission / UserRoleAssignment
-- MembershipApplication
-- Member
-- MembershipHistory
-- ChapterPosition
-- OfficerAssignment
-- Committee / CommitteeMembership
-- Post / PostImage / Comment
-- Announcement
-- Event
-- Notification
-- AssessmentType / AssessmentRate / Assessment
-- MemberLedgerEntry
-- Payment / PaymentTransaction / Receipt
-- Certificate
-- AuditLog
-
-Committee and Notification entities are implemented and are part of the current production-oriented MVP baseline.
-
-## 11. Financial Invariants
-
-- Posted financial history is append/trace oriented.
-- Historical assessment values are immutable when current rates change.
-- Corrections use adjustment/reversal/refund records rather than destructive edits.
-- Payment is marked paid only after trusted PayMongo server/webhook confirmation.
-- Webhook processing is idempotent by event and/or gateway object identifiers.
-- Receipt creation is unique per successful internal Payment.
-- Chapter financial scope is validated server-side.
-
-## 12. Development & Deployment Rules
-
-- Read this `AGENTS.md` before every implementation change.
-- Read `docs/STATUS.md` before planning work; it is the authoritative operational delivery status ledger.
-- Keep `main` releasable; use feature/fix/docs branches and CI.
-- No production secrets in source control.
-- Use Node.js 22+ for build/runtime unless the approved production environment requires a later compatible LTS.
-- Run Prisma validation, schema application against CI MySQL, seed checks, strict TypeScript, production build, runtime/security smoke tests, cross-chapter isolation tests, and runtime dependency audit in CI where applicable.
-- Production database is separate from development/QA and from HOAHub.
-- Production deployment target is `https://psp.hoahub.tech` on Hostinger.
-- Production liveness is `/api/health`; production datastore/auth readiness is `/api/health/ready`. Readiness must be green before authenticated production smoke or release closure.
-- Production smoke must verify the expected deployment generation/release identity so an old Hostinger deployment cannot satisfy the release gate accidentally.
-- Hostinger production builds run `scripts/production-build-init.mjs` through `npm run build` when `APP_ENV=production`.
-- The production build initializer may apply the Prisma schema automatically **only when the connected dedicated PSP database has zero tables**.
-- If the production database is non-empty but lacks the complete required PSP baseline tables, automatic schema push must fail closed; never auto-push into a partial, shared, or unknown database.
-- After the initial greenfield schema exists, normal production schema evolution requires reviewed migrations/change planning and backup/recovery evidence; automatic greenfield `db push` is not the long-term migration mechanism.
-- Baseline/System Admin synchronization remains idempotent and must fail the deployment rather than publish a partially initialized production release.
-- Production PayMongo live credentials are not enabled until test-mode E2E passes and `PAYMONGO_LIVE_ENABLED=true` is explicitly approved/configured.
-- Run post-deployment `/api/health`, `/api/health/ready`, and E2E smoke checks before declaring a release complete.
-- Production startup/build initialization must not destructively reseed customized roles/permissions/data. Full seed runs only when the required baseline is absent.
-
-## 13. Knowledge Base Maintenance — Definition of Done
-
-Documentation is part of every material task. A code/configuration/deployment task is not fully complete until the relevant knowledge base is reconciled.
-
-After every material task:
-
-1. Update `AGENTS.md` when a business rule, architecture rule, security invariant, hosting rule, payment rule, data-isolation rule, or delivery process changes.
-2. Update `docs/STATUS.md` with the completed/pending state and evidence.
-3. Update the applicable detailed document (`BRD.md`, `ARCHITECTURE.md`, `DATA_MODEL.md`, `DEPLOYMENT.md`, `IMPLEMENTATION_PLAN.md`, `PAYMENTS.md`, `REGISTRATION.md`, `SECURITY.md`, or `UI_UX.md`).
-4. Do not leave phase checklists or deployment status stale after implementation or validation has changed.
-5. Do not rely on chat history as the authoritative project state when repository documentation can be updated.
-6. Never mark credential-dependent or production-runtime validation complete without evidence or explicit product-owner confirmation of the relevant fact.
+- Keep `main` releasable; branch + PR + CI.
+- Merge only the **exact head** that passed required CI.
+- Production database is dedicated to PSP and separate from HOAHub/dev/QA.
+- `npm run build` executes guarded production build initialization when `APP_ENV=production`.
+- Empty dedicated DB may receive initial Prisma schema.
+- Recognized pre-member-mobile PSP schema may receive the reviewed **additive** member-mobile schema sync.
+- Partial/unknown member-mobile schema must fail closed.
+- Never pass Prisma `--accept-data-loss` for automatic production upgrade.
+- Production initialization must not destructively reseed customized operational data.
+- Member-mobile upgrade additively synchronizes Chapter Admin finance permissions and backfills Digital Member IDs idempotently.
+- For the member-mobile release, `/api/health/ready` must verify the new passkey, Digital Member ID and chapter payment configuration tables before returning ready; missing member-mobile schema is a deployment failure.
+- Readiness may expose non-secret operational flags for SMTP configuration, PayMongo platform configuration and the live-payment gate. These flags help diagnose production but do not replace real email/payment E2E evidence.
+- Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
+- Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
 
-- Production-oriented MVP application modules are implemented in the repository: identity, registration, membership, chapter administration, Member PWA, community, announcements/events, finance/ledger, PayMongo integration code, receipts, certificates/QR verification, reports, audit, committees, and notifications.
-- Cross-chapter isolation is enforced server-side and has automated CI negative tests.
-- PR #7 production admin-login/bootstrap hardening passed PSP CI #276 and merged at `1e97e288bb7c8c852a6b9635f6268760f0621faf`.
-- PR #8 reconciled the authoritative status/deployment knowledge base and passed PSP CI #281.
-- PR #9 added secret-free live production smoke.
-- PR #10 passed PSP CI #306 and merged at `1553d841b7af5b31a8708f5f90103d9392f9be37`; it added production readiness, Hostinger env aliases, and fail-closed live PayMongo activation.
-- Product-owner database correction changed live readiness from `database=error` to `database=ok` but exposed that the dedicated PSP database was empty (`authSchema=error`, `baseline=error`).
-- PR #11 passed PSP CI #317 and merged at `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`; it added guarded empty-database production schema/bootstrap initialization compatible with Hostinger's managed Next.js build process.
-- PSP Production Smoke #3 passed against the PR #11 Hostinger deployment with exact generation `2026-09-04-schema-bootstrap-v1` and live readiness `database=ok`, `authSchema=ok`, `baseline=ok`, `authConfig=ok`.
-- The remaining P0 is a real browser login proving the intended System Administrator reaches `/admin`; after that, rotate the temporary credential, remove bootstrap variables, restart, and reconfirm login.
-- Other remaining external release gates are exposed-secret rotation, SMTP delivery, production DB backup/restore evidence, Android/iOS PWA device checks, PayMongo test-mode E2E, and live certificate QR verification. See `docs/STATUS.md` for the authoritative current checklist.
+Current production foundation is green through the Hostinger greenfield schema/bootstrap release and verified real System Administrator `/admin` browser login. Production remains on the pre-member-mobile generation until PR #13 is merged and Hostinger serves the new exact generation.
+
+Current P0 release:
+
+- branch `feat/member-mobile-core-2026-09-04`;
+- PR #13 `feat: complete mobile member PWA and PayMongo split payments`;
+- release identity is `2026-09-04-r3`, deployment generation `2026-09-04-member-mobile-v1`;
+- member registration/welcome, mobile dashboard, chapter/officers, balance/contributions, Digital Member ID, Chairman certificate, self-service profile, receipts, passkey, PWA and linked PayMongo split-payment implementation are present on the release branch;
+- PSP CI #337 failed typecheck because a validated WebAuthn challenge still had the inferred type `string | undefined`; the challenge verifier was narrowed to a required string type;
+- PSP CI #340 then passed typecheck/build but failed runtime smoke because CI still asserted the old `r2` release marker; the runtime gate was updated to require `r3` and `member-mobile-v1`;
+- exact technical candidate head `dc59a06b47d84b0e410699181500ecb15333dd2a` passed PSP CI #341, including Prisma/MySQL, seed/bootstrap, strict TypeScript, production build, runtime/security smoke, canonical admin login + `/admin` redirect, cross-chapter isolation and runtime dependency audit;
+- production readiness was subsequently strengthened so `memberMobileSchema=ok` is mandatory and non-secret `smtpConfig`, `payMongoPlatformConfig` and `payMongoLive` statuses are visible for operational diagnosis;
+- production smoke validates the actual Digital Member ID route `/verify/member/[token]` and certificate route `/verify/[token]`, and requires exact `r3` / `member-mobile-v1` deployment;
+- these final readiness/smoke/documentation commits require a fresh exact-head PSP CI before merge;
+- product owner reports Hostinger `SMTP_PASSWORD` configured; actual delivered Chairman welcome email remains unverified;
+- actual convenience-fee value has not been supplied, so split payments intentionally fail closed until operations configures it;
+- PayMongo Platforms capability/account linkage and TEST E2E remain external gates;
+- real Android/iOS PWA, passkey and QR smoke remain external gates.
+
+Authoritative task/evidence status: `docs/STATUS.md`.  
+Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
+
+## 15. Documentation Definition of Done
+
+After every material task:
+
+1. update this file when business/architecture/security/hosting/payment/isolation/delivery rules change;
+2. update `docs/STATUS.md` with current evidence/state;
+3. update the relevant detailed document (`BRD`, `ARCHITECTURE`, `DATA_MODEL`, `DEPLOYMENT`, `IMPLEMENTATION_PLAN`, `PAYMENTS`, `REGISTRATION`, `SECURITY`, `UI_UX`, `MEMBER_MOBILE_P0`);
+4. do not leave stale phase/deployment checklists;
+5. repository documentation, not chat history, is authoritative;
+6. never mark credential/payment/email/device/production checks complete without evidence.

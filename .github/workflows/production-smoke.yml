@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 15
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-04-r2
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-schema-bootstrap-v1
+      EXPECTED_RELEASE: 2026-09-04-r3
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-member-mobile-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -68,6 +68,7 @@ jobs:
           grep -q '"database":"ok"' /tmp/psp-readiness.json
           grep -q '"authSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"baseline":"ok"' /tmp/psp-readiness.json
+          grep -q '"memberMobileSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"authConfig":"ok"' /tmp/psp-readiness.json
 
       - name: Verify PSP public pages and PWA assets
@@ -78,6 +79,7 @@ jobs:
           curl --fail --silent --show-error "$PROD_URL/manifest.webmanifest" > /tmp/psp-manifest.json
           curl --fail --silent --show-error "$PROD_URL/privacy" > /dev/null
           curl --fail --silent --show-error "$PROD_URL/register" > /dev/null
+          curl --fail --silent --show-error "$PROD_URL/install" > /dev/null
           grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
           grep -q '"start_url"' /tmp/psp-manifest.json
 
@@ -120,6 +122,22 @@ jobs:
           echo "Cross-site login status: $cross_site_status"
           cat /tmp/psp-login-cross-site.json
           test "$cross_site_status" = "403"
+
+      - name: Verify member-mobile public verification routes are deployed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Unknown verification tokens may render an invalid/not-found state;
+          # the actual Digital Member ID and Certificate routes must exist in
+          # this exact deployment and must not produce an application 500.
+          for path in "/verify/member/prod-smoke-invalid-token" "/verify/prod-smoke-invalid-token"; do
+            status="$(curl --silent --show-error --location \
+              --output /tmp/psp-verify.html \
+              --write-out '%{http_code}' \
+              "$PROD_URL$path" || true)"
+            echo "$path -> HTTP $status"
+            test "$status" != "500"
+          done
 
       - name: Production smoke summary
         run: |

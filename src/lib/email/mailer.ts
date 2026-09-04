@@ -38,6 +38,7 @@ export async function sendEmail(options: {
   subject: string;
   text: string;
   html: string;
+  replyTo?: string | null;
 }) {
   const config = smtpConfig();
   const transporter = nodemailer.createTransport({
@@ -54,7 +55,7 @@ export async function sendEmail(options: {
     from: config.fromName
       ? { name: config.fromName, address: config.fromAddress }
       : config.fromAddress,
-    replyTo: config.replyTo || undefined,
+    replyTo: options.replyTo?.trim() || config.replyTo || undefined,
     to: options.to,
     subject: options.subject,
     text: options.text,

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -6,8 +7,10 @@ import {
   requirePermission,
 } from "@/lib/auth/context";
 import { applicationUrl, createActivationToken } from "@/lib/auth/account-tokens";
+import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
 import { generateMembershipNumber } from "@/domain/membership/membership-number";
 import { escapeHtml, sendEmail } from "@/lib/email/mailer";
+import { notifyUser } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
@@ -35,7 +38,9 @@ export async function POST(
   const { id } = await params;
   const application = await prisma.membershipApplication.findUnique({
     where: { id },
-    include: { chapter: { select: { id: true, name: true, code: true } } },
+    include: {
+      chapter: { select: { id: true, name: true, code: true, email: true } },
+    },
   });
 
   if (!application) {
@@ -121,6 +126,14 @@ export async function POST(
           },
         });
 
+        await tx.digitalMemberId.create({
+          data: {
+            memberId: member.id,
+            verificationToken: randomBytes(24).toString("base64url"),
+            status: "VALID",
+          },
+        });
+
         await tx.membershipHistory.create({
           data: {
             memberId: member.id,
@@ -163,6 +176,7 @@ export async function POST(
               status: updatedApplication.status,
               memberId: member.id,
               membershipNo,
+              digitalIdIssued: true,
             },
           },
         });
@@ -170,35 +184,59 @@ export async function POST(
         return { user, member, updatedApplication };
       });
 
-      let activationDelivery: "not-required" | "sent" | "failed" = "not-required";
-      if (
+      const needsActivation =
         result.user.status !== "ACTIVE" ||
         !result.user.emailVerifiedAt ||
-        !result.user.passwordHash
-      ) {
-        try {
-          const token = createActivationToken({ id: result.user.id, email: result.user.email });
-          const activationUrl = applicationUrl(`/activate?token=${encodeURIComponent(token)}`);
-          await sendEmail({
-            to: result.user.email,
-            subject: "Welcome to Psi Sigma Phi Philippines Inc. — activate your member account",
-            text: `Hello ${result.user.displayName},\n\nYour membership application for ${application.chapter.name} has been approved. Your membership number is ${result.member.membershipNo}. Activate your account here: ${activationUrl}\n\nThe activation link expires in 24 hours.`,
-            html: `<p>Hello ${escapeHtml(result.user.displayName)},</p><p>Your membership application for <strong>${escapeHtml(application.chapter.name)}</strong> has been approved.</p><p>Membership No.: <strong>${escapeHtml(result.member.membershipNo)}</strong></p><p><a href="${escapeHtml(activationUrl)}">Activate Member Account</a></p><p>The activation link expires in 24 hours.</p>`,
-          });
-          activationDelivery = "sent";
-        } catch {
-          activationDelivery = "failed";
-          await prisma.auditLog.create({
-            data: {
-              actorUserId: context.user.id,
-              chapterId: application.chapterId,
-              action: "MEMBER_ACTIVATION_EMAIL_FAILED",
-              entityType: "Member",
-              entityId: result.member.id,
-            },
-          });
-        }
+        !result.user.passwordHash;
+      const activationUrl = needsActivation
+        ? applicationUrl(
+            `/activate?token=${encodeURIComponent(
+              createActivationToken({ id: result.user.id, email: result.user.email }),
+            )}`,
+          )
+        : null;
+      const loginUrl = applicationUrl("/login");
+      const installUrl = applicationUrl("/install");
+      const chairman = await getCurrentChapterChairman(application.chapterId);
+      const chairmanName = chairman?.name ?? "Chapter Chairman";
+      const chairmanTitle = chairman?.title ?? "Chapter Chairman";
+
+      let welcomeDelivery: "sent" | "failed" = "sent";
+      try {
+        const actionText = activationUrl
+          ? `Activate your account and create your password: ${activationUrl}`
+          : `Sign in to your member account: ${loginUrl}`;
+        const actionHtml = activationUrl
+          ? `<a href="${escapeHtml(activationUrl)}">Activate your PSP Member Account</a>`
+          : `<a href="${escapeHtml(loginUrl)}">Sign in to PSP Member Portal</a>`;
+
+        await sendEmail({
+          to: result.user.email,
+          replyTo: application.chapter.email,
+          subject: `Welcome to ${application.chapter.name} — your PSP membership is approved`,
+          text: `Hello ${result.user.displayName},\n\nWelcome to ${application.chapter.name}. Your membership application has been approved.\n\nMembership No.: ${result.member.membershipNo}\nLogin email: ${result.user.email}\n${actionText}\n\nInstall the PSP mobile app (PWA): ${installUrl}\n\nFrom,\n${chairmanName}\n${chairmanTitle}\n${application.chapter.name}`,
+          html: `<p>Hello ${escapeHtml(result.user.displayName)},</p><p>Welcome to <strong>${escapeHtml(application.chapter.name)}</strong>. Your membership application has been approved.</p><p>Membership No.: <strong>${escapeHtml(result.member.membershipNo)}</strong><br/>Login email: <strong>${escapeHtml(result.user.email)}</strong></p><p>${actionHtml}</p><p><a href="${escapeHtml(installUrl)}">Install the PSP Mobile App (PWA)</a></p><p>For your security, PSP never sends a plaintext password by email.</p><p>Fraternally yours,<br/><strong>${escapeHtml(chairmanName)}</strong><br/>${escapeHtml(chairmanTitle)}<br/>${escapeHtml(application.chapter.name)}</p>`,
+        });
+      } catch {
+        welcomeDelivery = "failed";
+        await prisma.auditLog.create({
+          data: {
+            actorUserId: context.user.id,
+            chapterId: application.chapterId,
+            action: "MEMBER_WELCOME_EMAIL_FAILED",
+            entityType: "Member",
+            entityId: result.member.id,
+          },
+        });
       }
+
+      await notifyUser({
+        userId: result.user.id,
+        type: "MEMBERSHIP",
+        title: "Welcome to Psi Sigma Phi",
+        body: `Your ${application.chapter.name} membership is approved. Your membership number is ${result.member.membershipNo}.`,
+        href: "/member",
+      }).catch(() => undefined);
 
       return NextResponse.json(
         {
@@ -210,7 +248,8 @@ export async function POST(
             id: result.member.id,
             membershipNo: result.member.membershipNo,
           },
-          activationDelivery,
+          welcomeDelivery,
+          activationRequired: needsActivation,
         },
         { headers: { "Cache-Control": "no-store" } },
       );
@@ -246,6 +285,7 @@ export async function POST(
         const statusLabel = status.replaceAll("_", " ").toLowerCase();
         await sendEmail({
           to: application.email,
+          replyTo: application.chapter.email,
           subject: `Psi Sigma Phi membership application update — ${application.chapter.name}`,
           text: `Hello ${application.firstName},\n\nYour membership application status is now ${statusLabel}.\n\n${reviewNotes || "Please contact your chapter for additional information."}`,
           html: `<p>Hello ${escapeHtml(application.firstName)},</p><p>Your membership application status is now <strong>${escapeHtml(statusLabel)}</strong>.</p><p>${escapeHtml(reviewNotes || "Please contact your chapter for additional information.")}</p>`,

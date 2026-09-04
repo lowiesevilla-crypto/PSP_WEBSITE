@@ -45,6 +45,9 @@ export default async function AdminDashboardPage() {
   add("content.manage", "/admin/announcements", "Announcements", "Publish national or chapter-scoped official updates and pinned notices.");
   add("events.manage", "/admin/events", "Events", "Create, publish, complete, and cancel national or chapter events.");
   add("finance.view", "/admin/finance", "Finance & Reconciliation", "Configure dues, post assessments, review balances, PayMongo transactions, and receipts.");
+  if (permissionSet.has("applications.review") || permissionSet.has("finance.manage") || permissionSet.has("chapters.manage")) {
+    cards.push(["/admin/finance/payment-config", "Chapter Online Payment", "Configure the chapter PayMongo account, webhook, test/live mode, and accepted payment methods.", "chapter-payment-config"]);
+  }
   add("certificates.manage", "/admin/certificates", "Certificates", "Issue, verify, download, and revoke membership certificates with full history.");
   add("reports.view", "/admin/reports", "Reports", "View membership, application, collections, payment, certificate, and event metrics.");
   add("audit.view", "/admin/audit", "Audit Log", "Review privileged and security-relevant actions within authorized scope.");

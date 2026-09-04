@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCurrentMember } from "@/lib/member/current-member";
+import { getPersistedSplitAmounts } from "@/lib/paymongo/split-metadata";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -14,15 +15,23 @@ export async function GET(request: Request) {
     });
     if (!payment) return NextResponse.json({ message: "Payment not found." }, { status: 404 });
 
+    const split = await getPersistedSplitAmounts(payment.id, payment.amount);
     return NextResponse.json(
       {
         payment: {
           id: payment.id,
           status: payment.status,
-          amount: payment.amount.toFixed(2),
+          category: payment.category,
+          description: payment.description,
+          chapterAmount: split.chapterAmount.toFixed(2),
+          platformFee: split.platformFee.toFixed(2),
+          totalAmount: split.totalAmount.toFixed(2),
+          paymentMethod: split.paymentMethod,
           internalReference: payment.internalReference,
           paidAt: payment.paidAt?.toISOString() ?? null,
-          receipt: payment.receipt ? { id: payment.receipt.id, receiptNumber: payment.receipt.receiptNumber } : null,
+          receipt: payment.receipt
+            ? { id: payment.receipt.id, receiptNumber: payment.receipt.receiptNumber }
+            : null,
         },
       },
       { headers: { "Cache-Control": "no-store" } },

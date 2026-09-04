@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PasskeySettings } from "@/components/member/passkey-settings";
 import { ProfileForm } from "@/components/member/profile-form";
 import { requireCurrentMember } from "@/lib/member/current-member";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(date: Date | null) {
-  if (!date) return "Not recorded";
-  return new Intl.DateTimeFormat("en-PH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "Asia/Manila",
-  }).format(date);
+function inputDate(date: Date | null) {
+  return date ? date.toISOString().slice(0, 10) : "";
 }
 
 export default async function ProfilePage() {
@@ -22,6 +18,19 @@ export default async function ProfilePage() {
   } catch {
     redirect("/login");
   }
+
+  const passkeys = await prisma.passkeyCredential.findMany({
+    where: { userId: member.userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      deviceType: true,
+      backedUp: true,
+      createdAt: true,
+      lastUsedAt: true,
+    },
+  });
 
   const fullName = [member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ");
 
@@ -39,36 +48,56 @@ export default async function ProfilePage() {
         </div>
       </header>
 
-      <div className="container app-main">
+      <div className="container app-main" style={{ maxWidth: 1000 }}>
         <div className="app-greeting">
-          <p>My Profile</p>
+          <p>My Profile & Security</p>
           <h1>{fullName}</h1>
         </div>
 
-        <div className="app-grid">
+        <div style={{ display: "grid", gap: 18 }}>
           <section className="app-panel">
-            <h2>Verified Membership Information</h2>
+            <h2>Protected Membership Record</h2>
             <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
-              These fields are part of your verified PSP membership record. Contact an authorized chapter administrator if a verified field requires correction.
+              Your assigned chapter and PSP identity codes are controlled membership records and cannot be changed from self-service.
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 12 }}>
               <Info label="Membership No." value={member.membershipNo} />
               <Info label="Chapter" value={member.chapter.name} />
-              <Info label="Email" value={member.user.email} />
-              <Info label="Date Survive" value={formatDate(member.dateSurvive)} />
-              <Info label="Location" value={member.surviveLocation ?? "Not recorded"} />
               <Info label="PSP Birthday Code" value={member.pspBirthdayCode ?? "Not recorded"} />
-              <Info label="Date of Birth" value={formatDate(member.birthDate)} />
+              <Info label="Login Email" value={member.user.email} />
             </div>
           </section>
 
-          <aside className="app-panel">
-            <h2>Contact Information</h2>
-            <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
-              You may update your current mobile number and address.
-            </p>
-            <ProfileForm mobile={member.mobile} address={member.address} />
-          </aside>
+          <div className="app-grid">
+            <section className="app-panel">
+              <h2>Personal Record</h2>
+              <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
+                Keep your personal information current. Updates are audited and do not change your chapter or PSP identity codes.
+              </p>
+              <ProfileForm
+                initial={{
+                  firstName: member.firstName,
+                  lastName: member.lastName,
+                  middleInitial: member.middleInitial ?? "",
+                  mobile: member.mobile ?? "",
+                  address: member.address ?? "",
+                  dateSurvive: inputDate(member.dateSurvive),
+                  surviveLocation: member.surviveLocation ?? "",
+                  birthDate: inputDate(member.birthDate),
+                }}
+              />
+            </section>
+
+            <aside className="app-panel">
+              <PasskeySettings
+                initialPasskeys={passkeys.map((passkey) => ({
+                  ...passkey,
+                  createdAt: passkey.createdAt.toISOString(),
+                  lastUsedAt: passkey.lastUsedAt?.toISOString() ?? null,
+                }))}
+              />
+            </aside>
+          </div>
         </div>
       </div>
     </main>

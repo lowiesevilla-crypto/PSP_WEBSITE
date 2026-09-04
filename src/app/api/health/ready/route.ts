@@ -24,10 +24,34 @@ function authConfigReady() {
   return secretReady && appOriginReady;
 }
 
+function smtpConfigStatus() {
+  const user = process.env.SMTP_USER?.trim() || process.env.SMTP_USERNAME?.trim();
+  const from = process.env.SMTP_FROM?.trim() || process.env.MAIL_FROM_ADDRESS?.trim();
+  return process.env.SMTP_HOST?.trim() && user && process.env.SMTP_PASSWORD?.trim() && from
+    ? "configured"
+    : "not_configured";
+}
+
+function payMongoPlatformConfigStatus() {
+  const secret = process.env.PAYMONGO_PLATFORM_SECRET_KEY?.trim();
+  const accountId = process.env.PAYMONGO_PLATFORM_ACCOUNT_ID?.trim();
+  const encryptionKey = process.env.PAYMENT_CONFIG_ENCRYPTION_KEY?.trim();
+  const bps = Number(process.env.PLATFORM_CONVENIENCE_FEE_BPS ?? 0);
+  const fixedCentavos = Number(process.env.PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS ?? 0);
+  const feeConfigured =
+    (Number.isFinite(bps) && bps > 0) ||
+    (Number.isFinite(fixedCentavos) && fixedCentavos > 0);
+
+  return secret && accountId?.startsWith("org_") && (encryptionKey?.length ?? 0) >= 32 && feeConfigured
+    ? "configured"
+    : "not_configured";
+}
+
 export async function GET() {
   let databaseReady = false;
   let authSchemaReady = false;
   let baselineReady = false;
+  let memberMobileSchemaReady = false;
 
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -46,6 +70,16 @@ export async function GET() {
     void auditRow;
     authSchemaReady = true;
     baselineReady = Boolean(systemAdminRole);
+
+    const [passkeyRow, digitalIdRow, paymentConfigRow] = await Promise.all([
+      prisma.passkeyCredential.findFirst({ select: { id: true } }),
+      prisma.digitalMemberId.findFirst({ select: { id: true } }),
+      prisma.chapterPaymentConfig.findFirst({ select: { id: true } }),
+    ]);
+    void passkeyRow;
+    void digitalIdRow;
+    void paymentConfigRow;
+    memberMobileSchemaReady = true;
   } catch (error) {
     console.error(
       "PSP_READINESS_DATASTORE_ERROR",
@@ -54,7 +88,12 @@ export async function GET() {
   }
 
   const authReady = authConfigReady();
-  const ready = databaseReady && authSchemaReady && baselineReady && authReady;
+  const ready =
+    databaseReady &&
+    authSchemaReady &&
+    baselineReady &&
+    memberMobileSchemaReady &&
+    authReady;
 
   return NextResponse.json(
     {
@@ -65,7 +104,11 @@ export async function GET() {
         database: databaseReady ? "ok" : "error",
         authSchema: authSchemaReady ? "ok" : "error",
         baseline: baselineReady ? "ok" : "error",
+        memberMobileSchema: memberMobileSchemaReady ? "ok" : "error",
         authConfig: authReady ? "ok" : "error",
+        smtpConfig: smtpConfigStatus(),
+        payMongoPlatformConfig: payMongoPlatformConfigStatus(),
+        payMongoLive: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true" ? "enabled" : "disabled",
       },
       timestamp: new Date().toISOString(),
     },

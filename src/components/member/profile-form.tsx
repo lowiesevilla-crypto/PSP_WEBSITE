@@ -2,8 +2,19 @@
 
 import { FormEvent, useState } from "react";
 
-export function ProfileForm({ mobile, address }: { mobile: string | null; address: string | null }) {
-  const [form, setForm] = useState({ mobile: mobile ?? "", address: address ?? "" });
+type ProfileValues = {
+  firstName: string;
+  lastName: string;
+  middleInitial: string;
+  mobile: string;
+  address: string;
+  dateSurvive: string;
+  surviveLocation: string;
+  birthDate: string;
+};
+
+export function ProfileForm({ initial }: { initial: ProfileValues }) {
+  const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +33,7 @@ export function ProfileForm({ mobile, address }: { mobile: string | null; addres
       });
       const payload = (await response.json()) as { message?: string };
       if (!response.ok) throw new Error(payload.message ?? "Unable to save profile.");
-      setMessage("Profile updated successfully.");
+      setMessage("Personal record updated successfully.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save profile.");
     } finally {
@@ -30,36 +41,46 @@ export function ProfileForm({ mobile, address }: { mobile: string | null; addres
     }
   }
 
+  const set = (field: keyof ProfileValues, value: string) =>
+    setForm((current) => ({ ...current, [field]: value }));
+
   return (
     <form onSubmit={submit} style={{ display: "grid", gap: 16 }}>
-      <label style={{ display: "grid", gap: 7 }}>
-        <strong>Mobile No.</strong>
-        <input
-          type="tel"
-          inputMode="tel"
-          value={form.mobile}
-          maxLength={30}
-          onChange={(event) => setForm((current) => ({ ...current, mobile: event.target.value }))}
-          style={fieldStyle}
-        />
-      </label>
-      <label style={{ display: "grid", gap: 7 }}>
-        <strong>Address</strong>
-        <textarea
-          value={form.address}
-          maxLength={500}
-          rows={4}
-          onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
-          style={{ ...fieldStyle, resize: "vertical" }}
-        />
-      </label>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 }}>
+        <Field label="First Name"><input value={form.firstName} required maxLength={100} onChange={(event) => set("firstName", event.target.value)} style={fieldStyle} /></Field>
+        <Field label="Middle Initial"><input value={form.middleInitial} maxLength={5} onChange={(event) => set("middleInitial", event.target.value)} style={fieldStyle} /></Field>
+        <Field label="Last Name"><input value={form.lastName} required maxLength={100} onChange={(event) => set("lastName", event.target.value)} style={fieldStyle} /></Field>
+      </div>
+
+      <Field label="Mobile No.">
+        <input type="tel" inputMode="tel" value={form.mobile} maxLength={30} onChange={(event) => set("mobile", event.target.value)} style={fieldStyle} />
+      </Field>
+      <Field label="Address">
+        <textarea value={form.address} maxLength={500} rows={4} onChange={(event) => set("address", event.target.value)} style={{ ...fieldStyle, resize: "vertical" }} />
+      </Field>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
+        <Field label="Date Survive"><input type="date" value={form.dateSurvive} onChange={(event) => set("dateSurvive", event.target.value)} style={fieldStyle} /></Field>
+        <Field label="Date of Birth"><input type="date" value={form.birthDate} onChange={(event) => set("birthDate", event.target.value)} style={fieldStyle} /></Field>
+      </div>
+      <Field label="Survive / Initiation Location">
+        <input value={form.surviveLocation} maxLength={500} onChange={(event) => set("surviveLocation", event.target.value)} style={fieldStyle} />
+      </Field>
+
+      <p style={{ margin: 0, color: "#746b5b", fontSize: ".82rem", lineHeight: 1.55 }}>
+        Your chapter, membership number, PSP Birthday Code, and login email are protected records. Chapter/code changes require an authorized administrator or account-security workflow.
+      </p>
+
       {message ? <div role="status" style={successStyle}>{message}</div> : null}
       {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
-      <button className="btn btn-primary" type="submit" disabled={saving} style={{ justifySelf: "start" }}>
-        {saving ? "Saving…" : "Save Profile"}
+      <button className="btn btn-primary" type="submit" disabled={saving} style={{ width: "100%" }}>
+        {saving ? "Saving…" : "Save Personal Record"}
       </button>
     </form>
   );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label style={{ display: "grid", gap: 7 }}><strong>{label}</strong>{children}</label>;
 }
 
 const fieldStyle: React.CSSProperties = {

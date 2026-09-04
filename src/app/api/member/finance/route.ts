@@ -33,6 +33,13 @@ export async function GET() {
       }
     }
 
+    const totalContributions = payments
+      .filter((payment) => payment.status === "PAID" && payment.category === "CONTRIBUTION")
+      .reduce((total, payment) => total.plus(payment.amount), new Prisma.Decimal(0));
+    const totalChapterPayments = payments
+      .filter((payment) => payment.status === "PAID")
+      .reduce((total, payment) => total.plus(payment.amount), new Prisma.Decimal(0));
+
     const assessments = await prisma.assessment.findMany({
       where: { chapterId: member.chapterId, id: { in: [...byAssessment.keys()] }, status: { in: ["ACTIVE", "CLOSED"] } },
       orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }],
@@ -42,6 +49,8 @@ export async function GET() {
     return NextResponse.json(
       {
         balance: balance.toFixed(2),
+        totalContributions: totalContributions.toFixed(2),
+        totalChapterPayments: totalChapterPayments.toFixed(2),
         assessments: assessments.map((assessment) => ({
           id: assessment.id,
           title: assessment.title,
@@ -66,7 +75,9 @@ export async function GET() {
           id: payment.id,
           internalReference: payment.internalReference,
           gatewayReference: payment.gatewayReference,
-          amount: payment.amount.toFixed(2),
+          category: payment.category,
+          description: payment.description,
+          chapterAmount: payment.amount.toFixed(2),
           status: payment.status,
           paidAt: payment.paidAt?.toISOString() ?? null,
           createdAt: payment.createdAt.toISOString(),

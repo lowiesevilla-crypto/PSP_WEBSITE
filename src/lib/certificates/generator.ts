@@ -22,6 +22,8 @@ export async function generateMembershipCertificatePdf(input: {
   certificateNumber: string;
   issuedAt: Date;
   verificationToken: string;
+  signatoryName: string;
+  signatoryTitle: string;
 }) {
   const document = await PDFDocument.create();
   const page = document.addPage([841.89, 595.28]);
@@ -68,7 +70,32 @@ export async function generateMembershipCertificatePdf(input: {
 
   page.drawText(`Certificate No.: ${input.certificateNumber}`, { x: 56, y: 76, size: 10, font: sans, color: muted });
   page.drawText(`Issued: ${issueDate}`, { x: 56, y: 58, size: 10, font: sans, color: muted });
-  page.drawText("Authorized digital certificate", { x: width / 2 - 88, y: 66, size: 10, font: sans, color: muted });
+
+  const signatoryName = fitText(input.signatoryName, 44);
+  const signatoryTitle = fitText(input.signatoryTitle, 42);
+  const signatoryCenter = width / 2;
+  page.drawLine({
+    start: { x: signatoryCenter - 105, y: 78 },
+    end: { x: signatoryCenter + 105, y: 78 },
+    thickness: 0.8,
+    color: muted,
+  });
+  const signatoryWidth = serifBold.widthOfTextAtSize(signatoryName, 11);
+  page.drawText(signatoryName, {
+    x: signatoryCenter - signatoryWidth / 2,
+    y: 61,
+    size: 11,
+    font: serifBold,
+    color: black,
+  });
+  const titleWidth = sans.widthOfTextAtSize(signatoryTitle, 8.5);
+  page.drawText(signatoryTitle, {
+    x: signatoryCenter - titleWidth / 2,
+    y: 45,
+    size: 8.5,
+    font: sans,
+    color: muted,
+  });
 
   const verificationUrl = certificateVerificationUrl(input.verificationToken);
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, { margin: 1, width: 240 });
