@@ -1,58 +1,64 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import { SplitPaymentAction } from "@/components/payments/split-payment-action";
 
 export function OtherPaymentForm() {
   const [category, setCategory] = useState<"CONTRIBUTION" | "OTHER">("CONTRIBUTION");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/payments/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          category,
-          amount: Number(amount),
-          description,
-          requestId: crypto.randomUUID(),
-        }),
-      });
-      const payload = (await response.json()) as { checkoutUrl?: string; message?: string };
-      if (!response.ok || !payload.checkoutUrl) throw new Error(payload.message ?? "Unable to start payment.");
-      window.location.assign(payload.checkoutUrl);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to start payment.");
-      setBusy(false);
-    }
-  }
+  const validAmount = Number.isFinite(Number(amount)) && Number(amount) > 0;
+  const validDescription = description.trim().length >= 3;
 
   return (
-    <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 14 }}>
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Payment Type</strong>
-        <select value={category} onChange={(event) => setCategory(event.target.value as "CONTRIBUTION" | "OTHER")} style={fieldStyle}>
+        <select
+          value={category}
+          onChange={(event) => setCategory(event.target.value as "CONTRIBUTION" | "OTHER")}
+          style={fieldStyle}
+        >
           <option value="CONTRIBUTION">Contribution</option>
           <option value="OTHER">Other Payment</option>
         </select>
       </label>
       <label style={{ display: "grid", gap: 6 }}>
-        <strong>Amount (PHP)</strong>
-        <input type="number" inputMode="decimal" min="1" max="10000000" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required style={fieldStyle} />
+        <strong>Chapter Amount (PHP)</strong>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="1"
+          max="10000000"
+          step="0.01"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          required
+          style={fieldStyle}
+        />
       </label>
       <label style={{ display: "grid", gap: 6 }}>
         <strong>Description / Purpose</strong>
-        <input value={description} onChange={(event) => setDescription(event.target.value)} minLength={3} maxLength={255} required placeholder={category === "CONTRIBUTION" ? "e.g. Chapter anniversary contribution" : "e.g. Merchandise / other approved payment"} style={fieldStyle} />
+        <input
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          minLength={3}
+          maxLength={255}
+          required
+          placeholder={category === "CONTRIBUTION" ? "e.g. Chapter anniversary contribution" : "e.g. Merchandise / other approved payment"}
+          style={fieldStyle}
+        />
       </label>
-      {error ? <div role="alert" style={{ padding: 10, borderRadius: 10, background: "#fff1f1", color: "#7b2424" }}>{error}</div> : null}
-      <button className="btn btn-primary" type="submit" disabled={busy} style={{ width: "100%" }}>{busy ? "Opening PayMongo…" : "Continue to Secure Payment"}</button>
-    </form>
+      <p style={{ margin: 0, color: "#6b665c", fontSize: ".84rem", lineHeight: 1.5 }}>
+        A separately disclosed PSP platform convenience fee will be added before you confirm payment. The chapter amount above is the amount credited to your chapter record.
+      </p>
+      <SplitPaymentAction
+        category={category}
+        chapterAmount={validAmount ? Number(amount).toFixed(2) : "0.00"}
+        description={description.trim()}
+        disabled={!validAmount || !validDescription}
+      />
+    </div>
   );
 }
 
