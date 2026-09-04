@@ -19,8 +19,10 @@ export function verifyPayMongoSignature(input: {
   rawBody: string;
   signatureHeader: string | null;
   nowMs?: number;
+  webhookSecret?: string;
+  mode?: "TEST" | "LIVE";
 }) {
-  const secret = process.env.PAYMONGO_WEBHOOK_SECRET?.trim();
+  const secret = input.webhookSecret?.trim() || process.env.PAYMONGO_WEBHOOK_SECRET?.trim();
   if (!secret || !input.signatureHeader) return false;
 
   const parts = parseSignatureHeader(input.signatureHeader);
@@ -33,7 +35,9 @@ export function verifyPayMongoSignature(input: {
   const nowSeconds = Math.floor((input.nowMs ?? Date.now()) / 1000);
   if (Math.abs(nowSeconds - timestamp) > DEFAULT_TOLERANCE_SECONDS) return false;
 
-  const live = process.env.PAYMONGO_SECRET_KEY?.trim().startsWith("sk_live_") ?? false;
+  const live = input.mode
+    ? input.mode === "LIVE"
+    : process.env.PAYMONGO_SECRET_KEY?.trim().startsWith("sk_live_") ?? false;
   if (live && !livePaymentsEnabled()) return false;
 
   const received = parts.get(live ? "li" : "te");
