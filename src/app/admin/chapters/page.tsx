@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { ChapterCreateForm } from "@/components/admin/chapter-create-form";
 import { ChapterAdminAssignmentForm } from "@/components/admin/chapter-admin-assignment-form";
+import { ChapterStatusControl } from "@/components/admin/chapter-status-control";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function ChaptersPage() {
 
         {canManage ? <div style={{ marginBottom: 20 }}><ChapterCreateForm /></div> : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
           {chapters.map((chapter) => (
             <article className="app-panel" key={chapter.id}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -57,7 +58,7 @@ export default async function ChaptersPage() {
                   <small style={{ color: "#746b5b", fontWeight: 800 }}>{chapter.code}</small>
                   <h2 style={{ margin: "4px 0 0" }}>{chapter.name}</h2>
                 </div>
-                <span style={{ padding: "6px 9px", borderRadius: 999, background: "#fff4c8", fontSize: ".75rem", fontWeight: 900 }}>{chapter.status}</span>
+                <span style={{ padding: "6px 9px", borderRadius: 999, background: chapter.status === "ACTIVE" ? "#fff4c8" : "#f2efe8", fontSize: ".75rem", fontWeight: 900 }}>{chapter.status}</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
                 <Metric label="Members" value={chapter._count.members} />
@@ -77,7 +78,12 @@ export default async function ChaptersPage() {
                   <p style={{ color: "#746b5b" }}>No Chapter Administrator assigned yet.</p>
                 )}
               </div>
-              {canManage ? <ChapterAdminAssignmentForm chapterId={chapter.id} /> : null}
+              {canManage ? (
+                <>
+                  <ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} />
+                  <ChapterAdminAssignmentForm chapterId={chapter.id} chapterStatus={chapter.status} />
+                </>
+              ) : null}
             </article>
           ))}
         </div>
