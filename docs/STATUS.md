@@ -1,114 +1,137 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 14:46 PHT  
+**Status timestamp:** 2026-09-04 15:49 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA before PR #16 merge:** `7269b9ab1bc3c60f015850e784f96923464bd2f5`
+**Current main SHA:** `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Do not claim production completion without exact evidence.
 
 ## Executive Status
 
-The PSP production platform is operational. The P0 Member Mobile / PWA release is deployed and runtime-ready. The professional responsive UI/UX release for National Admin, Chapter Admin, and Member experiences is merged to `main` and passed exact-head CI before merge plus post-merge CI.
+The PSP application code is healthy through the current merged release candidate. PR #16 is merged after exact-head CI, and the merge SHA also passed the complete post-merge PSP CI gate set.
 
-The active production-defect/enhancement release is PR #16:
-
-`fix: admin lifecycle and chapter content media`
-
-Branch: `fix/admin-lifecycle-content-media-2026-09-04`
-
-All requested implementation is code-complete, including Chapter Admin assignment correction, National Admin chapter/user lifecycle controls, secure private announcement/event images, scoped media delivery, and responsive member rendering. The release now has a unique exact production identity:
+Current target production identity:
 
 - release: `2026-09-04-r5`
 - deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 
-PR #16 must not merge until the final branch head passes the complete required PSP CI gate set. After merge, Production Smoke must observe the exact `r5 / admin-lifecycle-media-v1` generation before public production closure.
+Production deployment proof is **OPEN**. Production Smoke #8 / run `33847400143` attempt 1 reached production successfully but saw the prior `r4 / professional-ui-v1` generation for all 40 polls. Attempt 2 was immediately retried; the GitHub runner then received only network-level HTTP `000` connection timeouts and the job's 15-minute limit cancelled the wait step before it could finish its diagnostic loop.
+
+This evidence means:
+
+- merged application CI is green;
+- production was healthy on r4 during attempt 1;
+- r5 has not yet been proven live;
+- attempt 2 additionally exposed a Production Smoke timeout/reachability-diagnostics defect;
+- authenticated PR #16 workflows must not yet be claimed as production-proven.
+
+A follow-up branch, `docs/reconcile-pr16-prod-status-2026-09-04`, now reconciles `AGENTS.md`/status documentation and fixes Production Smoke so the worst-case deployment wait fits within the job timeout and all-network-failure cases are reported explicitly. That branch must pass exact-head CI and merge only on that passing head. Its merge will trigger a fresh production observation while preserving the same r5 application release identity.
 
 ## Completed — P0 Member Mobile / PWA + PayMongo Architecture
 
 - PR #13: `feat: complete mobile member PWA and PayMongo split payments`
-- Exact passing head: `bb2cd5dc0bc261ead7628b52ede46f91da87b2c5`
+- exact passing head: `bb2cd5dc0bc261ead7628b52ede46f91da87b2c5`
 - PSP CI #349 / run `33834687885`: **PASSED**
-- Merge SHA: `1e3a37fb9a01226b776932e0caeff9a70c124e0f`
-- Production health previously observed: HTTP 200, release `2026-09-04-r3`, generation `2026-09-04-member-mobile-v1`
-- Production readiness previously observed: HTTP 200 / `status=ready`
-- Readiness checks observed: `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`, `payMongoPlatformConfig=not_configured`, `payMongoLive=disabled`
+- merge SHA: `1e3a37fb9a01226b776932e0caeff9a70c124e0f`
+- production release observed: `2026-09-04-r3`
+- production generation observed: `2026-09-04-member-mobile-v1`
+- production readiness previously observed: `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`
+- production previously reported `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`; linked-account payments remain intentionally fail-closed until external configuration and TEST signoff are complete.
 
 Deployed/runtime-ready scope includes registration/approval, Chairman welcome/activation workflow, member dashboard, chapter/officers, balance/contributions, Digital Member ID, membership certificate, profile self-service controls, receipt archive, passkey implementation, installable PWA, payment architecture, linked-account architecture, platform-fee accounting separation, signed/idempotent webhook reconciliation, and additive schema/RBAC synchronization.
 
 ## Completed — Professional Responsive UI/UX
 
 - PR #14: `feat: professional responsive UI for member and administration portals`
-- Exact passing head: `b45165d5f845edacf3c53caafd6a347b08452fdf`
+- exact passing head: `b45165d5f845edacf3c53caafd6a347b08452fdf`
 - PSP CI #351 / run `33835919325`: **PASSED**
-- Review threads: **none unresolved**
-- Merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
-- Main PSP CI #352 / run `33836561769`: **PASSED**
-- Production Smoke #6 / run `33836561756`: **PASSED** against the then-existing `r3 / member-mobile-v1` production generation.
+- unresolved review threads: **none**
+- merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
+- main PSP CI #352 / run `33836561769`: **PASSED**
+- Production Smoke #6 / run `33836561756`: **PASSED** against the then-existing r3 generation.
 
-Implemented scope includes the shared professional black/gold administration shell, National/Chapter scope context, permission-filtered desktop navigation, mobile admin menu, responsive cards/forms, responsive Chapter Organization and Chapter Management, responsive Announcements workspace, Finance table-to-mobile-card transformation, Operational Reports mobile cards, and Member PWA UI refinement.
+The later release-proof marker `2026-09-04-r4 / 2026-09-04-professional-ui-v1` was observed live by PR #16 Production Smoke attempt 1 and is now historical production evidence.
 
-## Prior Professional-UI Production Proof
+## Completed — PR #16 Admin Lifecycle + Content Media Code Delivery
 
-`main` currently points to `7269b9ab1bc3c60f015850e784f96923464bd2f5`, which expects release `2026-09-04-r4` / deployment generation `2026-09-04-professional-ui-v1`.
+PR #16: `fix: admin lifecycle and chapter content media`
 
-The last recorded Production Smoke for that exact generation was run `33837001102` and failed only because Hostinger continued serving `r3 / member-mobile-v1` during its deployment-wait window while remaining HTTP 200.
+- final exact passing head: `971c9f7551f402b0c503c560e6fc292954c7b47f`
+- PSP CI #394 / run `33846881681`: **PASSED**
+- unresolved review threads: **none**
+- merge SHA: `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`
+- post-merge PSP CI #395 / run `33847400145`: **PASSED**
+- target release: `2026-09-04-r5`
+- target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 
-PR #16 supersedes the need to prove `r4` as the final current deployment identity because the next accepted production generation must be the new unique `r5 / admin-lifecycle-media-v1` release after PR #16 merge. Historical evidence for the prior mismatch remains recorded.
+Merged scope:
 
-## Current Release — PR #16 Admin Lifecycle + Content Media
+- Chapter Administrator assignment async form-reset correction;
+- safe async reset also applied to Chapter creation;
+- National Admin chapter lifecycle control for `ACTIVE`, `INACTIVE`, `SUSPENDED`, and `ARCHIVED`;
+- National Admin User Management with audited `ACTIVE`, `INVITED`, `SUSPENDED`, and `DISABLED` controls;
+- active-National-Admin self-deactivation protection;
+- non-destructive lifecycle history preservation;
+- Chapter Admin server-enforced `content.manage` and `events.manage` chapter isolation;
+- secure private announcement image upload, Admin preview, and responsive Member Announcement rendering;
+- secure private event image upload, Admin preview, and responsive Member Event rendering;
+- authenticated/scoped content-media delivery for announcement and event media;
+- cross-chapter media access denial;
+- orphan private-file cleanup when event persistence fails;
+- new Chapter Administrator assignment blocked for non-active chapters;
+- exact r5 release/generation assertions in CI and Production Smoke.
 
-Detailed tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`
+## Production Smoke #8 — Current Evidence
 
-### Code complete
+Workflow run: `33847400143` on merge SHA `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`.
 
-- Fixed Chapter Administrator assignment browser error `Cannot read properties of null (reading 'reset')` by capturing the form element before the asynchronous request and resetting the stable reference afterward.
-- Applied the same safe async form-reset pattern to Chapter creation.
-- Added National Admin chapter lifecycle control for `ACTIVE`, `INACTIVE`, `SUSPENDED`, and `ARCHIVED` using the audited chapter PATCH API.
-- Added National Admin User Management with audited `ACTIVE`, `INVITED`, `SUSPENDED`, and `DISABLED` status controls.
-- Added self-protection so the active National Admin cannot suspend/disable their own current account.
-- Preserved non-destructive history for chapter/user lifecycle operations.
-- Confirmed Chapter Admin server-enforced `content.manage` and `events.manage` remain restricted to the assigned chapter.
-- Added secure private announcement image upload, Admin preview, and responsive Member Announcement rendering.
-- Added secure private event image upload, Admin preview, and responsive Member Event rendering.
-- Added authenticated/scoped content-media delivery for both announcement and event media.
-- Added server-side publication/chapter checks so cross-chapter member media access is denied.
-- Added private file cleanup when event persistence fails after storing an image.
-- Blocked new Chapter Administrator assignment to non-active chapters.
-- Added unique release markers `2026-09-04-r5 / 2026-09-04-admin-lifecycle-media-v1` to CI and Production Smoke.
+### Attempt 1 — FAILED: healthy production still served r4
 
-### PR / CI state
+- 40/40 health polls: HTTP 200.
+- Last observed payload: `release=2026-09-04-r4`, `deploymentGeneration=2026-09-04-professional-ui-v1`.
+- Expected: `r5 / admin-lifecycle-media-v1`.
+- Result: exact deployment-generation proof failed; no application-health failure was observed.
 
-- PR #16 is open against `main`.
-- Initial CI #382 / run `33846413588` began on prior head `95b901b4f4a770e1eaf03ca8ef3874f2a695432f`.
-- That head is **superseded and not merge-eligible** because it still reused the prior `r4` production generation marker.
-- The branch was advanced with the unique `r5 / admin-lifecycle-media-v1` release identity and corresponding CI/Production Smoke assertions.
-- A fresh CI on the final documentation-reconciled head is mandatory.
-- If a CI gate fails: inspect the exact failed job, fix the exact cause, push a new head, rerun, and continue.
-- Merge only the exact head that passes every required gate using `expected_head_sha`.
+### Attempt 2 — CANCELLED: production endpoint unreachable from GitHub runner
 
-### Production validation required after merge
+- rerun was started immediately after attempt 1;
+- every completed health poll returned HTTP `000` after a 10-second connection timeout;
+- poll 36 was interrupted by the workflow's 15-minute job timeout;
+- readiness/public/security checks were skipped because exact health identity could not be reached;
+- this attempt does not prove a production application failure, but it does prove that the production endpoint was unreachable from that runner throughout the attempt.
 
-Automated/public proof:
+### Exact fix now in follow-up branch
 
-- exact `r5 / admin-lifecycle-media-v1` health identity;
-- datastore/auth/member-mobile readiness;
-- public home/PWA routes;
-- production security headers;
-- canonical-origin login failure behavior and cross-site rejection;
-- member/certificate public verification routes.
+Production Smoke reliability is corrected by:
 
-Controlled authenticated proof:
+- increasing job timeout from 15 to 20 minutes so the configured 40-poll worst-case loop can complete;
+- counting network-level failures;
+- explicitly reporting when all polls are unreachable instead of conflating the condition with a stale release generation;
+- adding resolver diagnostics on terminal failure.
 
-- Chapter Admin assignment from National Admin UI without reset error;
+Do not weaken the exact r5 generation assertion. The purpose of this fix is diagnostic correctness, not bypassing the deployment gate.
+
+## Pending — Production Closure for PR #16
+
+Automated/public proof remains required:
+
+- `/api/health` exposes `release=2026-09-04-r5` and `deploymentGeneration=2026-09-04-admin-lifecycle-media-v1`;
+- `/api/health/ready` is ready for database/auth/member-mobile schema;
+- public home/PWA routes pass;
+- production security headers pass;
+- canonical-origin invalid-login and cross-site rejection behavior passes;
+- member/certificate public verification routes do not produce application 500s.
+
+Controlled authenticated proof remains required and must not be inferred from public smoke:
+
+- Chapter Admin assignment from actual National Admin UI without reset error;
 - controlled chapter deactivate/reactivate;
 - controlled user suspend/disable/reactivate;
-- same-chapter announcement image visibility and cross-chapter denial;
-- same-chapter event image visibility and cross-chapter denial;
+- same-chapter announcement image visibility plus cross-chapter denial;
+- same-chapter event image visibility plus cross-chapter denial;
 - representative mobile responsive rendering.
-
-Do not claim authenticated production workflows are proven from source code or public smoke alone.
 
 ## External / Credential-Dependent Gates Still Open
 
@@ -125,9 +148,7 @@ These are not code-completion failures and must not be marked complete without r
 - PayMongo TEST split settlement for DUES / CONTRIBUTION / OTHER and enabled QR Ph / GCash / Maya methods;
 - valid/invalid/duplicate child webhook E2E evidence;
 - database backup and restore drill;
-- security cleanup/rotation of any values exposed during earlier troubleshooting and bootstrap cleanup after normal-login validation.
-
-Production has previously reported `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`; linked-account online payments therefore remain intentionally fail-closed until the required external configuration and TEST evidence exist.
+- security cleanup/rotation of values exposed during earlier troubleshooting and bootstrap cleanup after normal-login validation.
 
 ## Closure Rules
 
