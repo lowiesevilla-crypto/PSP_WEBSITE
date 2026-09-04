@@ -3,55 +3,49 @@ import { PwaInstallCard } from "@/components/pwa-install-card";
 
 export const metadata = {
   title: "Install PSP Mobile App",
-  description: "Install the official Psi Sigma Phi Philippines Inc. PWA on your mobile device.",
+  description: "Add the official Psi Sigma Phi Philippines Inc. PWA to your phone Home Screen.",
 };
 
 export default function InstallPage() {
   return (
-    <main className="app-shell" data-pwa-install-version="pwa-install-v2">
-      <div className="container app-main" style={{ maxWidth: 760 }}>
-        <section style={{ textAlign: "center", padding: "28px 0 18px" }}>
+    <main className="app-shell" data-pwa-install-version="simple-cross-platform-pwa-v1">
+      <div className="container app-main" style={{ maxWidth: 680 }}>
+        <section style={{ textAlign: "center", padding: "24px 0 14px" }}>
           <img
             src="/brand/psp-logo.jpg"
             alt="Psi Sigma Phi seal"
-            style={{ width: 96, height: 96, objectFit: "contain", borderRadius: "50%" }}
+            style={{ width: 88, height: 88, objectFit: "contain", borderRadius: "50%" }}
           />
-          <p style={{ color: "#8a6800", fontWeight: 900, letterSpacing: ".14em", marginBottom: 8 }}>Ψ Σ Φ</p>
-          <h1 style={{ margin: 0 }}>Install PSP Mobile App</h1>
-          <p style={{ color: "#6b665c", lineHeight: 1.65, maxWidth: 620, margin: "12px auto 0" }}>
-            Add the official Psi Sigma Phi Philippines Inc. app directly from psp.hoahub.tech for your Digital ID, chapter updates, dues, online payments, receipts, certificates, and secure passkey login.
-          </p>
-          <p style={{ color: "#403a31", lineHeight: 1.6, maxWidth: 620, margin: "12px auto 0", fontWeight: 700 }}>
-            On supported Android browsers, tap <strong>Install PSP App</strong> and confirm the phone&apos;s native installer. iPhone and iPad use Safari&apos;s Add to Home Screen flow.
+          <p style={{ color: "#8a6800", fontWeight: 900, letterSpacing: ".14em", margin: "10px 0 6px" }}>Ψ Σ Φ</p>
+          <h1 style={{ margin: 0 }}>Install PSP on Your Phone</h1>
+          <p style={{ color: "#6b665c", lineHeight: 1.6, maxWidth: 560, margin: "12px auto 0" }}>
+            Add PSP to your Home Screen so you can open it like a normal mobile app without searching for the website every time.
           </p>
         </section>
 
-        <section className="app-panel" style={{ marginTop: 18 }} aria-label="PSP app installer">
+        <section className="app-panel" style={{ marginTop: 16 }} aria-label="Install PSP mobile app">
           <PwaInstallCard />
         </section>
 
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 18 }}>
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 16 }}>
           {[
-            ["Digital ID", "Carry your QR-verifiable PSP membership identity."],
-            ["Payments", "View balance, pay securely online, and receive receipts."],
-            ["Certificates", "Generate and verify your official membership certificate."],
-            ["Passkeys", "Use Face ID, Touch ID, Android lock, or Windows Hello."],
+            ["Digital ID", "Open your PSP Digital ID directly from your phone."],
+            ["Payments", "Check balances, payments and receipts."],
+            ["Certificates", "Access and verify your membership certificate."],
+            ["Updates", "See chapter announcements, events and notifications."],
           ].map(([title, text]) => (
-            <article className="app-panel" key={title}>
+            <article className="app-panel" key={title} style={{ padding: 16 }}>
               <strong>{title}</strong>
-              <p style={{ color: "#6b665c", lineHeight: 1.55, marginBottom: 0 }}>{text}</p>
+              <p style={{ color: "#6b665c", lineHeight: 1.5, marginBottom: 0 }}>{text}</p>
             </article>
           ))}
         </section>
 
-        <section className="app-panel" style={{ marginTop: 18, background: "#fffaf0", borderColor: "#eadcae" }}>
-          <strong>Why there is no APK download</strong>
-          <p style={{ color: "#625b4e", lineHeight: 1.6, marginBottom: 0 }}>
-            PSP is an installable Progressive Web App (PWA), so the browser installs the official app directly from this website. A webpage cannot silently install software without your confirmation. Keeping one stable PSP web-app identity also allows supported browsers to recognize an existing installation instead of creating another copy.
-          </p>
-        </section>
+        <p style={{ color: "#746d61", textAlign: "center", lineHeight: 1.55, margin: "18px auto 0", fontSize: ".9rem" }}>
+          PSP is one secure Progressive Web App for Android, iPhone and iPad. It uses the same PSP account and updates automatically from the official website.
+        </p>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 22 }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 20 }}>
           <Link className="btn btn-primary" href="/login">Member Sign In</Link>
           <Link className="btn" href="/" style={{ background: "#fff", border: "1px solid #ddd5c1" }}>PSP Website</Link>
         </div>

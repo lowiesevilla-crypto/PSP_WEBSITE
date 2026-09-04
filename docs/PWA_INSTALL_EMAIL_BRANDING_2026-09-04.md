@@ -1,25 +1,69 @@
-# PSP PWA Install + Email Branding — 2026-09-04
+# PSP PWA Install + Email Branding — 2026-09-04 / 2026-09-05
 
 **Original feature branch:** `feat/pwa-install-email-branding-2026-09-04`  
-**Feature PR:** #24  
+**Original feature PR:** #24  
 **Corrective PRs:** #25, #26, #27  
-**Final proven release:** `2026-09-04-r9`  
-**Final proven generation:** `2026-09-04-chapter-logo-origin-fix-v1`  
-**Accepted production-code baseline:** `b14bb1b90eb38a703c233724ab77803f5838b17e`
+**Current proven release:** `2026-09-04-r9`  
+**Current proven generation:** `2026-09-04-chapter-logo-origin-fix-v1`  
+**Accepted production-code baseline:** `b14bb1b90eb38a703c233724ab77803f5838b17e`  
+**Active PWA simplification branch:** `fix/simple-cross-platform-pwa-install-2026-09-05`  
+**Active target release:** `2026-09-05-r10`  
+**Active target generation:** `2026-09-05-simple-pwa-install-v1`
 
-## Objective
+## Canonical Product Direction — PWA Only
+
+PSP mobile distribution is **PWA-only**. A native Android APK/Trusted Web Activity experiment was opened as PR #29 and then explicitly superseded by product direction. PR #29 was closed **without merge**.
+
+The required member experience is:
+
+1. open `https://psp.hoahub.tech/install` on the phone;
+2. install/add PSP using the phone browser's PWA mechanism;
+3. PSP appears as one Home Screen/app-launcher icon;
+4. future access is through that icon rather than searching for the website;
+5. the installed experience uses the same PSP account/backend and automatically follows the official website release.
+
+Do not add APK, IPA, Play Store or App Store distribution unless the product owner explicitly changes this requirement later.
+
+## r10 Simplified Install UX
+
+The active r10 implementation intentionally removes native-package complexity from the member-facing installer.
+
+Android:
+
+- **Install PSP App** is the primary action;
+- when Chromium exposes `beforeinstallprompt`, PSP invokes the browser/OS PWA confirmation;
+- when no direct prompt is exposed, PSP tells the user to choose **Install app / Add to Home screen** from the browser menu;
+- Messenger/Facebook/Instagram and other in-app browsers are detected because they can suppress PWA installation, and Android users are directed to Chrome or Samsung Internet.
+
+iPhone/iPad:
+
+- the primary action is **Add PSP to Home Screen**;
+- Safari guidance is **Share → Add to Home Screen → Add**;
+- iPad desktop-style user-agent mode is detected;
+- in-app browser users are directed to Safari.
+
+Shared behavior:
+
+- standalone mode is treated as installed and offers **Open PSP**;
+- manifest `id: "/"` remains stable so releases do not intentionally create multiple PSP app identities;
+- manifest start URL remains `/member`, scope `/`, display `standalone`;
+- no APK/IPA/App Store explanation is part of the canonical member flow;
+- `/install` exposes `data-pwa-install-version="simple-cross-platform-pwa-v1"` for exact CI/production evidence.
+
+r10 remains **NOT production-proven** until its final exact PR head passes all PSP CI gates, is merged with exact-head protection, and Production Smoke observes `2026-09-05-r10 / 2026-09-05-simple-pwa-install-v1` with the simplified installer marker.
+
+## Original Objective
 
 Remove ambiguity from PSP mobile installation, standardize professional PSP/Chapter email branding, permit scoped Chapter-logo management, and prove the resulting production behavior without weakening authentication, Chapter isolation, or release governance.
 
-## Delivered PWA Install Behavior
+## Delivered PWA Foundation
 
-- PSP remains an installable Progressive Web App; no fake APK/IPA download is presented.
+- PSP is an installable Progressive Web App.
 - Manifest keeps stable `id: "/"` so PSP retains one official application identity.
 - Global PWA registration captures/shares Chromium `beforeinstallprompt` with `/install` instead of racing for it.
-- `/install` presents **Install PSP App** and opens the native confirmation when the browser exposes it.
-- Android Chrome/Edge manual guidance appears when no native prompt is available.
-- iPhone/iPad guidance correctly uses Safari → Share → Add to Home Screen → Add.
-- standalone and `appinstalled` state are observed so users are not encouraged to create duplicate installs.
+- Android/Chromium can open native PWA confirmation where available.
+- iPhone/iPad uses Safari Add to Home Screen.
+- standalone and `appinstalled` state are observed.
 - Production Smoke verifies manifest, installer content and public PWA surfaces.
 
 ## Delivered Email Branding
@@ -45,8 +89,6 @@ Welcome / activation includes Membership Number, login email, Chapter, secure ac
 
 ## Admin Approval Email Contract
 
-The approval workflow was specifically rechecked after the r9 correction.
-
 Expected behavior:
 
 1. authorized Admin approves the application;
@@ -58,7 +100,7 @@ Expected behavior:
 7. failure creates `MEMBER_WELCOME_EMAIL_FAILED` audit evidence;
 8. Admin is directed to verify the email/SMTP configuration and use Resend Invitation when recovery is required.
 
-CI coverage now performs a real Chapter Admin approval against CI fixtures. With SMTP intentionally unconfigured in CI it verifies `welcomeDelivery=failed`, preserves `APPROVED` state, and verifies the failure audit event. This proves the application/email failure contract without pretending to prove external inbox delivery.
+CI coverage performs a real Chapter Admin approval against CI fixtures. With SMTP intentionally unconfigured in CI it verifies `welcomeDelivery=failed`, preserves `APPROVED` state, and verifies the failure audit event. This proves the application/email failure contract without pretending to prove external inbox delivery.
 
 Production readiness currently reports SMTP `configured`. A real controlled recipient inbox receipt/rendering remains an external acceptance item.
 
@@ -96,7 +138,7 @@ PR #26 also surfaced approval welcome-email delivery status in the Admin UI and 
 
 The first r9 Production Smoke proved exact generation/readiness but still reported an aggregated public-assets failure without naming the exact assertion. PR #27 retained every existing check and added explicit fetch/assertion diagnostics. The next exact-r9 Production Smoke passed every gate.
 
-## Exact Release Evidence
+## Exact r9 Release Evidence
 
 ### PR #24
 
@@ -112,7 +154,6 @@ The first r9 Production Smoke proved exact generation/readiness but still report
 - exact head: `31093dcae13a396a554af3828e16dc5082b0a4c2`
 - PSP CI #457 / run `33881287338`: **PASSED**
 - merge: `56ce7fc6ced8e8c182a6ec031d7d99aa9ccf3a24`
-- diagnostic result: identified internal-origin Chapter-logo fallback defect
 
 ### PR #26
 
@@ -121,8 +162,6 @@ The first r9 Production Smoke proved exact generation/readiness but still report
 - unresolved review threads: none
 - merge: `b5788298d50981d26c531e746b55149daf1afb42`
 - post-merge PSP CI `33883183121`: **PASSED**
-- exact r9 generation observed live and ready
-- first r9 Production Smoke `33883183222`: aggregated public-assets failure; release closure remained open
 
 ### PR #27
 
@@ -133,24 +172,13 @@ The first r9 Production Smoke proved exact generation/readiness but still report
 - post-merge PSP CI `33884003915`: **PASSED**
 - Production Smoke `33884003888`: **PASSED EVERY GATE**
 
-## Final Public Production State
+## Current Public Production State
 
-Exact production identity is now proven as:
+Exact proven production identity remains:
 
 `2026-09-04-r9 / 2026-09-04-chapter-logo-origin-fix-v1`
 
-Public production evidence verifies:
-
-- liveness identity;
-- database/auth/baseline/member-mobile readiness;
-- manifest and stable PWA identity;
-- installer public content;
-- Chapter-logo fallback delivery;
-- login UX marker/content;
-- production security headers;
-- canonical invalid-login response;
-- cross-site login rejection;
-- public Digital Member ID / Certificate verification routes do not produce application 500s.
+Public production evidence verifies liveness, readiness, manifest/stable PWA identity, installer content, Chapter-logo fallback, login UX, security headers, origin controls and public verification routes.
 
 ## Still External / Controlled
 
@@ -159,7 +187,7 @@ The following are not closed by public smoke or CI alone:
 - real welcome/activation email receipt and rendering after controlled Admin approval;
 - real Chapter-logo upload/removal with production credentials;
 - physical Android PWA installation;
-- iPhone/iPad Add-to-Home-Screen acceptance;
+- physical iPhone/iPad Add-to-Home-Screen acceptance;
 - real passkey device acceptance;
 - controlled authenticated Admin lifecycle/media/member-delete actions;
 - second-device QR checks;
