@@ -338,6 +338,7 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Readiness may expose non-secret operational flags for SMTP configuration, PayMongo platform configuration and the live-payment gate. These flags help diagnose production but do not replace real email/payment E2E evidence.
 - Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
 - Every production-significant release must use a new release/deployment generation marker when exact-generation proof is required; do not reuse an older marker and then treat a smoke pass as proof of the newer build.
+- Runtime dependency-audit evidence is a required security gate: registry/transport errors, timeouts, malformed reports, or missing vulnerability metadata must fail closed rather than be interpreted as zero vulnerabilities.
 - Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
@@ -377,9 +378,15 @@ PR #17 Production Smoke reliability/status follow-up:
 - merge SHA: `2a1e9a1d40d4b92e407068626744f101b9ff2cd0`
 - post-merge PSP CI #402 / run `33851027472`: **PASSED**
 
+PR #18 production-proof documentation closure:
+
+- exact passing head: `9bbc8f5dcd12dfe4822b24cfe63dc3777364393f`
+- PSP CI #407 / run `33853697584`: **PASSED**
+- merge SHA: `8d4cdec1ad315640bad4361f98ac121800dc165e`
+- Production Smoke #10 / run `33854088783`: **PASSED**
+
 Current production proof:
 
-- Production Smoke #9 / run `33851027538`: **PASSED**
 - exact production release: `2026-09-04-r5`
 - exact deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 - `/api/health/ready`: ready
@@ -393,6 +400,16 @@ Current production proof:
 Merged/deployed scope includes the Chapter Administrator form-reset correction, National Admin chapter lifecycle controls, National Admin user lifecycle controls, secure private announcement/event image handling, authenticated/scoped media delivery, cross-chapter denial enforcement, and responsive member image presentation.
 
 Production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`. Linked-account payments remain intentionally fail-closed until PayMongo Platforms configuration and TEST settlement signoff are complete.
+
+### Runtime dependency-audit hardening — ACTIVE
+
+A successful CI run exposed that npm registry/audit service failure could previously be represented as an empty vulnerability set because the audit command used `|| true` and the enforcement script defaulted missing `vulnerabilities` to `{}`.
+
+Current hardening branch: `ci/fail-closed-runtime-audit-2026-09-04`.
+
+The branch validates npm audit report structure and rejects operational error payloads, bounds audit attempts, retries once for transient registry interruption, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
+
+Merge this hardening only after its exact final head passes the full PSP CI gate set. Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
 
 ### Next acceptance gate — controlled authenticated production workflows
 
@@ -419,6 +436,7 @@ External gates still open and requiring real evidence:
 
 Authoritative task/evidence status: `docs/STATUS.md`.  
 Detailed PR #16 tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`.  
+Runtime-audit tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.  
 Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
 
 ## 15. Documentation Definition of Done
@@ -427,7 +445,7 @@ After every material task:
 
 1. update this file when business/architecture/security/hosting/payment/isolation/delivery rules or current baseline state change;
 2. update `docs/STATUS.md` with current evidence/state;
-3. update the relevant detailed document (`BRD`, `ARCHITECTURE`, `DATA_MODEL`, `DEPLOYMENT`, `IMPLEMENTATION_PLAN`, `PAYMENTS`, `REGISTRATION`, `SECURITY`, `UI_UX`, `MEMBER_MOBILE_P0`);
+3. update the relevant detailed document (`BRD`, `ARCHITECTURE`, `DATA_MODEL`, `DEPLOYMENT`, `IMPLEMENTATION_PLAN`, `PAYMENTS`, `REGISTRATION`, `SECURITY`, `UI_UX`, `MEMBER_MOBILE_P0` or current work tracker);
 4. do not leave stale phase/deployment checklists;
 5. repository documentation, not chat history, is authoritative;
 6. never mark credential/payment/email/device/production checks complete without evidence.
