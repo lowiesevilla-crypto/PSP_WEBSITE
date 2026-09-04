@@ -10,7 +10,11 @@ export async function generateReceiptPdf(input: {
   membershipNo: string;
   chapterName: string;
   assessmentTitle: string;
-  amount: string;
+  paymentCategory: string;
+  paymentMethod: string | null;
+  chapterAmount: string;
+  platformFee: string;
+  totalAmount: string;
   internalReference: string;
   gatewayReference: string | null;
 }) {
@@ -43,23 +47,29 @@ export async function generateReceiptPdf(input: {
   const row = (label: string, value: string) => {
     page.drawText(label, { x: 54, y, size: 10, font: bold, color: muted });
     page.drawText(value.slice(0, 80), { x: 190, y, size: 11, font, color: black });
-    y -= 30;
+    y -= 27;
   };
 
   row("Member", input.memberName);
   row("Membership No.", input.membershipNo);
   row("Chapter", input.chapterName);
-  row("Assessment", input.assessmentTitle);
+  row("Payment Type", input.paymentCategory.replaceAll("_", " "));
+  row("Purpose", input.assessmentTitle);
+  row("Payment Method", input.paymentMethod?.toUpperCase() ?? "PayMongo");
   row("Payment Date", input.paidAt ? formatDate(input.paidAt) : "Confirmed");
   row("Internal Reference", input.internalReference);
-  row("PayMongo Reference", input.gatewayReference ?? "Not available");
+  row("PayMongo Intent", input.gatewayReference ?? "Not available");
 
-  page.drawRectangle({ x: 54, y: y - 45, width: 487, height: 72, color: rgb(0.98, 0.96, 0.88) });
-  page.drawText("AMOUNT PAID", { x: 72, y: y - 10, size: 10, font: bold, color: muted });
-  page.drawText(`PHP ${input.amount}`, { x: 72, y: y - 37, size: 22, font: bold, color: black });
+  page.drawRectangle({ x: 54, y: y - 88, width: 487, height: 116, color: rgb(0.98, 0.96, 0.88) });
+  page.drawText("CHAPTER AMOUNT", { x: 72, y: y + 2, size: 9, font: bold, color: muted });
+  page.drawText(`PHP ${input.chapterAmount}`, { x: 390, y: y + 2, size: 11, font: bold, color: black });
+  page.drawText("PLATFORM CONVENIENCE FEE", { x: 72, y: y - 24, size: 9, font: bold, color: muted });
+  page.drawText(`PHP ${input.platformFee}`, { x: 390, y: y - 24, size: 11, font: bold, color: black });
+  page.drawText("TOTAL PAID", { x: 72, y: y - 60, size: 11, font: bold, color: black });
+  page.drawText(`PHP ${input.totalAmount}`, { x: 360, y: y - 64, size: 18, font: bold, color: black });
 
-  page.drawText("This receipt is generated from the PSP member ledger after trusted gateway confirmation.", { x: 54, y: 92, size: 9, font, color: muted });
-  page.drawText("Payment history is retained for reconciliation and audit.", { x: 54, y: 76, size: 9, font, color: muted });
+  page.drawText("The chapter amount is posted to the member ledger; the separately disclosed platform fee is not chapter income.", { x: 54, y: 92, size: 8.5, font, color: muted });
+  page.drawText("Payment history and split-settlement evidence are retained for reconciliation and audit.", { x: 54, y: 76, size: 8.5, font, color: muted });
 
   return document.save();
 }
