@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 12:25 PHT  
+**Status timestamp:** 2026-09-04 12:27 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`
@@ -9,7 +9,7 @@
 
 ## Executive Status
 
-The PSP production platform is operational and the P0 Member Mobile / PWA release is now deployed and runtime-ready. The professional responsive UI/UX release for National Admin, Chapter Admin, and Member experiences has also been merged to `main` after exact-head CI passed.
+The PSP production platform is operational and the P0 Member Mobile / PWA release is now deployed and runtime-ready. The professional responsive UI/UX release for National Admin, Chapter Admin, and Member experiences has also been merged to `main` after exact-head CI passed, and the merged main commit has independently passed PSP CI #352.
 
 A release-proof follow-up is **IN PROGRESS** because PR #14 reused the prior `r3 / member-mobile-v1` health markers. Production Smoke #6 passed immediately against those existing markers, which proves the member-mobile production runtime is healthy but does **not by itself prove the new UI commit was the exact build being served at that instant**. The follow-up release changes the immutable runtime markers to `r4 / professional-ui-v1` so Hostinger must serve the post-UI generation before production verification can close.
 
@@ -53,7 +53,7 @@ A release-proof follow-up is **IN PROGRESS** because PR #14 reused the prior `r3
 - PSP CI #351 / run `33835919325`: **PASSED**
 - Review threads: **none unresolved**
 - Merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
-- Main PSP CI #352 / run `33836561769`: running post-merge at this status timestamp; typecheck, production build and runtime/security smoke have passed, final dependency-audit steps are still completing.
+- Main PSP CI #352 / run `33836561769`: **PASSED** on the merged main commit, including typecheck, production build, runtime/security smoke, cross-chapter fixtures and runtime dependency audit.
 - Production Smoke #6 / run `33836561756`: **PASSED** for the existing `r3 / member-mobile-v1` generation.
 
 Implemented UI/UX scope:
@@ -80,17 +80,17 @@ Changes prepared:
 - release ID → `2026-09-04-r4`;
 - deployment generation → `2026-09-04-professional-ui-v1`;
 - CI runtime assertion updated to the new generation;
-- Production Smoke updated to wait for the new exact generation.
+- Production Smoke updated to wait for the new exact generation;
+- AGENTS/STATUS reconciled with PR #13, PR #14 and production evidence.
 
 Closure sequence:
 
-1. finish/update documentation on the release-proof branch;
-2. open PR and run exact-head PSP CI;
-3. if any gate fails, inspect the failed job, fix the exact cause, push a new head and rerun;
-4. merge only the exact head that passed all required gates;
-5. monitor Production Smoke until Hostinger returns `release=2026-09-04-r4` and `deploymentGeneration=2026-09-04-professional-ui-v1`;
-6. require datastore/auth/member-mobile readiness and public/security smoke to pass on that generation;
-7. update AGENTS/STATUS with final merge SHA and production evidence.
+1. open PR and run exact-head PSP CI;
+2. if any gate fails, inspect the failed job, fix the exact cause, push a new head and rerun;
+3. merge only the exact head that passed all required gates;
+4. monitor Production Smoke until Hostinger returns `release=2026-09-04-r4` and `deploymentGeneration=2026-09-04-professional-ui-v1`;
+5. require datastore/auth/member-mobile readiness and public/security smoke to pass on that generation;
+6. update AGENTS/STATUS with final merge SHA and production evidence.
 
 ## External / Credential-Dependent Gates Still Open
 
