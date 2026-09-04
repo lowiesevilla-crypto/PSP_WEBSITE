@@ -327,10 +327,15 @@ Committee and Notification entities are implemented and are part of the current 
 - Production database is separate from development/QA and from HOAHub.
 - Production deployment target is `https://psp.hoahub.tech` on Hostinger.
 - Production liveness is `/api/health`; production datastore/auth readiness is `/api/health/ready`. Readiness must be green before authenticated production smoke or release closure.
-- Production smoke must verify the expected release marker so an old Hostinger deployment cannot satisfy the release gate accidentally.
+- Production smoke must verify the expected deployment generation/release identity so an old Hostinger deployment cannot satisfy the release gate accidentally.
+- Hostinger production builds run `scripts/production-build-init.mjs` through `npm run build` when `APP_ENV=production`.
+- The production build initializer may apply the Prisma schema automatically **only when the connected dedicated PSP database has zero tables**.
+- If the production database is non-empty but lacks the complete required PSP baseline tables, automatic schema push must fail closed; never auto-push into a partial, shared, or unknown database.
+- After the initial greenfield schema exists, normal production schema evolution requires reviewed migrations/change planning and backup/recovery evidence; automatic greenfield `db push` is not the long-term migration mechanism.
+- Baseline/System Admin synchronization remains idempotent and must fail the deployment rather than publish a partially initialized production release.
 - Production PayMongo live credentials are not enabled until test-mode E2E passes and `PAYMONGO_LIVE_ENABLED=true` is explicitly approved/configured.
 - Run post-deployment `/api/health`, `/api/health/ready`, and E2E smoke checks before declaring a release complete.
-- Production startup must not destructively reseed customized roles/permissions/data on every restart. Baseline initialization is idempotent and full seed runs only when the required baseline is absent.
+- Production startup/build initialization must not destructively reseed customized roles/permissions/data. Full seed runs only when the required baseline is absent.
 
 ## 13. Knowledge Base Maintenance — Definition of Done
 
@@ -349,8 +354,12 @@ After every material task:
 
 - Production-oriented MVP application modules are implemented in the repository: identity, registration, membership, chapter administration, Member PWA, community, announcements/events, finance/ledger, PayMongo integration code, receipts, certificates/QR verification, reports, audit, committees, and notifications.
 - Cross-chapter isolation is enforced server-side and has automated CI negative tests.
-- PR #7 production admin-login/bootstrap hardening passed PSP CI #276 and is merged in `main` at `1e97e288bb7c8c852a6b9635f6268760f0621faf`.
+- PR #7 production admin-login/bootstrap hardening passed PSP CI #276 and merged at `1e97e288bb7c8c852a6b9635f6268760f0621faf`.
 - PR #8 reconciled the authoritative status/deployment knowledge base and passed PSP CI #281.
-- PR #9 added secret-free live production smoke; its first production run proved DNS/HTTPS, `/api/health`, PSP public pages/PWA assets, and security headers, then exposed a remaining authentication datastore/runtime failure before credential validation.
-- Product owner confirmed `psp.hoahub.tech` is correctly mapped to the PSP Website application.
-- Remaining release work is live production closure: exact deployment/readiness evidence, overall `/admin` login, secret rotation after exposure, SMTP delivery, PayMongo test-mode E2E, production QR/PWA device checks, and backup/rollback confirmation. See `docs/STATUS.md` for the authoritative current checklist.
+- PR #9 added secret-free live production smoke.
+- PR #10 passed PSP CI #306 and merged at `1553d841b7af5b31a8708f5f90103d9392f9be37`; it added production readiness, Hostinger env aliases, and fail-closed live PayMongo activation.
+- Product-owner database correction changed live readiness from `database=error` to `database=ok` but exposed that the dedicated PSP database was empty (`authSchema=error`, `baseline=error`).
+- PR #11 passed PSP CI #317 and merged at `1ab1d49512eadab99fe78fc378b7b8f3ea4b1647`; it added guarded empty-database production schema/bootstrap initialization compatible with Hostinger's managed Next.js build process.
+- PSP Production Smoke #3 passed against the PR #11 Hostinger deployment with exact generation `2026-09-04-schema-bootstrap-v1` and live readiness `database=ok`, `authSchema=ok`, `baseline=ok`, `authConfig=ok`.
+- The remaining P0 is a real browser login proving the intended System Administrator reaches `/admin`; after that, rotate the temporary credential, remove bootstrap variables, restart, and reconfirm login.
+- Other remaining external release gates are exposed-secret rotation, SMTP delivery, production DB backup/restore evidence, Android/iOS PWA device checks, PayMongo test-mode E2E, and live certificate QR verification. See `docs/STATUS.md` for the authoritative current checklist.
