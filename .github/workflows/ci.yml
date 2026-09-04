@@ -199,7 +199,37 @@ jobs:
         run: npm prune --omit=dev --no-audit --no-fund
 
       - name: Produce production dependency audit
-        run: npm audit --omit=dev --json > runtime-audit.json || true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          valid=false
+          for attempt in 1 2; do
+            rm -f runtime-audit.json
+            set +e
+            timeout --signal=TERM --kill-after=10s 90s \
+              npm audit --omit=dev --json > runtime-audit.json
+            audit_status=$?
+            set -e
+
+            echo "npm audit attempt $attempt exit status: $audit_status"
+            if [ "$audit_status" -eq 124 ] || [ "$audit_status" -eq 137 ]; then
+              echo "npm audit timed out before producing trusted vulnerability evidence." >&2
+            elif node scripts/check-runtime-audit.mjs --validate-only; then
+              valid=true
+              break
+            else
+              echo "npm audit did not return valid vulnerability evidence on attempt $attempt." >&2
+            fi
+
+            if [ "$attempt" -lt 2 ]; then
+              sleep 10
+            fi
+          done
+
+          if [ "$valid" != "true" ]; then
+            echo "Runtime dependency audit evidence could not be obtained after bounded retries; failing closed." >&2
+            exit 1
+          fi
 
       - name: Enforce runtime dependency audit
         run: node scripts/check-runtime-audit.mjs
