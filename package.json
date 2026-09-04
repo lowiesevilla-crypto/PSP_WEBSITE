@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/production-build-init.mjs && next build",
     "start": "node scripts/production-init.mjs && next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",

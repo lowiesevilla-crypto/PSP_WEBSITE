@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { PSP_RELEASE_ID } from "@/lib/release";
+import {
+  PSP_DEPLOYMENT_GENERATION,
+  PSP_RELEASE_ID,
+} from "@/lib/release";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +12,7 @@ export async function GET() {
       status: "ok",
       service: "psi-sigma-phi-digital-platform",
       release: PSP_RELEASE_ID,
+      deploymentGeneration: PSP_DEPLOYMENT_GENERATION,
       timestamp: new Date().toISOString(),
     },
     {

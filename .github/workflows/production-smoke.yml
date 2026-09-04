@@ -21,6 +21,7 @@ jobs:
     env:
       PROD_URL: https://psp.hoahub.tech
       EXPECTED_RELEASE: 2026-09-04-r2
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-schema-bootstrap-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -36,7 +37,8 @@ jobs:
             echo "Health attempt $attempt: HTTP ${status:-network-error}"
             if [ "$status" = "200" ] \
               && grep -q '"service":"psi-sigma-phi-digital-platform"' /tmp/psp-health.json \
-              && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json; then
+              && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
+              && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json; then
               deployed=true
               break
             fi
@@ -44,7 +46,7 @@ jobs:
           done
 
           if [ "$deployed" != "true" ]; then
-            echo "Expected PSP release did not become visible within the deployment window." >&2
+            echo "Expected PSP deployment generation did not become visible within the deployment window." >&2
             cat /tmp/psp-health.json 2>/dev/null || true
             exit 1
           fi
@@ -121,4 +123,4 @@ jobs:
 
       - name: Production smoke summary
         run: |
-          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE"
+          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE generation $EXPECTED_DEPLOYMENT_GENERATION"
