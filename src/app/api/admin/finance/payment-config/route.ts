@@ -136,6 +136,28 @@ export async function PUT(request: Request) {
     );
   }
 
+  // Encryption is intentionally randomized, so ciphertext cannot be used as a
+  // meaningful database uniqueness key. Enforce one linked PayMongo child
+  // Account-Id per PSP chapter by comparing decrypted values server-side.
+  const otherChapterConfigs = await prisma.chapterPaymentConfig.findMany({
+    where: { chapterId: { not: chapter.id } },
+    select: { secretKeyCiphertext: true },
+  });
+  for (const otherConfig of otherChapterConfigs) {
+    try {
+      if (decryptSecret(otherConfig.secretKeyCiphertext) === input.linkedAccountId) {
+        return NextResponse.json(
+          { message: "This PayMongo linked account is already assigned to another PSP chapter." },
+          { status: 409 },
+        );
+      }
+    } catch {
+      // A legacy/corrupt encrypted value must not leak details here. That
+      // configuration will fail normal runtime validation until corrected by
+      // an authorized administrator.
+    }
+  }
+
   const existing = await prisma.chapterPaymentConfig.findUnique({ where: { chapterId: chapter.id } });
   let existingLinkedAccountId: string | null = null;
   if (existing?.secretKeyCiphertext) {
