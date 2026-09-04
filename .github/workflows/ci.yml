@@ -193,7 +193,7 @@ jobs:
           node scripts/ci-isolation-test.mjs
 
       - name: Remove development-only packages
-        run: npm prune --omit=dev
+        run: npm prune --omit=dev --no-audit --no-fund
 
       - name: Produce production dependency audit
         run: npm audit --omit=dev --json > runtime-audit.json || true
