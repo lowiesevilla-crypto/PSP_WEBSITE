@@ -11,6 +11,13 @@ const options = [
   ["REJECTED", "Reject Application"],
 ] as const;
 
+type ReviewResponse = {
+  message?: string;
+  member?: { membershipNo?: string };
+  welcomeDelivery?: "sent" | "failed";
+  activationRequired?: boolean;
+};
+
 export function ApplicationReviewControls({ applicationId }: { applicationId: string }) {
   const router = useRouter();
   const [status, setStatus] = useState<(typeof options)[number][0]>("UNDER_REVIEW");
@@ -23,7 +30,7 @@ export function ApplicationReviewControls({ applicationId }: { applicationId: st
 
     if (status === "APPROVED") {
       const confirmed = window.confirm(
-        "Approve this applicant? This will create the official member record, membership number, and member access assignment.",
+        "Approve this applicant? This will create the official member record, membership number, member access assignment, and send the welcome/activation email.",
       );
       if (!confirmed) return;
     }
@@ -41,14 +48,22 @@ export function ApplicationReviewControls({ applicationId }: { applicationId: st
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ status, reviewNotes }),
       });
-      const payload = (await response.json()) as { message?: string; member?: { membershipNo?: string } };
+      const payload = (await response.json()) as ReviewResponse;
       if (!response.ok) throw new Error(payload.message ?? "Unable to update the application.");
 
-      setMessage(
-        payload.member?.membershipNo
-          ? `Approved. Membership No. ${payload.member.membershipNo}`
-          : "Application status updated.",
-      );
+      if (payload.member?.membershipNo) {
+        const emailResult =
+          payload.welcomeDelivery === "sent"
+            ? payload.activationRequired
+              ? " Welcome/activation email sent to the member."
+              : " Welcome email sent to the member."
+            : payload.welcomeDelivery === "failed"
+              ? " Member was approved, but the welcome/activation email could not be delivered. Verify the member email/SMTP configuration, then use Resend Invitation from the Member Directory."
+              : "";
+        setMessage(`Approved. Membership No. ${payload.member.membershipNo}.${emailResult}`);
+      } else {
+        setMessage("Application status updated.");
+      }
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to update the application.");
