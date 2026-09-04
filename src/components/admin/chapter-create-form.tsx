@@ -10,7 +10,8 @@ export function ChapterCreateForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const payload = {
       code: String(form.get("code") ?? ""),
       name: String(form.get("name") ?? ""),
@@ -31,7 +32,7 @@ export function ChapterCreateForm() {
       const result = (await response.json()) as { message?: string; chapter?: { name?: string } };
       if (!response.ok) throw new Error(result.message ?? "Unable to create chapter.");
       setMessage(`${result.chapter?.name ?? "Chapter"} created successfully.`);
-      event.currentTarget.reset();
+      formElement.reset();
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to create chapter.");
