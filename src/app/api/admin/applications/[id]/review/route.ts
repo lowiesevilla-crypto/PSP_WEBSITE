@@ -7,7 +7,7 @@ import {
   requirePermission,
 } from "@/lib/auth/context";
 import { generateMembershipNumber } from "@/domain/membership/membership-number";
-import { escapeHtml, sendEmail } from "@/lib/email/mailer";
+import { emailInfoCard, escapeHtml, sendEmail } from "@/lib/email/mailer";
 import {
   memberNeedsActivation,
   sendMemberInvitationEmail,
@@ -41,7 +41,7 @@ export async function POST(
   const application = await prisma.membershipApplication.findUnique({
     where: { id },
     include: {
-      chapter: { select: { id: true, name: true, code: true, email: true } },
+      chapter: { select: { id: true, name: true, code: true, email: true, logoUrl: true } },
     },
   });
 
@@ -261,12 +261,23 @@ export async function POST(
     if (["CORRECTION_REQUIRED", "PENDING_REQUIREMENTS", "REJECTED"].includes(status)) {
       try {
         const statusLabel = status.replaceAll("_", " ").toLowerCase();
+        const notes = reviewNotes || "Please contact your chapter for additional information.";
+        const details = emailInfoCard([
+          { label: "Application", value: application.id },
+          { label: "Chapter", value: application.chapter.name },
+          { label: "Current Status", value: statusLabel.toUpperCase() },
+        ]);
         await sendEmail({
           to: application.email,
           replyTo: application.chapter.email,
-          subject: `Psi Sigma Phi membership application update — ${application.chapter.name}`,
-          text: `Hello ${application.firstName},\n\nYour membership application status is now ${statusLabel}.\n\n${reviewNotes || "Please contact your chapter for additional information."}`,
-          html: `<p>Hello ${escapeHtml(application.firstName)},</p><p>Your membership application status is now <strong>${escapeHtml(statusLabel)}</strong>.</p><p>${escapeHtml(reviewNotes || "Please contact your chapter for additional information.")}</p>`,
+          subject: `PSP membership application update — ${application.chapter.name}`,
+          preheader: `Your ${application.chapter.name} membership application status is now ${statusLabel}.`,
+          brand: {
+            chapterName: application.chapter.name,
+            chapterLogoUrl: application.chapter.logoUrl,
+          },
+          text: `Hello ${application.firstName},\n\nYour membership application for ${application.chapter.name} is now ${statusLabel}.\n\n${notes}\n\nApplication reference: ${application.id}`,
+          html: `<p style="margin-top:0;">Hello <strong>${escapeHtml(application.firstName)}</strong>,</p><p>Your membership application status has been updated.</p>${details}<p><strong>Chapter review note:</strong></p><p>${escapeHtml(notes)}</p><p style="color:#6c665c;font-size:13px;">If you need clarification, reply to this email or contact ${escapeHtml(application.chapter.name)}.</p>`,
         });
       } catch {
         await prisma.auditLog.create({
