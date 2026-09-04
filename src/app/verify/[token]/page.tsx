@@ -48,6 +48,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
             <dt>Chapter</dt><dd style={{ margin: 0 }}>{certificate.chapter.name}</dd>
             <dt>Certificate No.</dt><dd style={{ margin: 0 }}>{certificate.certificateNumber}</dd>
             <dt>Issued</dt><dd style={{ margin: 0 }}>{certificate.issuedAt.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</dd>
+            <dt>Signatory</dt><dd style={{ margin: 0 }}>{certificate.signatoryName ? `${certificate.signatoryName}${certificate.signatoryTitle ? ` · ${certificate.signatoryTitle}` : ""}` : "Chapter Chairman"}</dd>
             <dt>Status</dt><dd style={{ margin: 0, fontWeight: 900 }}>{certificate.status}</dd>
           </dl>
           {!valid && certificate.revocationReason && (
