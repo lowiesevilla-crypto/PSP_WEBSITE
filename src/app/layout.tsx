@@ -12,6 +12,13 @@ export const metadata: Metadata = {
     "Official digital membership platform for Psi Sigma Phi Philippines Inc.",
   applicationName: "PSP Philippines",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/brand/psp-logo.jpg", type: "image/jpeg" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/brand/psp-logo.jpg", type: "image/jpeg" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
