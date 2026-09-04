@@ -340,6 +340,8 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Every production-significant release must use a new release/deployment generation marker when exact-generation proof is required; do not reuse an older marker and then treat a smoke pass as proof of the newer build.
 - Runtime dependency-audit evidence is a required security gate: registry/transport errors, timeouts, malformed reports, or missing vulnerability metadata must fail closed rather than be interpreted as zero vulnerabilities.
 - A dependency-audit failure caused solely by unavailable evidence is an external CI security-gate condition, not proof of an application regression. Inspect the exact log and rerun the exact job/head; never bypass or reinterpret the missing evidence as a pass.
+- Audit-source outage tolerance may use multiple independent bounded attempts, explicit fetch timeouts and workflow-controlled backoff, but every accepted result must still pass trusted audit-report schema validation. Missing, stale, malformed, timed-out or operational-error evidence must never be substituted for a successful audit report.
+- Hosting/WAF browser challenges that return non-application HTTP responses to automated health checks are operational reachability failures. Inspect the exact response and rerun the exact smoke job; never call the release healthy from that failed attempt and never change application security merely to make the bot challenge pass.
 - Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
@@ -391,7 +393,10 @@ Current production proof:
 - exact production release: `2026-09-04-r5`
 - exact deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 - Production Smoke #11 / run `33859569443`: **PASSED** after PR #19 merge
-- `/api/health/ready`: ready
+- PR #20 merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
+- post-merge PSP CI #416 / run `33861307069`: **PASSED**
+- Production Smoke #12 / run `33861307005`: attempt 1 received Hostinger browser-challenge HTTP 403 responses; exact retry attempt 2 **PASSED** every production smoke step
+- `/api/health/ready`: ready on successful production smoke
 - database/auth/baseline/member-mobile/auth-config: green
 - public/PWA routes: green
 - required security headers: green
@@ -413,9 +418,32 @@ PR #19: `ci: fail closed on invalid runtime audit evidence`.
 - Production Smoke #11 / run `33859569443`: **PASSED**
 - post-merge PSP CI #410 / run `33859569625`: attempt 1 failed exactly as designed because both bounded npm-audit attempts timed out without trusted vulnerability evidence; attempt 2 was rerun on the same merge SHA and **PASSED** the complete gate set, including valid audit evidence and runtime vulnerability enforcement.
 
-The hardened gate validates npm audit report structure, rejects operational error payloads, bounds audit attempts, retries once for transient registry interruption, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
+The hardened gate validates npm audit report structure, rejects operational error payloads, bounds audit attempts, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
 
 Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
+
+### PR #20 evidence reconciliation — MERGED; POST-MERGE GATES PASSED
+
+- exact passing PR head: `ea1af066eb2034d504322160eec37f81f0c9e588`
+- PSP CI #415 / run `33860642511`: attempt 1 failed only at audit evidence generation; exact retry attempt 2 **PASSED** the complete gate set
+- merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
+- post-merge PSP CI #416 / run `33861307069`: **PASSED**
+- Production Smoke #12 / run `33861307005`: Hostinger challenge on attempt 1; exact retry attempt 2 **PASSED**
+
+### PR #21 private-media build-tracing correction — ACTIVE / NOT YET MERGED
+
+PR #21 removes the two Turbopack whole-project filesystem-tracing warnings from `src/lib/storage/private-media.ts` while retaining runtime `STORAGE_ROOT`, resolved-path containment checks, image validation, private delivery semantics, RBAC and chapter isolation.
+
+Repeated PSP CI #420 attempts on the initial PR #21 implementation head proved that:
+
+- production build passes with the two target private-media tracing warnings absent;
+- runtime/security smoke passes;
+- cross-chapter isolation passes;
+- the only failures were unavailable npm audit evidence after bounded timeouts, which correctly failed closed.
+
+The audit evidence-generation loop is now being refined to use more independent shorter bounded attempts and explicit npm fetch timeouts while preserving mandatory report validation and the separate runtime vulnerability enforcement step. PR #21 must not merge until its newest documentation-reconciled exact head passes the full PSP CI gate set.
+
+Detailed tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.
 
 ### Next acceptance gate — controlled authenticated production workflows
 
@@ -428,7 +456,7 @@ The exact r5 implementation is live and its automated/public surface is proven. 
 - same-chapter event image access with cross-chapter denial;
 - representative authenticated mobile Member/Admin rendering.
 
-When those credentials/test records are not available to automation, do not fabricate completion. The next non-credential internal quality item is to eliminate the Turbopack whole-project tracing warnings from `src/lib/storage/private-media.ts` while preserving private-media path traversal protections and runtime storage semantics.
+When those credentials/test records are not available to automation, do not fabricate completion. After PR #21, the next non-credential internal quality item is repository documentation-baseline reconciliation: `docs/IMPLEMENTATION_PLAN.md` still contains superseded Hosted Checkout v2 and Digital Member ID baseline language that conflicts with this canonical file.
 
 External gates still open and requiring real evidence:
 
@@ -445,6 +473,7 @@ External gates still open and requiring real evidence:
 Authoritative task/evidence status: `docs/STATUS.md`.  
 Detailed PR #16 tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`.  
 Runtime-audit tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.  
+Private-media tracing tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.  
 Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
 
 ## 15. Documentation Definition of Done
