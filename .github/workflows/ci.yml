@@ -132,8 +132,8 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r9"'
-          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-chapter-logo-origin-fix-v1"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-05-r10"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-05-simple-pwa-install-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
@@ -150,7 +150,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/register > /dev/null
           curl --fail --silent http://127.0.0.1:3000/install > /tmp/psp-install.html
           grep -q 'Install PSP App' /tmp/psp-install.html
-          grep -q 'One official PSP app identity' /tmp/psp-install.html
+          grep -q 'One PSP app' /tmp/psp-install.html
+          grep -q 'data-pwa-install-version="simple-cross-platform-pwa-v1"' /tmp/psp-install.html
           curl --fail --silent --location http://127.0.0.1:3000/api/public/chapters/ci-missing-chapter/logo > /tmp/psp-brand-logo
           test -s /tmp/psp-brand-logo
           curl --fail --silent http://127.0.0.1:3000/login > /tmp/psp-login.html
