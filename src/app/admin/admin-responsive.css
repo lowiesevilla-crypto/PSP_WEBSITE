@@ -1,0 +1,77 @@
+/* Mobile card transformation for dense administration tables. */
+.admin-responsive-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (max-width: 767px) {
+  .admin-responsive-table {
+    min-width: 0 !important;
+  }
+
+  .admin-responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-responsive-table,
+  .admin-responsive-table tbody,
+  .admin-responsive-table tr,
+  .admin-responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-responsive-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .admin-responsive-table tbody tr {
+    overflow: hidden;
+    border: 1px solid #e2dccf !important;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 7px 18px rgba(32, 24, 5, 0.04);
+  }
+
+  .admin-responsive-table tbody tr:hover {
+    background: #fff;
+  }
+
+  .admin-responsive-table td {
+    display: grid;
+    grid-template-columns: minmax(108px, 38%) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 10px 12px !important;
+    border-top: 1px solid #f0ebe1;
+    text-align: left !important;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-responsive-table td:first-child {
+    border-top: 0;
+  }
+
+  .admin-responsive-table td::before {
+    content: attr(data-label);
+    color: #716a5f;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-responsive-table td {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 9px;
+  }
+}
