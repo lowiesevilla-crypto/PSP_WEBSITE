@@ -366,11 +366,14 @@ PR #14 is **MERGED** after exact-head CI.
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
 - scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
 
-The release-proof change is now in `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` and expects release `2026-09-04-r4` / deployment generation `2026-09-04-professional-ui-v1`. The last recorded Production Smoke `33837001102` did not observe that exact generation even though production stayed HTTP 200; re-check production before treating the professional-UI generation as closed.
+The professional-UI release-proof change is in `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` and expects `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. Production Smoke `33837001102` did not observe that exact generation within its window even though production remained HTTP 200. This remains historical evidence; the next accepted current production generation must be the unique PR #16 generation after merge.
 
-### Admin lifecycle + announcement/event media release candidate — UNMERGED
+### PR #16 Admin lifecycle + announcement/event media — UNMERGED RELEASE CANDIDATE
 
-Active branch: `fix/admin-lifecycle-content-media-2026-09-04`.
+PR: #16 — `fix: admin lifecycle and chapter content media`  
+Branch: `fix/admin-lifecycle-content-media-2026-09-04`  
+Target release: `2026-09-04-r5`  
+Target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 
 Branch implementation is code-complete for:
 
@@ -380,9 +383,12 @@ Branch implementation is code-complete for:
 - secure private announcement image upload and scoped member/admin delivery;
 - secure private event image upload and scoped member/admin delivery;
 - responsive announcement/event image presentation for members;
-- non-destructive chapter/user status changes and server-enforced chapter isolation.
+- non-destructive chapter/user status changes and server-enforced chapter isolation;
+- unique exact-release proof through CI and Production Smoke assertions for `r5 / admin-lifecycle-media-v1`.
 
-This release candidate is **not production capability yet**. It must pass the complete required PSP CI gate set on one exact head, be merged only with `expected_head_sha`, receive a new exact release/deployment generation, and pass post-deploy health/readiness/security plus controlled authenticated functional verification. See `docs/STATUS.md` and `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md` for the exact evolving head/run evidence.
+Initial PR CI #382 / run `33846413588` started on earlier head `95b901b4f4a770e1eaf03ca8ef3874f2a695432f`; that head was superseded because it still reused the prior release generation and is not merge-eligible regardless of its result. A fresh exact-head CI is mandatory after the r5 marker and documentation reconciliation.
+
+This release candidate is **not production capability yet**. Merge only the exact final head that passes the complete required PSP CI gate set, using `expected_head_sha`. After merge, Production Smoke must observe `2026-09-04-r5 / 2026-09-04-admin-lifecycle-media-v1` with readiness/security/public checks green. Authenticated admin/content workflows require controlled production evidence and must not be inferred from public smoke alone.
 
 External gates still open and requiring real evidence:
 
@@ -396,6 +402,7 @@ External gates still open and requiring real evidence:
 - security rotation/bootstrap cleanup where earlier values were exposed.
 
 Authoritative task/evidence status: `docs/STATUS.md`.  
+Detailed PR #16 tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`.  
 Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
 
 ## 15. Documentation Definition of Done
