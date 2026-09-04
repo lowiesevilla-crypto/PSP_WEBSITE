@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
+import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
 import { prisma } from "@/lib/prisma";
 import { requireCurrentMember } from "@/lib/member/current-member";
 import { checkCertificateEligibility } from "@/lib/certificates/eligibility";
@@ -35,6 +36,8 @@ export async function GET() {
         revokedAt: true,
         revocationReason: true,
         verificationToken: true,
+        signatoryName: true,
+        signatoryTitle: true,
       },
     });
 
@@ -59,6 +62,14 @@ export async function POST() {
       return NextResponse.json({ message: eligibility.reason }, { status: 403, headers: { "Cache-Control": "no-store" } });
     }
 
+    const chairman = await getCurrentChapterChairman(member.chapterId);
+    if (!chairman) {
+      return NextResponse.json(
+        { message: "Your Chapter Chairman must be assigned in the officer directory before a membership certificate can be generated." },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const certificate = await tx.certificate.create({
         data: {
@@ -66,6 +77,8 @@ export async function POST() {
           chapterId: member.chapterId,
           certificateNumber: certificateNumber(),
           verificationToken: randomBytes(24).toString("base64url"),
+          signatoryName: chairman.name,
+          signatoryTitle: chairman.title,
         },
       });
 
@@ -78,6 +91,8 @@ export async function POST() {
           entityId: certificate.id,
           metadataJson: {
             certificateNumber: certificate.certificateNumber,
+            signatoryName: chairman.name,
+            signatoryTitle: chairman.title,
             currentDuesRequired: process.env.CERTIFICATE_REQUIRE_CURRENT_DUES === "true",
           },
         },
