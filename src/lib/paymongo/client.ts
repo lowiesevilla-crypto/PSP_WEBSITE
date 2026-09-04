@@ -2,14 +2,24 @@ import { Prisma } from "@prisma/client";
 
 const PAYMONGO_API = "https://api.paymongo.com/v2";
 
+function livePaymentsEnabled() {
+  return process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true";
+}
+
 function getSecretKey() {
   const key = process.env.PAYMONGO_SECRET_KEY?.trim();
   if (!key) throw new Error("PayMongo is not configured.");
+  if (key.startsWith("sk_live_") && !livePaymentsEnabled()) {
+    throw new Error("PayMongo live processing is disabled until production approval.");
+  }
   return key;
 }
 
 export function configuredPaymentMethods() {
-  const raw = process.env.PAYMONGO_PAYMENT_METHODS ?? "qrph";
+  const raw =
+    process.env.PAYMONGO_PAYMENT_METHODS ??
+    process.env.PAYMONGO_CHECKOUT_METHODS ??
+    "qrph";
   return raw
     .split(",")
     .map((value) => value.trim())
