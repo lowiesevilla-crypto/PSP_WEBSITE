@@ -13,6 +13,8 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+type Platform = "ios" | "android" | "other";
+
 function isStandalone() {
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -20,8 +22,16 @@ function isStandalone() {
   );
 }
 
-function isIosDevice() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+function detectPlatform(): Platform {
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return "ios";
+  if (/android/.test(ua)) return "android";
+  return "other";
+}
+
+function isIosSafari() {
+  const ua = navigator.userAgent;
+  return /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
 }
 
 function wasInstalledByThisBrowser() {
@@ -43,13 +53,16 @@ function rememberInstalled() {
 export function PwaInstallCard() {
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
-  const [ios, setIos] = useState(false);
+  const [platform, setPlatform] = useState<Platform>("other");
+  const [iosSafari, setIosSafari] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showManualHelp, setShowManualHelp] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setIos(isIosDevice());
+    const currentPlatform = detectPlatform();
+    setPlatform(currentPlatform);
+    setIosSafari(currentPlatform === "ios" && isIosSafari());
 
     const captured = getCapturedPspInstallPrompt();
     if (captured) {
@@ -99,12 +112,22 @@ export function PwaInstallCard() {
   }, []);
 
   async function install() {
+    if (platform === "ios") {
+      setShowManualHelp(true);
+      setMessage(
+        iosSafari
+          ? "On iPhone/iPad, tap Safari's Share button, choose Add to Home Screen, then tap Add. Apple requires this confirmation step."
+          : "Open this page in Safari on your iPhone/iPad, then tap Share → Add to Home Screen → Add.",
+      );
+      return;
+    }
+
     const activePrompt = prompt ?? getCapturedPspInstallPrompt();
     if (!activePrompt) {
       setShowManualHelp(true);
       setMessage(
-        ios
-          ? "iPhone and iPad require Safari → Share → Add to Home Screen. Apple does not allow a website to install a PWA silently."
+        platform === "android"
+          ? "If the native prompt is unavailable, use the Android installer download when shown below or open Chrome/Edge menu → Install app / Add to Home screen."
           : "The browser has not offered its native install prompt. Open this page in Chrome or Edge, then choose Install app / Add to Home screen from the browser menu.",
       );
       return;
@@ -145,6 +168,13 @@ export function PwaInstallCard() {
     );
   }
 
+  const primaryLabel =
+    platform === "ios"
+      ? "Install PSP on iPhone / iPad"
+      : busy
+        ? "Opening Installer…"
+        : "Install PSP App";
+
   return (
     <div style={{ display: "grid", gap: 14 }}>
       <button
@@ -154,44 +184,68 @@ export function PwaInstallCard() {
         onClick={() => void install()}
         style={{ width: "100%", minHeight: 58, fontWeight: 900, fontSize: "1rem" }}
       >
-        {busy ? "Opening Installer…" : prompt ? "Install PSP App" : ios ? "Install PSP on iPhone / iPad" : "Install PSP App"}
+        {primaryLabel}
       </button>
 
       <div style={primaryInstructionStyle}>
-        <strong>{prompt ? "Ready to install" : "Official PSP install"}</strong>
+        <strong>
+          {platform === "ios"
+            ? "iPhone / iPad compatible"
+            : prompt
+              ? "Ready to install"
+              : platform === "android"
+                ? "Android installer"
+                : "Official PSP install"}
+        </strong>
         <span>
-          {prompt
-            ? "Tap Install PSP App. Your phone/browser will open its native installation confirmation."
-            : ios
-              ? "Safari requires one final Apple step: Share → Add to Home Screen → Add."
-              : "PSP is a Progressive Web App. If your browser supports direct PWA installation, its native install confirmation appears when available."}
+          {platform === "ios"
+            ? "PSP is installable on iPhone and iPad as a secure Home Screen web app. Your Digital ID, payments, receipts, certificates, chapter updates and passkey-capable login remain available from the same PSP account."
+            : prompt
+              ? "Tap Install PSP App. Your phone/browser will open its native installation confirmation."
+              : platform === "android"
+                ? "Android supports the PSP native installer package and the browser PWA install flow. Both use the same PSP website account and backend."
+                : "PSP is a Progressive Web App. Supported browsers can install it directly from the official PSP website."}
         </span>
       </div>
 
-      {(showManualHelp || ios || !prompt) ? (
+      {platform === "ios" ? (
         <div style={instructionStyle}>
-          <strong>{ios ? "iPhone / iPad" : "Android / Chrome / Edge"}</strong>
+          <strong>Install on iPhone / iPad</strong>
           <span>
-            {ios
-              ? "Open this page in Safari → tap Share → choose Add to Home Screen → Add. iOS does not permit websites to silently install an app."
-              : prompt
+            {iosSafari
+              ? "1. Tap Safari's Share button. 2. Choose Add to Home Screen. 3. Tap Add. PSP then opens from its Home Screen icon in standalone mode."
+              : "Open psp.hoahub.tech/install in Safari first. Then tap Share → Add to Home Screen → Add."}
+          </span>
+          <span style={{ color: "#6b665c" }}>
+            iOS does not allow a website to silently install an unsigned IPA. A native iOS App Store/TestFlight package requires Apple Developer signing; the current PSP iPhone/iPad distribution remains the supported installable PWA until that Apple signing channel is configured.
+          </span>
+        </div>
+      ) : null}
+
+      {(showManualHelp || (platform !== "ios" && !prompt)) ? (
+        <div style={instructionStyle}>
+          <strong>{platform === "android" ? "Android / Chrome / Edge" : "Browser installation"}</strong>
+          <span>
+            {platform === "android"
+              ? prompt
                 ? "Tap Install PSP App above, then confirm the browser's installation dialog."
-                : "Use Chrome or Edge. Open the browser menu and choose Install app / Add to Home screen if the native prompt is not currently available."}
+                : "Use Chrome or Edge. If the native prompt is unavailable, use the PSP Android APK installer once the signed package is published, or choose Install app / Add to Home screen from the browser menu."
+              : "Use a browser that supports PWA installation, then choose Install app / Add to Home screen."}
           </span>
         </div>
       ) : null}
 
       <div style={instructionStyle}>
-        <strong>One official PSP app identity</strong>
+        <strong>One PSP account across Android and iOS</strong>
         <span>
-          PSP uses one stable web-app identity from psp.hoahub.tech. Supported browsers normally recognize an existing installation and do not offer a second copy for the same app identity.
+          Android and iPhone/iPad installations connect to the same psp.hoahub.tech service, membership record, Digital ID, payments, certificates and notifications. Installing on another platform does not create another PSP member account.
         </span>
       </div>
 
       <div style={instructionStyle}>
-        <strong>No APK or App Store package is required</strong>
+        <strong>One official PSP app identity per platform</strong>
         <span>
-          PSP is a secure installable PWA. The browser installs it directly from the official PSP website and updates it automatically.
+          The web app keeps one stable PSP identity. The Android package also uses one stable application ID so future signed Android updates replace the existing PSP Android app instead of creating another copy.
         </span>
       </div>
 
