@@ -3,12 +3,12 @@ import { PwaInstallCard } from "@/components/pwa-install-card";
 
 export const metadata = {
   title: "Install PSP Mobile App",
-  description: "Install the official Psi Sigma Phi Philippines Inc. PWA on your mobile device.",
+  description: "Install the official Psi Sigma Phi Philippines Inc. mobile app on Android, iPhone, or iPad.",
 };
 
 export default function InstallPage() {
   return (
-    <main className="app-shell" data-pwa-install-version="pwa-install-v2">
+    <main className="app-shell" data-pwa-install-version="cross-platform-install-v3">
       <div className="container app-main" style={{ maxWidth: 760 }}>
         <section style={{ textAlign: "center", padding: "28px 0 18px" }}>
           <img
@@ -19,10 +19,10 @@ export default function InstallPage() {
           <p style={{ color: "#8a6800", fontWeight: 900, letterSpacing: ".14em", marginBottom: 8 }}>Ψ Σ Φ</p>
           <h1 style={{ margin: 0 }}>Install PSP Mobile App</h1>
           <p style={{ color: "#6b665c", lineHeight: 1.65, maxWidth: 620, margin: "12px auto 0" }}>
-            Add the official Psi Sigma Phi Philippines Inc. app directly from psp.hoahub.tech for your Digital ID, chapter updates, dues, online payments, receipts, certificates, and secure passkey login.
+            Install the official Psi Sigma Phi Philippines Inc. mobile experience for your Digital ID, chapter updates, dues, online payments, receipts, certificates, and secure passkey-capable login.
           </p>
           <p style={{ color: "#403a31", lineHeight: 1.6, maxWidth: 620, margin: "12px auto 0", fontWeight: 700 }}>
-            On supported Android browsers, tap <strong>Install PSP App</strong> and confirm the phone&apos;s native installer. iPhone and iPad use Safari&apos;s Add to Home Screen flow.
+            Android will support a downloadable signed PSP installer package plus the browser install flow. iPhone and iPad remain fully supported through Apple&apos;s Safari Add to Home Screen installation until an Apple-signed native distribution channel is configured.
           </p>
         </section>
 
@@ -35,7 +35,7 @@ export default function InstallPage() {
             ["Digital ID", "Carry your QR-verifiable PSP membership identity."],
             ["Payments", "View balance, pay securely online, and receive receipts."],
             ["Certificates", "Generate and verify your official membership certificate."],
-            ["Passkeys", "Use Face ID, Touch ID, Android lock, or Windows Hello."],
+            ["Passkeys", "Use Face ID, Touch ID, Android lock, or Windows Hello where supported."],
           ].map(([title, text]) => (
             <article className="app-panel" key={title}>
               <strong>{title}</strong>
@@ -45,9 +45,9 @@ export default function InstallPage() {
         </section>
 
         <section className="app-panel" style={{ marginTop: 18, background: "#fffaf0", borderColor: "#eadcae" }}>
-          <strong>Why there is no APK download</strong>
+          <strong>Android and iOS installation are different</strong>
           <p style={{ color: "#625b4e", lineHeight: 1.6, marginBottom: 0 }}>
-            PSP is an installable Progressive Web App (PWA), so the browser installs the official app directly from this website. A webpage cannot silently install software without your confirmation. Keeping one stable PSP web-app identity also allows supported browsers to recognize an existing installation instead of creating another copy.
+            Android can install a signed APK package directly after the user confirms the operating system&apos;s security prompt. Apple does not allow a website to silently install an unsigned IPA, so iPhone/iPad uses Safari&apos;s Add to Home Screen flow unless PSP is later distributed with Apple Developer signing through TestFlight, the App Store, or another Apple-approved channel.
           </p>
         </section>
 
