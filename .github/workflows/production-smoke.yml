@@ -126,9 +126,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Unknown verification tokens may return 404/invalid state, but the
-          # route itself must exist in the deployed generation and not 500.
-          for path in "/verify/member/prod-smoke-invalid-token" "/verify/certificate/prod-smoke-invalid-token"; do
+          # Unknown verification tokens may render an invalid/not-found state;
+          # the actual Digital Member ID and Certificate routes must exist in
+          # this exact deployment and must not produce an application 500.
+          for path in "/verify/member/prod-smoke-invalid-token" "/verify/prod-smoke-invalid-token"; do
             status="$(curl --silent --show-error --location \
               --output /tmp/psp-verify.html \
               --write-out '%{http_code}' \
