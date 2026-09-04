@@ -1,10 +1,16 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export interface SignedTokenPayload {
-  purpose: "session" | "email-verification" | "password-reset";
+  purpose:
+    | "session"
+    | "email-verification"
+    | "password-reset"
+    | "passkey-registration"
+    | "passkey-authentication";
   userId: string;
   email?: string;
   passwordFingerprint?: string;
+  challenge?: string;
   expiresAt: number;
   issuedAt: number;
 }
