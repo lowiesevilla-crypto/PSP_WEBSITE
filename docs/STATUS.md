@@ -1,30 +1,31 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 20:12 PHT  
+**Status timestamp:** 2026-09-04 21:12 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA:** `6fac2b58b9bc94d55958680ce44f90613d1c4fde`
+**Current main SHA:** `8bad0851c3fea15bb4f12687be0788ce7fe6e943`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Do not claim credential-dependent or device-dependent production behavior without direct evidence.
 
 ## Executive Status
 
-The PSP application is deployed. The currently proven public production generation remains:
+The PSP application is deployed and the currently proven public production generation is:
 
-- release: `2026-09-04-r5`
-- deployment generation: `2026-09-04-admin-lifecycle-media-v1`
-- database/auth/baseline/member-mobile/auth-config readiness: green on successful production smoke;
+- release: `2026-09-04-r6`
+- deployment generation: `2026-09-04-member-admin-invitation-v1`
+- main merge SHA: `8bad0851c3fea15bb4f12687be0788ce7fe6e943`
+- post-merge PSP CI #433 / run `33873028077`: **PASSED**
+- Production Smoke #14 / run `33873028136`: **PASSED**
+- database/auth/baseline/member-mobile/auth-config readiness: green on the successful smoke;
 - SMTP configuration: configured;
 - PayMongo Platforms configuration: not configured;
 - PayMongo live gate: disabled.
 
-Main includes PR #21 private-media build-tracing correction at merge SHA `6fac2b58b9bc94d55958680ce44f90613d1c4fde`.
+A new production-significant login UX redesign is active on branch `feat/login-ux-redesign-2026-09-04`. It is **not merged or production-proven yet**. The branch advances expected release identity to:
 
-A new production-significant member-administration feature is active on branch `feat/member-delete-resend-invitation-2026-09-04`. It is **not merged or production-proven yet**. The branch advances expected release identity to:
-
-- release: `2026-09-04-r6`
-- deployment generation: `2026-09-04-member-admin-invitation-v1`
+- release: `2026-09-04-r7`
+- deployment generation: `2026-09-04-login-ux-v1`
 
 ## Completed — Member Mobile / PWA + PayMongo Architecture
 
@@ -45,7 +46,7 @@ PR #14:
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
 - post-merge PSP CI #352: **PASSED**
 
-National Admin, Chapter Admin and Member responsive UI is part of the proven r5 production generation.
+National Admin, Chapter Admin and Member responsive UI is part of the proven production generation.
 
 ## Completed — Admin Lifecycle + Announcement/Event Media
 
@@ -87,39 +88,65 @@ The two Turbopack whole-project filesystem-tracing warnings from private-media r
 
 Detailed tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.
 
-## Active — Member Delete + Resend Invitation
+## Completed — PR #22 Member Delete + Resend Invitation
 
-Branch: `feat/member-delete-resend-invitation-2026-09-04`  
-Base main: `6fac2b58b9bc94d55958680ce44f90613d1c4fde`
+PR #22: `feat: add member deletion and invitation resend controls`
 
-### Implemented on branch
+- final exact passing head: `ce1bcbc95f448674519ae39a8a0c406b83f2dd2c`
+- PSP CI #432 / run `33872811641`: **PASSED**
+- unresolved review threads: **none**
+- merge SHA: `8bad0851c3fea15bb4f12687be0788ce7fe6e943`
+- post-merge PSP CI #433 / run `33873028077`: **PASSED**
+- Production Smoke #14 / run `33873028136`: **PASSED**
+- exact production identity: `2026-09-04-r6 / 2026-09-04-member-admin-invitation-v1`
 
-- National/System Admin and Chapter Admin use existing `members.manage` authorization; Chapter Admin remains exact-chapter scoped and national scope may act across chapters.
-- New `Resend Invitation` action for approved active memberships that still require activation.
-- Centralized approval/resend invitation email template.
-- Resent email includes membership number, login email, secure 24-hour activation link, PWA installation link and Chapter Chairman identity.
-- No temporary/plaintext password is generated or emailed.
-- Suspended/disabled accounts and already-activated accounts cannot receive activation invitations.
-- Resend is rate-limited and audited; activation token is never exposed to Admin UI.
-- New `Delete Member` action under `members.manage`.
-- Delete is a non-destructive archive: membership becomes `ARCHIVED`, chapter/officer/committee access is ended, Digital Member ID and valid certificates are revoked, and member-only user access is disabled.
-- Users with required national/other-chapter assignments are preserved rather than globally disabled.
-- Admin self-delete is blocked.
-- Financial, receipt, certificate, membership, application and audit history is preserved.
-- Archived members are hidden from the normal Member Directory.
-- Responsive Member Directory exposes account status, invitation resend and safe delete controls.
-- CI isolation fixtures/tests cover own-chapter authorization, cross-chapter denial, invitation delivery boundary/audit evidence, archive state, user disablement, Digital Member ID revocation and role termination.
-- Branch release marker: `2026-09-04-r6` / `2026-09-04-member-admin-invitation-v1`.
+Delivered behavior:
+
+- National/System Admin and exact-chapter Chapter Admin may resend activation invitations under `members.manage`;
+- invitation email includes membership number, login email, secure 24-hour activation link, PWA installation link and current Chapter Chairman identity;
+- no temporary/plaintext password is generated or emailed;
+- suspended/disabled and already activated accounts are blocked from activation resend;
+- resend is rate-limited and audit logged;
+- `Delete Member` is non-destructive archival, not physical deletion;
+- member chapter/officer/committee access is ended;
+- Digital Member ID and valid certificates are revoked;
+- member-only user access is disabled while national/other-chapter authority is preserved when required;
+- administrator self-delete is blocked;
+- financial, receipt, certificate, application, membership and audit history remains preserved;
+- archived members are removed from the normal active Member Directory;
+- cross-chapter lifecycle actions are denied by server authorization and CI isolation coverage.
 
 Detailed tracker: `docs/MEMBER_ADMIN_DELETE_INVITATION_2026-09-04.md`.
 
+## Active — PSP Login UX Redesign
+
+Branch: `feat/login-ux-redesign-2026-09-04`  
+Base main: `8bad0851c3fea15bb4f12687be0788ce7fe6e943`
+
+### Implemented on branch
+
+- premium PSP black/charcoal/white/gold login shell matching the approved redesign;
+- official PSP seal, `Welcome to PSP` hierarchy, reduced visual clutter and improved spacing;
+- explicit `Email & Password` versus `Use Passkey` sign-in-method selector on supported devices;
+- email/password is the clear default unless this device previously enabled a PSP passkey;
+- passkey-enabled devices continue to prioritize passkey while offering an explicit email/password fallback;
+- dedicated passkey guidance rather than a competing stacked primary button;
+- labeled email/password fields, password visibility control and improved keyboard focus treatment;
+- clear `Forgot password?`, `Apply online` and chapter-administrator support paths;
+- responsive mobile/desktop treatment, accessible error live region and reduced-motion behavior;
+- existing authentication APIs, passkey verification, post-login routing and authorization behavior are unchanged;
+- branch release marker: `2026-09-04-r7 / 2026-09-04-login-ux-v1`;
+- CI and Production Smoke assert the exact r7 generation and rendered login content.
+
+Detailed tracker: `docs/LOGIN_UX_REDESIGN_2026-09-04.md`.
+
 ### Current gate
 
-The branch is **NOT MERGE-ELIGIBLE** until its final documentation-reconciled exact head passes the complete PSP CI gate set. No production claim is allowed until exact-head merge, post-merge CI and exact r6 Production Smoke complete.
+The branch is **NOT MERGE-ELIGIBLE** until its final documentation-reconciled exact head passes the complete PSP CI gate set. No r7 production claim is allowed until exact-head merge, post-merge CI and exact r7 Production Smoke complete.
 
 ## Pending — Controlled Authenticated Production Acceptance
 
-Public smoke proves release identity/runtime/public security surfaces. It does not prove live state-changing Admin workflows. The following still require safe production credentials and controlled test records:
+Public smoke proves release identity/runtime/public security surfaces. It does not prove live state-changing Admin workflows or device-specific sign-in behavior. The following still require safe production credentials, controlled test records, or representative devices:
 
 - Chapter Administrator assignment through actual National Admin UI;
 - chapter deactivate/reactivate;
@@ -130,13 +157,14 @@ Public smoke proves release identity/runtime/public security surfaces. It does n
 - National Admin resend invitation with actual email receipt;
 - Chapter Admin controlled member delete/archive;
 - National Admin controlled member delete/archive;
-- live cross-chapter denial for the new member-admin actions.
+- live cross-chapter denial for member-admin actions;
+- real-device passkey sign-in against the redesigned login UI after r7 deployment.
 
 Do not perform destructive-looking tests against real production members without an explicitly controlled test record.
 
 ## Pending — Applicant Onboarding Improvements Identified
 
-The current deployed code still lacks:
+The current production code still lacks:
 
 - a registration-submission confirmation email;
 - a public applicant self-service application-status checker;
@@ -161,7 +189,7 @@ Admin resend invitation addresses the approved-member support case but does not 
 
 ## Internal Documentation Task Still Pending
 
-A separate branch `docs/reconcile-implementation-baseline-2026-09-04` was started to reconcile `docs/IMPLEMENTATION_PLAN.md` with the current linked-account payment architecture and mandatory Digital Member ID baseline. That documentation work remains separate from this feature branch and should be resumed only after the active production-significant member-administration release is safely closed.
+A separate branch `docs/reconcile-implementation-baseline-2026-09-04` was started to reconcile `docs/IMPLEMENTATION_PLAN.md` with the current linked-account payment architecture and mandatory Digital Member ID baseline. That documentation work remains separate and should not be merged without its own exact-head CI evidence.
 
 ## Closure Rules
 
@@ -174,8 +202,9 @@ Credential-dependent, payment, email, backup, device and production state-changi
 After every material state change:
 
 1. update `AGENTS.md` when architecture/security/hosting/payment/isolation/delivery rules or accepted baseline state change;
-2. update this status ledger with exact PR/head/merge/run evidence;
-3. update the detailed active-work tracker;
-4. never leave phase/deployment checklists stale;
-5. repository documentation, not chat history, is authoritative;
-6. never record replacement secrets in GitHub, chat, screenshots, tickets or logs.
+2. update this status ledger with current evidence/state;
+3. update the relevant detailed active-work tracker;
+4. document material UI/UX changes in `docs/UI_UX.md` or an approved detailed UX tracker;
+5. never leave phase/deployment checklists stale;
+6. repository documentation, not chat history, is authoritative;
+7. never record replacement secrets in GitHub, chat, screenshots, tickets or logs.
