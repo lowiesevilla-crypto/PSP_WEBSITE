@@ -320,7 +320,7 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - PayMongo server integration
 - QR/PDF generation
 
-Core entities include Organization, Chapters, User, Role/Permission/Assignment, MembershipApplication, Member/History, ChapterPosition/OfficerAssignment, Committee/Membership, content/events/notifications, assessments/rates/ledger, Payment/Transaction/Receipt, Certificate, PasskeyCredential, DigitalMemberId, ChapterPaymentConfig and AuditLog.
+Core entities include Organization, Chapters, User, Role/Permission/Assignment, MembershipApplication, Member/History, ChapterPosition/OfficerAssignment, Committee/Membership, content/events/notifications, assessments/rates, ledger, Payment/Transaction/Receipt, Certificate, PasskeyCredential, DigitalMemberId, ChapterPaymentConfig and AuditLog.
 
 ## 13. Production Deployment Rules
 
@@ -366,11 +366,29 @@ PR #14 is **MERGED** after exact-head CI.
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
 - scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
 
-Production Smoke #6 passed immediately after the UI merge, but PR #14 reused the prior `r3 / member-mobile-v1` markers. That smoke pass proves the production member-mobile runtime is healthy, but is not accepted as exact proof that the new UI merge was already the build being served at the first smoke attempt.
+The professional-UI release-proof change is in `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` and expects `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. Production Smoke `33837001102` did not observe that exact generation within its window even though production remained HTTP 200. This remains historical evidence; the next accepted current production generation must be the unique PR #16 generation after merge.
 
-Current release-proof branch: `release/prod-proof-ui-2026-09-04`.
+### PR #16 Admin lifecycle + announcement/event media — UNMERGED RELEASE CANDIDATE
 
-The branch changes the release identity to `2026-09-04-r4` and deployment generation to `2026-09-04-professional-ui-v1` and updates CI/Production Smoke assertions. Close the UI production deployment only after the exact branch head passes CI, is merged with `expected_head_sha`, and Production Smoke observes that new generation with readiness/security checks green.
+PR: #16 — `fix: admin lifecycle and chapter content media`  
+Branch: `fix/admin-lifecycle-content-media-2026-09-04`  
+Target release: `2026-09-04-r5`  
+Target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
+
+Branch implementation is code-complete for:
+
+- the Chapter Administrator assignment async form-reset defect;
+- National Admin chapter lifecycle controls (`ACTIVE`, `INACTIVE`, `SUSPENDED`, `ARCHIVED`);
+- National Admin user lifecycle controls (`ACTIVE`, `INVITED`, `SUSPENDED`, `DISABLED`) with audit logging and self-deactivation protection;
+- secure private announcement image upload and scoped member/admin delivery;
+- secure private event image upload and scoped member/admin delivery;
+- responsive announcement/event image presentation for members;
+- non-destructive chapter/user status changes and server-enforced chapter isolation;
+- unique exact-release proof through CI and Production Smoke assertions for `r5 / admin-lifecycle-media-v1`.
+
+Initial PR CI #382 / run `33846413588` started on earlier head `95b901b4f4a770e1eaf03ca8ef3874f2a695432f`; that head was superseded because it still reused the prior release generation and is not merge-eligible regardless of its result. A fresh exact-head CI is mandatory after the r5 marker and documentation reconciliation.
+
+This release candidate is **not production capability yet**. Merge only the exact final head that passes the complete required PSP CI gate set, using `expected_head_sha`. After merge, Production Smoke must observe `2026-09-04-r5 / 2026-09-04-admin-lifecycle-media-v1` with readiness/security/public checks green. Authenticated admin/content workflows require controlled production evidence and must not be inferred from public smoke alone.
 
 External gates still open and requiring real evidence:
 
@@ -384,6 +402,7 @@ External gates still open and requiring real evidence:
 - security rotation/bootstrap cleanup where earlier values were exposed.
 
 Authoritative task/evidence status: `docs/STATUS.md`.  
+Detailed PR #16 tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`.  
 Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
 
 ## 15. Documentation Definition of Done

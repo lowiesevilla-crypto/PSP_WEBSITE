@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EventManager } from "@/components/admin/event-manager";
 import { authorizedChapterIds, getAuthContext, hasPermission } from "@/lib/auth/context";
+import { contentMediaUrl } from "@/lib/content/media";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function AdminEventsPage() {
       where: scope === null ? {} : { chapterId: { in: scope } },
       orderBy: { startsAt: "desc" },
       take: 100,
-      select: { id: true, title: true, status: true, chapterId: true, startsAt: true, venue: true },
+      select: { id: true, title: true, status: true, chapterId: true, startsAt: true, venue: true, imageUrl: true },
     }),
   ]);
 
@@ -36,7 +37,11 @@ export default async function AdminEventsPage() {
         <EventManager
           chapters={chapters}
           canNational={canNational}
-          initialEvents={events.map((event) => ({ ...event, startsAt: event.startsAt.toISOString() }))}
+          initialEvents={events.map((event) => ({
+            ...event,
+            startsAt: event.startsAt.toISOString(),
+            imageUrl: contentMediaUrl("event", event.id, event.imageUrl),
+          }))}
         />
       </div>
     </main>

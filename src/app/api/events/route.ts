@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthContext, hasPermission } from "@/lib/auth/context";
+import { contentMediaUrl, privateMediaReference } from "@/lib/content/media";
 import { notifyAllActiveMembers, notifyChapterMembers } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
+import { removePrivateFile, savePrivateImage } from "@/lib/storage/private-media";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,13 @@ const createSchema = z.object({
   endsAt: z.string().datetime().optional().nullable(),
   publish: z.boolean().default(false),
 });
+
+function normalizedDate(value: FormDataEntryValue | null) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? text : date.toISOString();
+}
 
 export async function GET() {
   try {
@@ -36,7 +45,15 @@ export async function GET() {
       include: { chapter: { select: { id: true, code: true, name: true } } },
     });
 
-    return NextResponse.json({ events }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      {
+        events: events.map((item) => ({
+          ...item,
+          imageUrl: contentMediaUrl("event", item.id, item.imageUrl),
+        })),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     console.error("Event feed error", error);
     return NextResponse.json({ message: "Unable to load events." }, { status: 500 });
@@ -44,13 +61,40 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let savedKey: string | null = null;
+  let created = false;
+
   try {
     const context = await getAuthContext();
     if (!context) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
 
-    const parsed = createSchema.safeParse(await request.json().catch(() => null));
+    const contentType = request.headers.get("content-type") ?? "";
+    let raw: unknown;
+    let imageFile: File | null = null;
+
+    if (contentType.toLowerCase().startsWith("multipart/form-data")) {
+      const form = await request.formData();
+      raw = {
+        chapterId: String(form.get("chapterId") ?? "").trim() || null,
+        title: String(form.get("title") ?? ""),
+        description: String(form.get("description") ?? ""),
+        venue: String(form.get("venue") ?? "").trim() || null,
+        startsAt: normalizedDate(form.get("startsAt")) ?? "",
+        endsAt: normalizedDate(form.get("endsAt")),
+        publish: form.get("publish") === "on" || form.get("publish") === "true",
+      };
+      const candidate = form.get("image");
+      imageFile = candidate instanceof File && candidate.size > 0 ? candidate : null;
+    } else {
+      raw = await request.json().catch(() => null);
+    }
+
+    const parsed = createSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ message: "Please review the event information.", fields: parsed.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json(
+        { message: "Please review the event information.", fields: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
     }
 
     const input = parsed.data;
@@ -60,7 +104,10 @@ export async function POST(request: Request) {
     }
 
     if (chapterId) {
-      const chapter = await prisma.chapters.findFirst({ where: { id: chapterId, status: "ACTIVE" }, select: { id: true } });
+      const chapter = await prisma.chapters.findFirst({
+        where: { id: chapterId, status: "ACTIVE" },
+        select: { id: true },
+      });
       if (!chapter) return NextResponse.json({ message: "Selected chapter is unavailable." }, { status: 400 });
     }
 
@@ -70,8 +117,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Event end time must be after the start time." }, { status: 400 });
     }
 
+    if (imageFile) {
+      const stored = await savePrivateImage(imageFile, "event-images");
+      savedKey = stored.key;
+    }
+
     const event = await prisma.$transaction(async (tx) => {
-      const created = await tx.event.create({
+      const value = await tx.event.create({
         data: {
           chapterId,
           audience: chapterId ? "CHAPTER" : "NATIONAL",
@@ -80,6 +132,7 @@ export async function POST(request: Request) {
           venue: input.venue || null,
           startsAt,
           endsAt,
+          imageUrl: savedKey ? privateMediaReference(savedKey) : null,
           isPublished: input.publish,
           status: input.publish ? "PUBLISHED" : "DRAFT",
         },
@@ -90,11 +143,13 @@ export async function POST(request: Request) {
           chapterId,
           action: input.publish ? "EVENT_CREATED_PUBLISHED" : "EVENT_CREATED_DRAFT",
           entityType: "Event",
-          entityId: created.id,
+          entityId: value.id,
+          metadataJson: { hasImage: Boolean(savedKey) },
         },
       });
-      return created;
+      return value;
     });
+    created = true;
 
     if (input.publish) {
       const notification = {
@@ -103,13 +158,29 @@ export async function POST(request: Request) {
         body: event.title,
         href: "/events",
       };
-      if (chapterId) await notifyChapterMembers({ chapterId, ...notification });
-      else await notifyAllActiveMembers(notification);
+      try {
+        if (chapterId) await notifyChapterMembers({ chapterId, ...notification });
+        else await notifyAllActiveMembers(notification);
+      } catch (notificationError) {
+        console.error("Event notification error", notificationError);
+      }
     }
 
-    return NextResponse.json({ event }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(
+      {
+        event: {
+          ...event,
+          imageUrl: contentMediaUrl("event", event.id, event.imageUrl),
+        },
+      },
+      { status: 201, headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
+    if (savedKey && !created) await removePrivateFile(savedKey);
     console.error("Event creation error", error);
-    return NextResponse.json({ message: "Unable to create event." }, { status: 500 });
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "Unable to create event." },
+      { status: 500 },
+    );
   }
 }

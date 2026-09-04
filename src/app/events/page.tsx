@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { contentMediaUrl } from "@/lib/content/media";
 import { requireCurrentMember } from "@/lib/member/current-member";
 import { prisma } from "@/lib/prisma";
 
@@ -42,19 +43,23 @@ export default async function EventsPage() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
-          {events.map((event) => (
-            <article className="app-panel" key={event.id} style={{ display: "grid", gap: 10 }}>
-              <small style={{ color: "#806500", fontWeight: 900 }}>
-                {event.audience === "NATIONAL" ? "NATIONAL EVENT" : event.chapter?.name?.toUpperCase()}
-              </small>
-              <h2 style={{ margin: 0 }}>{event.title}</h2>
-              <p style={{ color: "#6b665c", lineHeight: 1.6, margin: 0 }}>{event.description}</p>
-              <div style={{ marginTop: 5, paddingTop: 10, borderTop: "1px solid #eee7d8" }}>
-                <strong>{new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Manila" }).format(event.startsAt)}</strong>
-                {event.venue ? <div style={{ marginTop: 5, color: "#6b665c" }}>{event.venue}</div> : null}
-              </div>
-            </article>
-          ))}
+          {events.map((event) => {
+            const imageUrl = contentMediaUrl("event", event.id, event.imageUrl);
+            return (
+              <article className="app-panel" key={event.id} style={{ display: "grid", gap: 10, overflow: "hidden" }}>
+                {imageUrl ? <img src={imageUrl} alt="" style={{ width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 14 }} /> : null}
+                <small style={{ color: "#806500", fontWeight: 900 }}>
+                  {event.audience === "NATIONAL" ? "NATIONAL EVENT" : event.chapter?.name?.toUpperCase()}
+                </small>
+                <h2 style={{ margin: 0, overflowWrap: "anywhere" }}>{event.title}</h2>
+                <p style={{ color: "#6b665c", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{event.description}</p>
+                <div style={{ marginTop: 5, paddingTop: 10, borderTop: "1px solid #eee7d8" }}>
+                  <strong>{new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Manila" }).format(event.startsAt)}</strong>
+                  {event.venue ? <div style={{ marginTop: 5, color: "#6b665c", overflowWrap: "anywhere" }}>{event.venue}</div> : null}
+                </div>
+              </article>
+            );
+          })}
           {events.length === 0 ? <div className="app-panel"><p style={{ margin: 0, color: "#6b665c" }}>No published events are currently scheduled.</p></div> : null}
         </div>
       </div>
