@@ -17,7 +17,7 @@ jobs:
   production-smoke:
     name: Verify public production runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
       EXPECTED_RELEASE: 2026-09-04-r5
@@ -29,13 +29,21 @@ jobs:
         run: |
           set -Eeuo pipefail
           deployed=false
+          network_failures=0
+          last_status=""
+          : > /tmp/psp-health.json
+
           for attempt in {1..40}; do
             status="$(curl --silent --show-error --max-time 10 \
               --output /tmp/psp-health.json \
               --write-out '%{http_code}' \
               "$PROD_URL/api/health" || true)"
-            echo "Health attempt $attempt: HTTP ${status:-network-error}"
-            if [ "$status" = "200" ] \
+            last_status="${status:-000}"
+            echo "Health attempt $attempt: HTTP ${last_status}"
+            if [ "$last_status" = "000" ]; then
+              network_failures=$((network_failures + 1))
+            fi
+            if [ "$last_status" = "200" ] \
               && grep -q '"service":"psi-sigma-phi-digital-platform"' /tmp/psp-health.json \
               && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
               && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json; then
@@ -47,6 +55,13 @@ jobs:
 
           if [ "$deployed" != "true" ]; then
             echo "Expected PSP deployment generation did not become visible within the deployment window." >&2
+            echo "Last health status: ${last_status:-unknown}; network-level failures: $network_failures/40" >&2
+            if [ "$network_failures" -eq 40 ]; then
+              echo "Production endpoint was unreachable from the GitHub runner for every attempt; this is a reachability/hosting gate, not an application-generation assertion failure." >&2
+            fi
+            echo "Resolver diagnostics:" >&2
+            getent ahosts psp.hoahub.tech >&2 || true
+            echo "Last health response:" >&2
             cat /tmp/psp-health.json 2>/dev/null || true
             exit 1
           fi

@@ -366,29 +366,38 @@ PR #14 is **MERGED** after exact-head CI.
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
 - scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
 
-The professional-UI release-proof change is in `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` and expects `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. Production Smoke `33837001102` did not observe that exact generation within its window even though production remained HTTP 200. This remains historical evidence; the next accepted current production generation must be the unique PR #16 generation after merge.
+The professional-UI release-proof change reached `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` with `2026-09-04-r4 / 2026-09-04-professional-ui-v1`. That generation was subsequently observed by the first PR #16 post-merge Production Smoke attempt, so r4 is now historical production evidence rather than the current target.
 
-### PR #16 Admin lifecycle + announcement/event media — UNMERGED RELEASE CANDIDATE
+### PR #16 Admin lifecycle + announcement/event media — MERGED; PRODUCTION PROOF OPEN
 
-PR: #16 — `fix: admin lifecycle and chapter content media`  
-Branch: `fix/admin-lifecycle-content-media-2026-09-04`  
-Target release: `2026-09-04-r5`  
-Target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
+- PR #16: `fix: admin lifecycle and chapter content media`
+- exact passing head: `971c9f7551f402b0c503c560e6fc292954c7b47f`
+- PSP CI #394 / run `33846881681`: **PASSED**
+- unresolved review threads: **none**
+- merge SHA: `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`
+- post-merge PSP CI #395 / run `33847400145`: **PASSED**
+- target release: `2026-09-04-r5`
+- target deployment generation: `2026-09-04-admin-lifecycle-media-v1`
 
-Branch implementation is code-complete for:
+Merged scope includes:
 
-- the Chapter Administrator assignment async form-reset defect;
+- Chapter Administrator assignment async form-reset correction;
 - National Admin chapter lifecycle controls (`ACTIVE`, `INACTIVE`, `SUSPENDED`, `ARCHIVED`);
 - National Admin user lifecycle controls (`ACTIVE`, `INVITED`, `SUSPENDED`, `DISABLED`) with audit logging and self-deactivation protection;
 - secure private announcement image upload and scoped member/admin delivery;
 - secure private event image upload and scoped member/admin delivery;
 - responsive announcement/event image presentation for members;
-- non-destructive chapter/user status changes and server-enforced chapter isolation;
-- unique exact-release proof through CI and Production Smoke assertions for `r5 / admin-lifecycle-media-v1`.
+- non-destructive chapter/user status changes and server-enforced chapter isolation.
 
-Initial PR CI #382 / run `33846413588` started on earlier head `95b901b4f4a770e1eaf03ca8ef3874f2a695432f`; that head was superseded because it still reused the prior release generation and is not merge-eligible regardless of its result. A fresh exact-head CI is mandatory after the r5 marker and documentation reconciliation.
+Production Smoke #8 / run `33847400143` has **not closed production deployment proof**:
 
-This release candidate is **not production capability yet**. Merge only the exact final head that passes the complete required PSP CI gate set, using `expected_head_sha`. After merge, Production Smoke must observe `2026-09-04-r5 / 2026-09-04-admin-lifecycle-media-v1` with readiness/security/public checks green. Authenticated admin/content workflows require controlled production evidence and must not be inferred from public smoke alone.
+- attempt 1 reached production with HTTP 200 for all 40 polls but still observed `2026-09-04-r4 / 2026-09-04-professional-ui-v1`, so the merged r5 generation had not deployed within the window;
+- attempt 2 was immediately retried, but every completed poll returned network-level HTTP `000` due 10-second connection timeouts; the 15-minute job limit cancelled the job during poll 36 before the loop could produce its normal diagnostic failure;
+- therefore production cannot yet be claimed to serve `r5 / admin-lifecycle-media-v1`, and authenticated PR #16 workflows are also not yet production-proven.
+
+Follow-up branch `docs/reconcile-pr16-prod-status-2026-09-04` fixes the Production Smoke reliability defect by extending the job timeout to 20 minutes and explicitly distinguishing all-network-failure reachability from a healthy-but-stale generation. This operational/documentation branch must itself pass exact-head CI and be merged only on that passing head; its merge will trigger another exact production smoke/deployment observation without changing the r5 application release identity.
+
+Authenticated production checks remain open until controlled credentials/evidence are available: Chapter Admin assignment, chapter deactivate/reactivate, user suspend/disable/reactivate, same-chapter announcement/event image access with cross-chapter denial, and representative mobile rendering.
 
 External gates still open and requiring real evidence:
 
