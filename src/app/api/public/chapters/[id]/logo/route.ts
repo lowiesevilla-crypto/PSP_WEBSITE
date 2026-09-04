@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { applicationUrl } from "@/lib/auth/account-tokens";
 import { mimeTypeFromStorageKey, privateMediaStorageKey } from "@/lib/content/media";
 import { prisma } from "@/lib/prisma";
 import { readPrivateFile } from "@/lib/storage/private-media";
 
+function nationalLogoRedirect() {
+  return NextResponse.redirect(applicationUrl("/brand/psp-logo.jpg"), 307);
+}
+
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -15,7 +20,7 @@ export async function GET(
 
   const storageKey = privateMediaStorageKey(chapter?.logoUrl);
   if (!storageKey) {
-    return NextResponse.redirect(new URL("/brand/psp-logo.jpg", request.url), 307);
+    return nationalLogoRedirect();
   }
 
   try {
@@ -29,6 +34,6 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.redirect(new URL("/brand/psp-logo.jpg", request.url), 307);
+    return nationalLogoRedirect();
   }
 }
