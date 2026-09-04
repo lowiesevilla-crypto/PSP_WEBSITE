@@ -62,6 +62,35 @@ async function main() {
   assert(betaApplication?.status === "SUBMITTED", `Unauthorized review changed foreign application status to ${betaApplication?.status}.`);
   assert(!betaApplication?.reviewNotes, "Unauthorized review wrote foreign application notes.");
 
+  const ownApproval = await request("/api/admin/applications/ci-alpha-application/review", cookie, {
+    method: "POST",
+    body: JSON.stringify({ status: "APPROVED", reviewNotes: "CI approved application email contract" }),
+  });
+  const ownApprovalPayload = await ownApproval.json().catch(() => ({}));
+  assert(ownApproval.status === 200, `Expected own-chapter approval 200, received ${ownApproval.status}: ${JSON.stringify(ownApprovalPayload)}.`);
+  assert(ownApprovalPayload.member?.membershipNo, "Approved application did not return a membership number.");
+  assert(ownApprovalPayload.activationRequired === true, "Newly approved CI member should require activation.");
+  assert(
+    ownApprovalPayload.welcomeDelivery === "failed",
+    `Expected unconfigured CI SMTP to report welcomeDelivery=failed without rolling back approval, received ${JSON.stringify(ownApprovalPayload)}.`,
+  );
+
+  const approvedApplication = await prisma.membershipApplication.findUnique({
+    where: { id: "ci-alpha-application" },
+    select: { status: true },
+  });
+  assert(approvedApplication?.status === "APPROVED", "Welcome email failure rolled back approved membership application state.");
+
+  const welcomeFailure = await prisma.auditLog.findFirst({
+    where: {
+      action: "MEMBER_WELCOME_EMAIL_FAILED",
+      entityType: "Member",
+      entityId: ownApprovalPayload.member?.id,
+      actorUserId: "ci-alpha-admin-user",
+    },
+  });
+  assert(welcomeFailure, "Approved-member welcome email failure did not create audit evidence.");
+
   const foreignMedia = await request("/api/community/media/ci-beta-image", cookie);
   assert(foreignMedia.status === 403, `Expected cross-chapter protected media 403, received ${foreignMedia.status}.`);
 
@@ -140,7 +169,7 @@ async function main() {
   const betaMember = await prisma.member.findUnique({ where: { id: "ci-beta-member" }, select: { membershipStatus: true } });
   assert(betaMember?.membershipStatus === "ACTIVE", "Unauthorized cross-chapter delete changed the foreign member.");
 
-  console.log("Cross-chapter isolation and member administration suite passed.");
+  console.log("Cross-chapter isolation, member administration, and approval email contract suite passed.");
 }
 
 main()
