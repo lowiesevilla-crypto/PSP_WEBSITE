@@ -1,0 +1,454 @@
+.page {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: 36px 20px;
+  background:
+    radial-gradient(circle at 14% 52%, rgba(254, 192, 9, 0.13), transparent 31%),
+    radial-gradient(circle at 86% 62%, rgba(254, 192, 9, 0.09), transparent 28%),
+    linear-gradient(135deg, #08090a 0%, #111315 48%, #08090a 100%);
+  color: #151515;
+  isolation: isolate;
+}
+
+.page::before,
+.page::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid rgba(254, 192, 9, 0.22);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 18px rgba(254, 192, 9, 0.07));
+}
+
+.page::before {
+  width: min(78vw, 1040px);
+  height: min(52vw, 680px);
+  left: -42vw;
+  bottom: -28vw;
+  transform: rotate(23deg);
+}
+
+.page::after {
+  width: min(72vw, 980px);
+  height: min(48vw, 620px);
+  right: -39vw;
+  bottom: -24vw;
+  transform: rotate(-19deg);
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, transparent 0 16%, rgba(254, 192, 9, 0.04) 16.2%, transparent 17%),
+    linear-gradient(300deg, transparent 0 13%, rgba(254, 192, 9, 0.035) 13.2%, transparent 14%);
+}
+
+.card {
+  width: min(560px, 100%);
+  border: 1px solid rgba(254, 192, 9, 0.34);
+  border-top: 3px solid rgba(254, 192, 9, 0.72);
+  border-radius: 28px;
+  padding: clamp(28px, 5vw, 44px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(255, 253, 248, 0.98));
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.eyebrow {
+  margin: 0;
+  color: #906b00;
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+}
+
+.title {
+  margin: 0;
+  color: #111214;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 5vw, 2.7rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.ornament {
+  width: min(360px, 82%);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  color: #d9a400;
+  font-size: 0.85rem;
+}
+
+.ornament::before,
+.ornament::after {
+  content: "";
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 151, 0, 0.72));
+}
+
+.ornament::after {
+  transform: scaleX(-1);
+}
+
+.subtitle {
+  max-width: 410px;
+  margin: 0;
+  color: #686868;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.authShell {
+  display: grid;
+  gap: 18px;
+}
+
+.methodTabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border: 1px solid #e2ded5;
+  border-radius: 14px;
+  background: #f7f6f2;
+}
+
+.methodTab {
+  min-height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #595959;
+  font: inherit;
+  font-size: 0.96rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.methodTab:hover:not(:disabled) {
+  background: rgba(254, 192, 9, 0.06);
+  color: #171717;
+}
+
+.methodTabActive {
+  background: #fff;
+  color: #171717;
+  border-bottom-color: #dca600;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.035);
+}
+
+.methodTab:focus-visible,
+.primaryButton:focus-visible,
+.linkButton:focus-visible,
+.passwordToggle:focus-visible,
+.fieldInput:focus-visible,
+.textLink:focus-visible,
+.applyLink:focus-visible {
+  outline: 3px solid rgba(254, 192, 9, 0.4);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.form {
+  display: grid;
+  gap: 17px;
+}
+
+.fieldGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.fieldLabel {
+  color: #1a1a1a;
+  font-size: 0.96rem;
+  font-weight: 850;
+}
+
+.fieldWrap {
+  position: relative;
+}
+
+.fieldInput {
+  width: 100%;
+  min-height: 54px;
+  box-sizing: border-box;
+  border: 1px solid #dad5ca;
+  border-radius: 12px;
+  padding: 12px 46px 12px 14px;
+  background: #fff;
+  color: #151515;
+  font: inherit;
+  font-size: 1rem;
+  caret-color: #151515;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.fieldInput::placeholder {
+  color: #99958c;
+}
+
+.fieldInput:focus {
+  border-color: #c99500;
+  box-shadow: 0 0 0 3px rgba(254, 192, 9, 0.12);
+  outline: none;
+}
+
+.fieldIcon,
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  color: #8a867d;
+}
+
+.fieldIcon {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.passwordToggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.passwordToggle:hover {
+  background: #f5f1e7;
+  color: #765a00;
+}
+
+.formMeta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -3px;
+}
+
+.textLink,
+.applyLink {
+  color: #8a6500;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.textLink:hover,
+.applyLink:hover {
+  color: #5f4600;
+  text-decoration: underline;
+}
+
+.primaryButton {
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid #e8b100;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffca27 0%, #fec009 72%, #eab100 100%);
+  color: #101010;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(217, 163, 0, 0.2);
+  transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+}
+
+.primaryButton:hover:not(:disabled) {
+  filter: brightness(1.02);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(217, 163, 0, 0.26);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primaryButton:disabled,
+.methodTab:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.passkeyPanel {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+
+.passkeyBadge {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e5d6a9;
+  border-radius: 20px;
+  background: #fff8df;
+  color: #8a6500;
+}
+
+.passkeyTitle {
+  margin: 0;
+  color: #171717;
+  font-size: 1.18rem;
+  font-weight: 900;
+}
+
+.passkeyCopy {
+  max-width: 390px;
+  margin: -6px 0 0;
+  color: #6a685f;
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.linkButton {
+  border: 0;
+  background: transparent;
+  color: #7d5d00;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.alert {
+  border: 1px solid #e7b4b4;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff3f3;
+  color: #7a2424;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.footer {
+  display: grid;
+  gap: 16px;
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid #e8e1d2;
+  text-align: center;
+}
+
+.applyRow {
+  margin: 0;
+  color: #4e4c46;
+}
+
+.support {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: #77736a;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.support strong {
+  color: #8a6500;
+}
+
+@media (max-width: 640px) {
+  .page {
+    align-items: start;
+    padding: 18px 12px 26px;
+  }
+
+  .page::before,
+  .page::after {
+    opacity: 0.55;
+  }
+
+  .card {
+    border-radius: 22px;
+    padding: 26px 20px 24px;
+  }
+
+  .brand {
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .logo {
+    width: 78px;
+    height: 78px;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+  }
+
+  .methodTab {
+    min-height: 52px;
+    gap: 7px;
+    padding-inline: 8px;
+    font-size: 0.88rem;
+  }
+
+  .support {
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .methodTab,
+  .fieldInput,
+  .primaryButton {
+    transition: none;
+  }
+}

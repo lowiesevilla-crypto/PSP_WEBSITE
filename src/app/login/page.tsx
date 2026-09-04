@@ -2,6 +2,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { getAuthContext } from "@/lib/auth/context";
+import styles from "./login.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -19,65 +20,74 @@ export default async function LoginPage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 20,
-        background:
-          "radial-gradient(circle at 15% 10%, rgba(254,192,9,.18), transparent 30%), #0d0d0d",
-      }}
-    >
+    <main className={styles.page}>
+      <div className={styles.glow} aria-hidden="true" />
+
       <section
-        style={{
-          width: "min(460px, 100%)",
-          background: "#fff",
-          color: "#151515",
-          borderRadius: 24,
-          padding: "clamp(24px, 6vw, 38px)",
-          boxShadow: "0 24px 70px rgba(0,0,0,.35)",
-        }}
+        className={styles.card}
+        aria-labelledby="psp-login-heading"
+        data-login-design="login-ux-v1"
       >
-        <div style={{ display: "grid", justifyItems: "center", gap: 12, marginBottom: 28 }}>
+        <header className={styles.brand}>
           <Image
             src="/brand/psp-logo.jpg"
             alt="Psi Sigma Phi Philippines Inc."
             width={88}
             height={88}
-            style={{ borderRadius: "50%", objectFit: "cover", background: "#fff" }}
+            className={styles.logo}
             priority
           />
-          <div style={{ textAlign: "center" }}>
-            <p style={{ margin: 0, color: "#8a6a00", fontWeight: 900, letterSpacing: ".06em" }}>
-              Ψ Σ Φ
-            </p>
-            <h1 style={{ margin: "5px 0 4px", fontSize: "1.8rem", color: "#151515" }}>
-              PSP Account Sign In
-            </h1>
-            <p style={{ margin: 0, color: "#746b5b" }}>
-              Members and authorized administrators use this secure sign-in.
-            </p>
+          <p className={styles.eyebrow}>Ψ Σ Φ</p>
+          <h1 id="psp-login-heading" className={styles.title}>
+            Welcome to PSP
+          </h1>
+          <div className={styles.ornament} aria-hidden="true">
+            <span>★</span>
           </div>
-        </div>
+          <p className={styles.subtitle}>
+            Members and authorized administrators can sign in securely to access PSP.
+          </p>
+        </header>
 
         <LoginForm />
 
-        <div
-          style={{
-            marginTop: 24,
-            paddingTop: 20,
-            borderTop: "1px solid #ece5d7",
-            textAlign: "center",
-            color: "#746b5b",
-          }}
-        >
-          Not yet registered?{" "}
-          <a href="/register" style={{ fontWeight: 800, color: "#7a5c00" }}>
-            Apply online
-          </a>
-        </div>
+        <footer className={styles.footer}>
+          <p className={styles.applyRow}>
+            New to PSP?{" "}
+            <a href="/register" className={styles.applyLink}>
+              Apply online
+            </a>
+          </p>
+          <p className={styles.support}>
+            <SupportIcon />
+            <span>
+              Need access? Contact your <strong>chapter administrator.</strong>
+            </span>
+          </p>
+        </footer>
       </section>
     </main>
+  );
+}
+
+function SupportIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ color: "#b88400", flex: "0 0 auto" }}
+    >
+      <path d="M4 13a8 8 0 0 1 16 0" />
+      <path d="M4 13v5a2 2 0 0 0 2 2h1v-8H6a2 2 0 0 0-2 2Z" />
+      <path d="M20 13v5a2 2 0 0 1-2 2h-1v-8h1a2 2 0 0 1 2 2Z" />
+      <path d="M16 20c0 1.1-.9 2-2 2h-2" />
+    </svg>
   );
 }

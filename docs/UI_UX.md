@@ -25,6 +25,26 @@ Desktop/tablet layouts may expand content, but they must not be prerequisites fo
 
 Use fluid layouts rather than device-specific assumptions. Support portrait/landscape and CSS safe-area insets.
 
+## Login / Authentication UX
+
+The public PSP sign-in screen must make the available authentication methods obvious without presenting multiple competing primary actions.
+
+- Use the official PSP seal and premium black/charcoal/white/gold visual system.
+- The page hierarchy is `Welcome to PSP` → short helper text → sign-in method → selected method fields/action → recovery/registration/support links.
+- On passkey-capable devices, show `Email & Password` and `Use Passkey` as a clear segmented/tab control rather than stacking two equal primary sign-in buttons.
+- Email/password remains the default for a device that has not previously enabled a PSP passkey.
+- A device that previously enabled a PSP passkey may prioritize the passkey tab, but an explicit `Use email & password instead` fallback must remain available.
+- Password fields use a visibility toggle and preserve password-manager autocomplete semantics.
+- `Forgot password?` must remain visible in the password flow.
+- `Apply online` remains visible for new applicants.
+- Access-help copy should direct members to their Chapter Administrator without implying that support bypasses authentication.
+- Login errors must use an accessible live alert and must not expose sensitive authentication details.
+- Keyboard focus must be highly visible; primary controls remain touch-friendly on mobile.
+- The login card must fit phone widths without horizontal overflow and must respect reduced-motion preferences.
+- Visual redesign must never change server authorization, session, password, passkey, origin/CSRF, or post-login routing authority.
+
+Detailed implementation tracker: `LOGIN_UX_REDESIGN_2026-09-04.md`.
+
 ## Professional Administration Shell
 
 National and Chapter Administration use one consistent responsive application shell while retaining server-enforced RBAC and chapter scope.
