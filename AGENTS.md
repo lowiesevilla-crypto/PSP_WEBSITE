@@ -1,6 +1,6 @@
 # AGENTS.md — Psi Sigma Phi Philippines Inc. Digital Platform
 
-> **Mandatory project knowledge base.** Every AI agent and developer must read this file plus `docs/STATUS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Update it whenever an approved business/architecture/security/payment/delivery rule changes.
+> **Mandatory project knowledge base.** Every AI agent and developer must read this file plus `docs/STATUS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Update it whenever an approved business, architecture, security, payment, isolation, hosting, or delivery rule changes.
 
 ## 1. Project Identity
 
@@ -31,7 +31,7 @@ Palette:
 - Charcoal `#151515`
 - White `#FFFFFF`
 
-Member experience is **mobile-first/PWA-first**, premium/professional fraternity identity (`Ψ Σ Φ` acceptable), accessible contrast, touch-friendly controls, safe areas, no uncontrolled horizontal overflow.
+Member experience is **mobile-first/PWA-first**, premium/professional fraternity identity (`Ψ Σ Φ` acceptable), accessible contrast, touch-friendly controls, safe areas and no uncontrolled horizontal overflow.
 
 National and Chapter Administration use the same professional responsive application shell while retaining server-enforced RBAC and chapter scope. Administration must expose clear National-vs-Chapter context, permission-filtered navigation for convenience, touch-friendly mobile controls, and mobile-safe finance/report presentation. UI hiding is never authorization.
 
@@ -67,8 +67,41 @@ After APPROVED:
 - identify current Chapter Chairman;
 - send welcome/activation email signed by Chapter Chairman;
 - welcome email includes login email, membership number, secure activation/login link and `/install` PWA link;
-- never email a plaintext password;
+- activation link is time-limited and member creates their own password;
+- never email a plaintext or temporary password;
 - create in-app welcome notification.
+
+### Invitation resend
+
+National/System Admin and the exact authorized Chapter Admin may resend an activation invitation under `members.manage` when an approved active membership still requires account activation.
+
+Rules:
+
+- Chapter Admin is restricted to the member's exact chapter; national scope may act across chapters.
+- Suspended or disabled User accounts cannot receive an activation invitation.
+- Already activated accounts use normal password recovery instead of activation resend.
+- Resend generates a new secure activation link and includes membership number, login email, 24-hour activation expiry notice, `/install` PWA link and current Chapter Chairman identity.
+- Activation tokens must never be returned to the administrator UI or logs.
+- Resend is rate-limited and audit logged for success/failure.
+
+### Member deletion / archival
+
+National/System Admin and the exact authorized Chapter Admin may use **Delete Member** under `members.manage`.
+
+Deletion is **non-destructive archival**, not physical erasure, because membership, finance, certificate and audit history must remain traceable.
+
+Required behavior:
+
+- set membership to `ARCHIVED`;
+- close open MembershipHistory periods and append an archived history record;
+- end the member's chapter role assignments, officer assignments and committee memberships;
+- revoke Digital Member ID;
+- revoke currently valid membership certificates;
+- disable the whole User account only when there is no national or other-chapter assignment that must remain usable;
+- preserve the User account when national/other-chapter authority must remain valid;
+- block administrator self-deletion to prevent lockout;
+- preserve assessments, ledger entries, payments, receipts, certificate history, approved application history and audit logs;
+- remove archived members from the normal active Member Directory while retaining authorized reporting/audit access.
 
 ### Member self-service
 
@@ -126,7 +159,8 @@ Financial invariants:
 - webhook processing is idempotent;
 - receipt is unique per confirmed internal Payment;
 - chapter scope is server validated;
-- platform convenience fee is **never** credited to dues, contribution totals, member ledger, or chapter collections.
+- platform convenience fee is **never** credited to dues, contribution totals, member ledger, or chapter collections;
+- member deletion must never erase or rewrite posted financial history.
 
 ## 6. PayMongo Platforms / Linked Accounts — Canonical Architecture
 
@@ -212,7 +246,8 @@ See `docs/PAYMENTS.md` for the complete flow/test matrix.
 - PDF includes signatory and official seal;
 - QR verification mandatory under production origin;
 - revoked/superseded/expired history is preserved;
-- public verification exposes minimum appropriate data.
+- public verification exposes minimum appropriate data;
+- deleting/archiving a member revokes currently valid certificates rather than deleting certificate history.
 
 ### Digital Member ID
 
@@ -220,7 +255,8 @@ See `docs/PAYMENTS.md` for the complete flow/test matrix.
 - created at approval; existing active members backfilled idempotently;
 - mobile card at `/member/id`;
 - public verification at `/verify/member/[token]`;
-- verification exposes only membership/chapter/status information required to establish validity.
+- verification exposes only membership/chapter/status information required to establish validity;
+- deleting/archiving a member revokes the Digital Member ID.
 
 ## 8. Passkey / Authentication
 
@@ -259,7 +295,8 @@ Administration responsive rules:
 - tablet/mobile must use a touch-friendly administration menu;
 - controls should be approximately 44–48px minimum touch height;
 - finance and operational-report tables transform into labeled record cards below the mobile breakpoint when columns would become unusable;
-- normal admin work must not require phone users to zoom a desktop table.
+- normal admin work must not require phone users to zoom a desktop table;
+- privileged member actions show clear busy/disabled/error/success states and prevent duplicate execution.
 
 ## 10. Roles / Authorization / Isolation
 
@@ -271,9 +308,11 @@ UI hiding is not authorization.
 
 Role families include System/National Admin, Chapter Admin, Chapter Treasurer/Finance, Chapter Officer, Member and other configured roles.
 
+Chapter Administrator has `members.manage` for the exact assigned chapter and may therefore perform approved member lifecycle actions, including invitation resend and safe member deletion/archive, only in that chapter. National/System Admin with national `members.manage` may perform those actions across chapters.
+
 Chapter Administrator is permitted to view/manage chapter finance so they can configure the linked chapter PayMongo account; Chapter Treasurer/Finance retains finance permissions. Existing production CHAPTER_ADMIN permissions are synchronized additively during the member-mobile production upgrade.
 
-Chapter users must never access another chapter through APIs, IDs, exports, files, reports, payment configuration or webhooks. National cross-chapter access requires explicit national/system permission.
+Chapter users must never access another chapter through APIs, IDs, exports, files, reports, member lifecycle actions, payment configuration or webhooks. National cross-chapter access requires explicit national/system permission.
 
 Chapter-owned entities include Members/applications, positions/officers, committees, content/events, assessments/rates, ledger, payments/receipts, certificates, Digital Member ID status, payment configuration and reports.
 
@@ -287,12 +326,13 @@ Mandatory:
 - secure cookie sessions;
 - origin/CSRF protections for browser writes;
 - Zod/input validation at trust boundaries;
-- rate limiting for auth/registration/verification/abuse-prone APIs;
+- rate limiting for auth/registration/verification/abuse-prone APIs and repeated invitation delivery;
 - IDOR/BOLA protection;
 - least privilege;
 - secure upload validation;
 - secrets only in environment/secret store;
 - no secret/password/token/PayMongo-key logging;
+- activation tokens never exposed to Admin UI;
 - audit privileged/financial/security actions;
 - backups + tested recovery before final production signoff;
 - secrets shown in chat/screenshots/tickets/logs are considered exposed and require rotation.
@@ -304,7 +344,7 @@ Linked-payment secrets:
 - child webhook signing secrets — encrypted at rest;
 - never expose these in PWA/browser/manifest/service worker/GitHub/logs/screenshots.
 
-Design for Philippine privacy obligations: purpose limitation, minimization, access control, notice/acknowledgement, retention and incident handling.
+Design for Philippine privacy obligations: purpose limitation, minimization, access control, notice/acknowledgement, retention and incident handling. Administrative deletion must respect retention/legal/accounting obligations instead of performing indiscriminate physical erasure.
 
 ## 12. Technology / Domain Baseline
 
@@ -339,142 +379,46 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
 - Every production-significant release must use a new release/deployment generation marker when exact-generation proof is required; do not reuse an older marker and then treat a smoke pass as proof of the newer build.
 - Runtime dependency-audit evidence is a required security gate: registry/transport errors, timeouts, malformed reports, or missing vulnerability metadata must fail closed rather than be interpreted as zero vulnerabilities.
-- A dependency-audit failure caused solely by unavailable evidence is an external CI security-gate condition, not proof of an application regression. Inspect the exact log and rerun the exact job/head; never bypass or reinterpret the missing evidence as a pass.
+- A dependency-audit failure caused solely by unavailable evidence is an external CI security-gate condition, not proof of an application regression. Inspect the exact log and rerun the exact job/head; never bypass or reinterpret missing evidence as a pass.
 - Audit-source outage tolerance may use multiple independent bounded attempts, explicit fetch timeouts and workflow-controlled backoff, but every accepted result must still pass trusted audit-report schema validation. Missing, stale, malformed, timed-out or operational-error evidence must never be substituted for a successful audit report.
 - Hosting/WAF browser challenges that return non-application HTTP responses to automated health checks are operational reachability failures. Inspect the exact response and rerun the exact smoke job; never call the release healthy from that failed attempt and never change application security merely to make the bot challenge pass.
-- Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
+- Email/payment/passkey/device/QR and authenticated production state-changing gates require real evidence; source code alone does not close them.
 
 ## 14. Current Delivery Baseline — 2026-09-04
 
-### Member Mobile / PWA release
+Accepted merged production baseline on `main` includes:
 
-PR #13 is **MERGED** and the production member-mobile schema/runtime is verified.
+- PR #13 member mobile/PWA + linked-payment architecture;
+- PR #14 professional responsive UI;
+- PR #16 admin lifecycle + secure announcement/event media;
+- PR #17 production-smoke reliability;
+- PR #18 r5 production-proof documentation closure;
+- PR #19 runtime dependency-audit fail-closed hardening;
+- PR #20 evidence reconciliation;
+- PR #21 private-media Turbopack build-tracing correction.
 
-- PR #13: `feat: complete mobile member PWA and PayMongo split payments`
-- exact passing head: `bb2cd5dc0bc261ead7628b52ede46f91da87b2c5`
-- PSP CI #349: **PASSED**
-- merge SHA: `1e3a37fb9a01226b776932e0caeff9a70c124e0f`
-- production readiness includes `database=ok`, `authSchema=ok`, `baseline=ok`, `memberMobileSchema=ok`, `authConfig=ok`, `smtpConfig=configured`.
+Current main SHA: `6fac2b58b9bc94d55958680ce44f90613d1c4fde`.
 
-### Professional responsive UI/UX release
+Current publicly proven production identity remains:
 
-PR #14 is **MERGED** after exact-head CI.
+- release `2026-09-04-r5`;
+- deployment generation `2026-09-04-admin-lifecycle-media-v1`.
 
-- exact passing head: `b45165d5f845edacf3c53caafd6a347b08452fdf`
-- PSP CI #351: **PASSED**
-- merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
-- National Admin, Chapter Admin and Member responsive UI is included in the current proven production generation.
+Active production-significant branch:
 
-### Admin lifecycle + announcement/event media — DEPLOYED; AUTOMATED PUBLIC PROOF COMPLETE
+- `feat/member-delete-resend-invitation-2026-09-04`;
+- target release `2026-09-04-r6`;
+- target deployment generation `2026-09-04-member-admin-invitation-v1`;
+- implements National/System Admin and Chapter Admin safe Delete Member + Resend Invitation under `members.manage` scope;
+- not accepted or production-proven until final exact-head CI, merge, post-merge CI and exact r6 Production Smoke pass.
 
-PR #16:
+Controlled authenticated production acceptance still requires safe credentials/test records. Never fabricate completion for member delete, invitation delivery, chapter/user lifecycle, scoped media, device, email, PayMongo, QR or backup/restore gates.
 
-- exact passing head: `971c9f7551f402b0c503c560e6fc292954c7b47f`
-- PSP CI #394 / run `33846881681`: **PASSED**
-- merge SHA: `58bb97c09ed6bc2989e9f8e3f79c9a56592b114b`
-- post-merge PSP CI #395 / run `33847400145`: **PASSED**
-
-PR #17 Production Smoke reliability/status follow-up:
-
-- exact passing head: `44b8a711f773cc546993fb9b8e981c5e55edb81d`
-- PSP CI #401 / run `33850830369`: **PASSED**
-- merge SHA: `2a1e9a1d40d4b92e407068626744f101b9ff2cd0`
-- post-merge PSP CI #402 / run `33851027472`: **PASSED**
-
-PR #18 production-proof documentation closure:
-
-- exact passing head: `9bbc8f5dcd12dfe4822b24cfe63dc3777364393f`
-- PSP CI #407 / run `33853697584`: **PASSED**
-- merge SHA: `8d4cdec1ad315640bad4361f98ac121800dc165e`
-- Production Smoke #10 / run `33854088783`: **PASSED**
-
-Current production proof:
-
-- exact production release: `2026-09-04-r5`
-- exact deployment generation: `2026-09-04-admin-lifecycle-media-v1`
-- Production Smoke #11 / run `33859569443`: **PASSED** after PR #19 merge
-- PR #20 merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
-- post-merge PSP CI #416 / run `33861307069`: **PASSED**
-- Production Smoke #12 / run `33861307005`: attempt 1 received Hostinger browser-challenge HTTP 403 responses; exact retry attempt 2 **PASSED** every production smoke step
-- `/api/health/ready`: ready on successful production smoke
-- database/auth/baseline/member-mobile/auth-config: green
-- public/PWA routes: green
-- required security headers: green
-- canonical-origin invalid login: expected 401
-- cross-site login: rejected 403
-- member/certificate public verification routes: no application 500
-
-Merged/deployed scope includes the Chapter Administrator form-reset correction, National Admin chapter lifecycle controls, National Admin user lifecycle controls, secure private announcement/event image handling, authenticated/scoped media delivery, cross-chapter denial enforcement, and responsive member image presentation.
-
-Production currently reports `payMongoPlatformConfig=not_configured` and `payMongoLive=disabled`. Linked-account payments remain intentionally fail-closed until PayMongo Platforms configuration and TEST settlement signoff are complete.
-
-### Runtime dependency-audit hardening — MERGED; POST-MERGE CI PASSED
-
-PR #19: `ci: fail closed on invalid runtime audit evidence`.
-
-- exact passing PR head: `6e8d530f4449c3f335be7f9562eca40bbf80008e`
-- PSP CI #409 / run `33855025604`: **PASSED** on that exact head
-- merge SHA: `0b10f2bf98678c5cda74450d0c55389895338949`
-- Production Smoke #11 / run `33859569443`: **PASSED**
-- post-merge PSP CI #410 / run `33859569625`: attempt 1 failed exactly as designed because both bounded npm-audit attempts timed out without trusted vulnerability evidence; attempt 2 was rerun on the same merge SHA and **PASSED** the complete gate set, including valid audit evidence and runtime vulnerability enforcement.
-
-The hardened gate validates npm audit report structure, rejects operational error payloads, bounds audit attempts, and fails closed if trustworthy vulnerability evidence is unavailable. The existing narrow Prisma development-tool advisory allow-list and HIGH/CRITICAL runtime blocking policy remain unchanged.
-
-Detailed tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.
-
-### PR #20 evidence reconciliation — MERGED; POST-MERGE GATES PASSED
-
-- exact passing PR head: `ea1af066eb2034d504322160eec37f81f0c9e588`
-- PSP CI #415 / run `33860642511`: attempt 1 failed only at audit evidence generation; exact retry attempt 2 **PASSED** the complete gate set
-- merge SHA: `44fd3bff155ac2c27a1cc4877cbf323b625ad5d6`
-- post-merge PSP CI #416 / run `33861307069`: **PASSED**
-- Production Smoke #12 / run `33861307005`: Hostinger challenge on attempt 1; exact retry attempt 2 **PASSED**
-
-### PR #21 private-media build-tracing correction — ACTIVE / NOT YET MERGED
-
-PR #21 removes the two Turbopack whole-project filesystem-tracing warnings from `src/lib/storage/private-media.ts` while retaining runtime `STORAGE_ROOT`, resolved-path containment checks, image validation, private delivery semantics, RBAC and chapter isolation.
-
-Repeated PSP CI #420 attempts on the initial PR #21 implementation head proved that:
-
-- production build passes with the two target private-media tracing warnings absent;
-- runtime/security smoke passes;
-- cross-chapter isolation passes;
-- the only failures were unavailable npm audit evidence after bounded timeouts, which correctly failed closed.
-
-The audit evidence-generation loop is now being refined to use more independent shorter bounded attempts and explicit npm fetch timeouts while preserving mandatory report validation and the separate runtime vulnerability enforcement step. PR #21 must not merge until its newest documentation-reconciled exact head passes the full PSP CI gate set.
-
-Detailed tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.
-
-### Next acceptance gate — controlled authenticated production workflows
-
-The exact r5 implementation is live and its automated/public surface is proven. These state-changing/scoped flows still require controlled production credentials and safe test records before they may be called production-proven:
-
-- Chapter Administrator assignment through the actual National Admin UI;
-- controlled chapter deactivate/reactivate;
-- controlled user suspend/disable/reactivate;
-- same-chapter announcement image access with cross-chapter denial;
-- same-chapter event image access with cross-chapter denial;
-- representative authenticated mobile Member/Admin rendering.
-
-When those credentials/test records are not available to automation, do not fabricate completion. After PR #21, the next non-credential internal quality item is repository documentation-baseline reconciliation: `docs/IMPLEMENTATION_PLAN.md` still contains superseded Hosted Checkout v2 and Digital Member ID baseline language that conflicts with this canonical file.
-
-External gates still open and requiring real evidence:
-
-- controlled Chairman welcome email delivery;
-- physical Android/iOS PWA acceptance;
-- real passkey registration/authentication;
-- Digital Member ID second-device QR validation;
-- certificate second-device QR validation;
-- PayMongo Platforms capability/linkage, approved fee configuration and TEST split-settlement E2E;
-- valid/invalid/duplicate child webhook E2E;
-- database backup/restore drill;
-- security rotation/bootstrap cleanup where earlier values were exposed.
-
-Authoritative task/evidence status: `docs/STATUS.md`.  
-Detailed PR #16 tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`.  
+Authoritative evidence/state: `docs/STATUS.md`.  
+Member administration tracker: `docs/MEMBER_ADMIN_DELETE_INVITATION_2026-09-04.md`.  
+Private-media tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.  
 Runtime-audit tracker: `docs/CI_RUNTIME_AUDIT_HARDENING_2026-09-04.md`.  
-Private-media tracing tracker: `docs/PRIVATE_MEDIA_BUILD_TRACING_2026-09-04.md`.  
-Member-mobile acceptance matrix: `docs/MEMBER_MOBILE_P0.md`.
+Member-mobile acceptance: `docs/MEMBER_MOBILE_P0.md`.
 
 ## 15. Documentation Definition of Done
 
