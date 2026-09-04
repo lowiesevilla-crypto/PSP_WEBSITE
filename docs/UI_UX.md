@@ -42,6 +42,18 @@ National and Chapter Administration use one consistent responsive application sh
 
 The admin experience should feel like a production-grade institutional operations system, not a collection of browser-default forms.
 
+## Member Administration Actions
+
+The Member Directory exposes privileged actions only when the authenticated administrator has server-backed `members.manage` authority for the member's exact chapter. National/System Admin may manage across chapters through national scope; Chapter Admin remains chapter-scoped.
+
+- **Resend Invitation** appears only while an approved active membership still requires account activation.
+- Resend does not expose the activation token in the UI; it triggers a new secure email invitation and shows delivery success/failure status.
+- **Delete Member** requires an explicit confirmation explaining that PSP uses non-destructive archival rather than erasing historical records.
+- Delete Member removes active chapter access, archives membership, revokes Digital Member ID and valid certificates, and retains finance/audit/history evidence.
+- Administrator self-deletion is visibly disabled to prevent lockout.
+- All privileged buttons must disable while requests are in flight to prevent duplicate execution.
+- Archived members are removed from the normal active directory while remaining available to authorized reporting/audit workflows.
+
 ## Member Home — Required Information Hierarchy
 
 The mobile member home should expose within the initial journey:
