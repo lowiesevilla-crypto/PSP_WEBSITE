@@ -29,6 +29,12 @@ export async function POST(
     if (!chapter) {
       return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
     }
+    if (chapter.status !== "ACTIVE") {
+      return NextResponse.json(
+        { message: "Activate this chapter before assigning a Chapter Administrator." },
+        { status: 409 },
+      );
+    }
 
     let body: unknown;
     try {
