@@ -23,7 +23,11 @@ export default async function LoginPage() {
     <main className={styles.page}>
       <div className={styles.glow} aria-hidden="true" />
 
-      <section className={styles.card} aria-labelledby="psp-login-heading">
+      <section
+        className={styles.card}
+        aria-labelledby="psp-login-heading"
+        data-login-design="login-ux-v1"
+      >
         <header className={styles.brand}>
           <Image
             src="/brand/psp-logo.jpg"
