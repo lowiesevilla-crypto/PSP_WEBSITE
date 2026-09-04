@@ -1,5 +1,6 @@
 import { applicationUrl, createActivationToken } from "@/lib/auth/account-tokens";
 import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
+import { chapterLogoPublicPath } from "@/lib/chapter/logo";
 import {
   emailActionButton,
   emailInfoCard,
@@ -89,7 +90,7 @@ export async function sendMemberInvitationEmail(options: {
     preheader: `${chapter.name} membership approved — activate your PSP account and install the mobile app.`,
     brand: {
       chapterName: chapter.name,
-      chapterLogoUrl: chapter.logoUrl,
+      chapterLogoUrl: chapterLogoPublicPath(chapter.id, chapter.logoUrl),
     },
     text: `Hello ${user.displayName},\n\n${resendIntro}\n\nMembership No.: ${member.membershipNo}\nLogin email: ${user.email}\nChapter: ${chapter.name}\n\n${actionText}\n\nInstall the PSP mobile app: ${installUrl}\n\nPSP does not send a temporary or plaintext password. You create your own password through the secure activation link.\n\nFraternally yours,\n${chairmanName}\n${chairmanTitle}\n${chapter.name}`,
     html: `<p style="margin-top:0;">Hello <strong>${escapeHtml(user.displayName)}</strong>,</p><p>${escapeHtml(resendIntro)}</p>${accountDetailsHtml}${accountActionHtml}<h2 style="margin:26px 0 8px;color:#171717;font-size:18px;">Get the PSP Mobile App</h2><p style="margin:0 0 12px;">Install PSP on your phone for faster access to your Digital ID, chapter updates, payments, receipts, certificates and passkey sign-in.</p>${installActionHtml}<p style="margin:24px 0 0;">Fraternally yours,<br/><strong>${escapeHtml(chairmanName)}</strong><br/>${escapeHtml(chairmanTitle)}<br/>${escapeHtml(chapter.name)}</p>`,
