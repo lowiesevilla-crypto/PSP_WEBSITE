@@ -8,17 +8,29 @@ export class EmailConfigurationError extends Error {
 }
 
 function smtpConfig() {
-  const host = process.env.SMTP_HOST;
+  const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT ?? "587");
-  const user = process.env.SMTP_USER;
+  const user = (process.env.SMTP_USER ?? process.env.SMTP_USERNAME)?.trim();
   const pass = process.env.SMTP_PASSWORD;
-  const from = process.env.SMTP_FROM;
+  const fromAddress = (process.env.SMTP_FROM ?? process.env.MAIL_FROM_ADDRESS)?.trim();
+  const fromName = process.env.MAIL_FROM_NAME?.trim();
+  const replyTo = process.env.MAIL_REPLY_TO?.trim();
+  const encryption = process.env.SMTP_ENCRYPTION?.trim().toLowerCase();
 
-  if (!host || !Number.isFinite(port) || !user || !pass || !from) {
+  if (!host || !Number.isFinite(port) || !user || !pass || !fromAddress) {
     throw new EmailConfigurationError();
   }
 
-  return { host, port, user, pass, from };
+  return {
+    host,
+    port,
+    user,
+    pass,
+    fromAddress,
+    fromName,
+    replyTo,
+    secure: port === 465 || encryption === "ssl",
+  };
 }
 
 export async function sendEmail(options: {
@@ -31,7 +43,7 @@ export async function sendEmail(options: {
   const transporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,
-    secure: config.port === 465,
+    secure: config.secure,
     auth: {
       user: config.user,
       pass: config.pass,
@@ -39,7 +51,10 @@ export async function sendEmail(options: {
   });
 
   await transporter.sendMail({
-    from: config.from,
+    from: config.fromName
+      ? { name: config.fromName, address: config.fromAddress }
+      : config.fromAddress,
+    replyTo: config.replyTo || undefined,
     to: options.to,
     subject: options.subject,
     text: options.text,
