@@ -46,9 +46,12 @@ export default async function AdminReportsPage() {
   return (
     <main className="app-shell">
       <div className="container app-main">
-        <div className="app-greeting"><p>Analytics</p><h1>Operational Reports</h1></div>
+        <div className="app-greeting">
+          <p>Analytics</p>
+          <h1>Operational Reports</h1>
+        </div>
 
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14 }}>
+        <section className="admin-stat-grid">
           <Metric label="Active Members" value={activeMembers.length.toLocaleString()} />
           <Metric label="Pending Applications" value={pendingApplications.toLocaleString()} />
           <Metric label="Confirmed Collections" value={php(paidTotal)} />
@@ -59,19 +62,37 @@ export default async function AdminReportsPage() {
 
         <section className="app-panel" style={{ marginTop: 18, overflowX: "auto" }}>
           <h2>Chapter Summary</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-            <thead><tr><th align="left">Chapter</th><th align="left">Status</th><th align="right">Active Members</th><th align="right">Applications</th><th align="right">Collected</th><th align="right">Pending Payments</th></tr></thead>
-            <tbody>{chapterRows.map((row) => (
-              <tr key={row.chapter.id} style={{ borderTop: "1px solid #eee5d4" }}>
-                <td>{row.chapter.name}</td><td>{row.chapter.status}</td><td align="right">{row.members}</td><td align="right">{row.apps}</td><td align="right">{php(row.paid)}</td><td align="right">{php(row.pending)}</td>
+          <table className="admin-responsive-table" style={{ minWidth: 760 }}>
+            <thead>
+              <tr>
+                <th align="left">Chapter</th>
+                <th align="left">Status</th>
+                <th align="right">Active Members</th>
+                <th align="right">Applications</th>
+                <th align="right">Collected</th>
+                <th align="right">Pending Payments</th>
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {chapterRows.map((row) => (
+                <tr key={row.chapter.id}>
+                  <td data-label="Chapter"><strong>{row.chapter.name}</strong></td>
+                  <td data-label="Status">{row.chapter.status}</td>
+                  <td data-label="Active Members" align="right">{row.members}</td>
+                  <td data-label="Applications" align="right">{row.apps}</td>
+                  <td data-label="Collected" align="right">{php(row.paid)}</td>
+                  <td data-label="Pending Payments" align="right">{php(row.pending)}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </section>
 
         <section className="app-panel" style={{ marginTop: 18 }}>
           <h2>Report Integrity</h2>
-          <p style={{ color: "#6b665c", lineHeight: 1.6 }}>All figures are derived from the authoritative membership, payment, certificate, and event records within your permitted chapter scope. Posted financial history is not silently deleted; reversals and refunds remain traceable.</p>
+          <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
+            All figures are derived from the authoritative membership, payment, certificate, and event records within your permitted chapter scope. Posted financial history is not silently deleted; reversals and refunds remain traceable.
+          </p>
         </section>
       </div>
     </main>
@@ -79,5 +100,10 @@ export default async function AdminReportsPage() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="app-panel"><small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small><strong style={{ display: "block", marginTop: 8, fontSize: "1.45rem" }}>{value}</strong></div>;
+  return (
+    <div className="app-panel">
+      <small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small>
+      <strong style={{ display: "block", marginTop: 8, fontSize: "1.45rem" }}>{value}</strong>
+    </div>
+  );
 }

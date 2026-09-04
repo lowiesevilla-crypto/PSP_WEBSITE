@@ -30,22 +30,27 @@ export default async function AdminAnnouncementsPage() {
   return (
     <main className="app-shell">
       <div className="container app-main">
-        <div className="app-greeting"><p>Communications</p><h1>Announcements</h1></div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(300px,.8fr)", gap: 18 }}>
+        <div className="app-greeting">
+          <p>Communications</p>
+          <h1>Announcements</h1>
+        </div>
+        <div className="admin-two-column">
           <AnnouncementManager chapters={chapters} canPublishNational={canPublishNational} />
           <section className="app-panel">
             <h2 style={{ marginTop: 0 }}>Recent Announcements</h2>
-            {recent.length === 0 ? <p style={{ color: "#6b665c" }}>No announcements yet.</p> : recent.map((item) => (
-              <article key={item.id} style={{ padding: "14px 0", borderTop: "1px solid #eee5d4" }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <strong>{item.title}</strong>
-                  <small>{item.audience === "NATIONAL" ? "National" : item.chapter?.name ?? "Chapter"}</small>
-                  {item.isPinned && <small>PINNED</small>}
-                </div>
-                <p style={{ color: "#6b665c", marginBottom: 6 }}>{item.body}</p>
-                <small>{item.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small>
-              </article>
-            ))}
+            <div className="admin-history-list">
+              {recent.length === 0 ? <p style={{ color: "#6b665c" }}>No announcements yet.</p> : recent.map((item) => (
+                <article key={item.id} style={{ padding: "14px 0" }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <strong>{item.title}</strong>
+                    <small>{item.audience === "NATIONAL" ? "National" : item.chapter?.name ?? "Chapter"}</small>
+                    {item.isPinned && <small style={{ fontWeight: 900, color: "#7c5a00" }}>PINNED</small>}
+                  </div>
+                  <p style={{ color: "#6b665c", marginBottom: 6, lineHeight: 1.55 }}>{item.body}</p>
+                  <small>{item.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small>
+                </article>
+              ))}
+            </div>
           </section>
         </div>
       </div>

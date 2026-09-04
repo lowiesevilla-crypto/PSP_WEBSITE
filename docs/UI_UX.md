@@ -25,6 +25,23 @@ Desktop/tablet layouts may expand content, but they must not be prerequisites fo
 
 Use fluid layouts rather than device-specific assumptions. Support portrait/landscape and CSS safe-area insets.
 
+## Professional Administration Shell
+
+National and Chapter Administration use one consistent responsive application shell while retaining server-enforced RBAC and chapter scope.
+
+- sticky black/gold PSP administration header with official seal;
+- visible National vs Chapter Administration context;
+- visible current chapter scope when the administrator is chapter-scoped;
+- navigation is permission-filtered for convenience only; server authorization remains authoritative;
+- desktop/laptop uses compact navigation while tablet/mobile uses a touch-friendly menu;
+- controls use a minimum comfortable height around 44–48px;
+- forms use consistent labels, spacing, focus rings, borders and disabled/busy states;
+- cards use a consistent surface, radius, border and restrained elevation hierarchy;
+- Finance and Operational Reports tables transform into labeled stacked record cards below 768px instead of forcing desktop-width data presentation;
+- dense desktop tables remain horizontally navigable when a table genuinely requires all columns.
+
+The admin experience should feel like a production-grade institutional operations system, not a collection of browser-default forms.
+
 ## Member Home — Required Information Hierarchy
 
 The mobile member home should expose within the initial journey:
@@ -146,6 +163,8 @@ The member should not be able to mistake platform fee for dues/contribution paid
 ## Tables / Admin
 
 Member core flows should avoid horizontal tables. Admin reporting/reconciliation may use larger tables on wide screens but must remain navigable on tablets/narrow screens; stacked records are preferred when columns become unusable.
+
+For high-density Finance and Operational Reports screens, use semantic tables on wide displays and labeled card-style rows below the mobile breakpoint. Do not make a phone user zoom a desktop table to perform normal admin review.
 
 ## Accessibility
 

@@ -106,9 +106,12 @@ export default async function AdminFinancePage() {
   return (
     <main className="app-shell">
       <div className="container app-main">
-        <div className="app-greeting"><p>Finance</p><h1>Billing, Split Settlement & Reconciliation</h1></div>
+        <div className="app-greeting">
+          <p>Finance</p>
+          <h1>Billing, Split Settlement & Reconciliation</h1>
+        </div>
 
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 14, marginBottom: 18 }}>
+        <section className="admin-stat-grid" style={{ marginBottom: 18 }}>
           <Metric label="Chapter Collections" value={php(totals.chapterPaid)} />
           <Metric label="Platform Convenience Fees" value={php(totals.platformFees)} />
           <Metric label="Gross Paid" value={php(totals.grossPaid)} />
@@ -124,29 +127,42 @@ export default async function AdminFinancePage() {
           <p style={{ color: "#6b665c", lineHeight: 1.55 }}>
             Chapter amount is the value credited to the member ledger and chapter collections. Platform fee is separately settled to the PSP platform PayMongo account.
           </p>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
-            <thead><tr><th align="left">Date</th><th align="left">Member</th><th align="left">Chapter</th><th align="left">Type</th><th align="right">Chapter</th><th align="right">Platform Fee</th><th align="right">Total</th><th align="left">Status</th><th align="left">Reference</th><th align="left">Receipt</th></tr></thead>
+          <table className="admin-responsive-table" style={{ minWidth: 1050 }}>
+            <thead>
+              <tr>
+                <th align="left">Date</th>
+                <th align="left">Member</th>
+                <th align="left">Chapter</th>
+                <th align="left">Type</th>
+                <th align="right">Chapter Amount</th>
+                <th align="right">Platform Fee</th>
+                <th align="right">Total</th>
+                <th align="left">Status</th>
+                <th align="left">Reference</th>
+                <th align="left">Receipt</th>
+              </tr>
+            </thead>
             <tbody>{payments.map((payment) => {
               const split = splitAmountsFromMetadata(splitByPaymentId.get(payment.id), payment.amount);
               return (
-                <tr key={payment.id} style={{ borderTop: "1px solid #eee5d4" }}>
-                  <td>{payment.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</td>
-                  <td>{payment.member.membershipNo} · {payment.member.firstName} {payment.member.lastName}</td>
-                  <td>{payment.chapter.name}</td>
-                  <td>{payment.category}<br/><small>{payment.assessment?.title ?? payment.description ?? "PSP Payment"}</small></td>
-                  <td align="right">{php(split.chapterAmount)}</td>
-                  <td align="right">{php(split.platformFee)}</td>
-                  <td align="right"><strong>{php(split.totalAmount)}</strong></td>
-                  <td>{payment.status}</td>
-                  <td><small>{payment.internalReference}<br />{payment.gatewayReference ?? "—"}<br/>{split.paymentMethod?.toUpperCase() ?? "PAYMONGO"}</small></td>
-                  <td>{payment.receipt ? <a href={`/api/payments/receipts/${payment.receipt.id}/pdf`}>{payment.receipt.receiptNumber}</a> : "—"}</td>
+                <tr key={payment.id}>
+                  <td data-label="Date">{payment.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</td>
+                  <td data-label="Member"><strong>{payment.member.membershipNo}</strong><br /><small>{payment.member.firstName} {payment.member.lastName}</small></td>
+                  <td data-label="Chapter">{payment.chapter.name}</td>
+                  <td data-label="Type">{payment.category}<br /><small>{payment.assessment?.title ?? payment.description ?? "PSP Payment"}</small></td>
+                  <td data-label="Chapter Amount" align="right">{php(split.chapterAmount)}</td>
+                  <td data-label="Platform Fee" align="right">{php(split.platformFee)}</td>
+                  <td data-label="Total" align="right"><strong>{php(split.totalAmount)}</strong></td>
+                  <td data-label="Status">{payment.status}</td>
+                  <td data-label="Reference"><small>{payment.internalReference}<br />{payment.gatewayReference ?? "—"}<br />{split.paymentMethod?.toUpperCase() ?? "PAYMONGO"}</small></td>
+                  <td data-label="Receipt">{payment.receipt ? <a href={`/api/payments/receipts/${payment.receipt.id}/pdf`}>{payment.receipt.receiptNumber}</a> : "—"}</td>
                 </tr>
               );
             })}</tbody>
           </table>
         </section>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 18, marginTop: 18 }}>
+        <div className="admin-card-grid" style={{ marginTop: 18 }}>
           <section className="app-panel">
             <h2>Outstanding Member Balances</h2>
             {outstanding.length === 0 ? <p style={{ color: "#6b665c" }}>No outstanding balance in loaded ledger records.</p> : outstanding.map((item) => (
@@ -182,5 +198,10 @@ export default async function AdminFinancePage() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="app-panel"><small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small><strong style={{ display: "block", marginTop: 8, fontSize: "1.35rem" }}>{value}</strong></div>;
+  return (
+    <div className="app-panel">
+      <small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small>
+      <strong style={{ display: "block", marginTop: 8, fontSize: "1.35rem" }}>{value}</strong>
+    </div>
+  );
 }
