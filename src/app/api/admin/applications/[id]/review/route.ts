@@ -6,6 +6,7 @@ import {
   AuthorizationDeniedError,
   requirePermission,
 } from "@/lib/auth/context";
+import { chapterLogoPublicPath } from "@/lib/chapter/logo";
 import { generateMembershipNumber } from "@/domain/membership/membership-number";
 import { emailInfoCard, escapeHtml, sendEmail } from "@/lib/email/mailer";
 import {
@@ -274,7 +275,7 @@ export async function POST(
           preheader: `Your ${application.chapter.name} membership application status is now ${statusLabel}.`,
           brand: {
             chapterName: application.chapter.name,
-            chapterLogoUrl: application.chapter.logoUrl,
+            chapterLogoUrl: chapterLogoPublicPath(application.chapter.id, application.chapter.logoUrl),
           },
           text: `Hello ${application.firstName},\n\nYour membership application for ${application.chapter.name} is now ${statusLabel}.\n\n${notes}\n\nApplication reference: ${application.id}`,
           html: `<p style="margin-top:0;">Hello <strong>${escapeHtml(application.firstName)}</strong>,</p><p>Your membership application status has been updated.</p>${details}<p><strong>Chapter review note:</strong></p><p>${escapeHtml(notes)}</p><p style="color:#6c665c;font-size:13px;">If you need clarification, reply to this email or contact ${escapeHtml(application.chapter.name)}.</p>`,
