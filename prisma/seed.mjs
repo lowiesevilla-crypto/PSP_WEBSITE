@@ -38,6 +38,8 @@ const roleDefinitions = [
       "applications.review",
       "members.view",
       "members.manage",
+      "finance.view",
+      "finance.manage",
       "content.manage",
       "events.manage",
       "reports.view",
