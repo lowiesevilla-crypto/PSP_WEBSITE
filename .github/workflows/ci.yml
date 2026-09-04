@@ -132,8 +132,8 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r6"'
-          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-member-admin-invitation-v1"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-04-r7"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-04-login-ux-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
@@ -148,6 +148,10 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
           curl --fail --silent http://127.0.0.1:3000/register > /dev/null
           curl --fail --silent http://127.0.0.1:3000/install > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/login > /tmp/psp-login.html
+          grep -q 'Welcome to PSP' /tmp/psp-login.html
+          grep -q 'Email &amp; Password' /tmp/psp-login.html
+          grep -q 'Use Passkey' /tmp/psp-login.html
 
           CROSS_SITE_STATUS="$(curl --silent --output /dev/null --write-out '%{http_code}' \
             -X POST \
