@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 11:45 PHT  
+**Status timestamp:** 2026-09-04 11:50 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`
@@ -9,7 +9,7 @@
 
 ## Executive Status
 
-The current production PSP core is **GREEN** through the Hostinger schema/bootstrap release and verified real System Administrator `/admin` browser login. The P0 **Member Mobile / PWA + PayMongo Platforms Split Payment** release is implemented on PR #13 and has reached a technically green candidate, but it is **NOT YET PRODUCTION COMPLETE** because final documentation-head CI, merge, exact-generation Hostinger deployment smoke, and external/device/payment/email evidence remain.
+The current production PSP core is **GREEN** through the Hostinger schema/bootstrap release and verified real System Administrator `/admin` browser login. The P0 **Member Mobile / PWA + PayMongo Platforms Split Payment** release is implemented on PR #13 and has reached a technically green candidate, but it is **NOT YET PRODUCTION COMPLETE** because the final readiness/documentation head still requires exact-head CI, merge, exact-generation Hostinger deployment smoke, and external/device/payment/email evidence.
 
 ### Current release candidate
 
@@ -17,12 +17,12 @@ The current production PSP core is **GREEN** through the Hostinger schema/bootst
 - PR: #13 — `feat: complete mobile member PWA and PayMongo split payments`
 - Release ID: `2026-09-04-r3`
 - Deployment generation: `2026-09-04-member-mobile-v1`
-- Technical candidate head: `dc59a06b47d84b0e410699181500ecb15333dd2a`
-- PSP CI #341: **PASSED** on that exact technical candidate
+- Last fully green technical candidate: `dc59a06b47d84b0e410699181500ecb15333dd2a`
+- PSP CI #341: **PASSED** on that exact candidate
 - Review threads at that candidate: **none unresolved**
-- PR remains draft while final status/knowledge-base reconciliation receives a fresh exact-head CI run.
+- Subsequent branch changes strengthened production readiness/smoke and reconciled knowledge-base documentation; therefore a new exact-head CI is mandatory before merge.
 
-Do not merge a later documentation head merely because #341 passed the prior head. The exact final PR head must pass required CI immediately before merge.
+Do not merge a later head merely because #341 passed the prior candidate.
 
 ## CI Failure → Fix Chronology — PR #13
 
@@ -55,7 +55,7 @@ Typecheck and production build passed. Failed gate: **Production runtime and sec
 Exact cause:
 
 - application correctly returned release `2026-09-04-r3` / generation `2026-09-04-member-mobile-v1`;
-- CI still asserted the previous release marker `2026-09-04-r2`.
+- CI still asserted previous release marker `2026-09-04-r2`.
 
 Fix:
 
@@ -98,6 +98,29 @@ Runtime evidence from #341:
 
 Build has non-blocking Turbopack dynamic-filesystem tracing warnings for private media storage; they are not a CI failure but remain a deployment-size/performance observation.
 
+## Production Readiness Hardening Added After CI #341
+
+Before merge, production verification was strengthened so the release cannot look green while the new member-mobile schema failed to deploy.
+
+`/api/health/ready` now:
+
+- verifies database connectivity;
+- verifies auth schema and PSP baseline;
+- verifies **member-mobile schema** by querying the PasskeyCredential, DigitalMemberId and ChapterPaymentConfig models;
+- returns readiness failure if the new member-mobile schema is absent;
+- reports non-secret `smtpConfig` status (`configured` / `not_configured`);
+- reports non-secret `payMongoPlatformConfig` status (`configured` / `not_configured`);
+- reports non-secret PayMongo live gate status (`enabled` / `disabled`).
+
+The SMTP/PayMongo diagnostic flags are informational and do not replace actual delivery/payment E2E evidence. Overall application readiness is gated by member-mobile schema, not by currently optional external payment/email activation.
+
+Both CI runtime smoke and production smoke now require `memberMobileSchema=ok`.
+
+Production smoke also checks the actual public verification route shapes:
+
+- Digital Member ID: `/verify/member/[token]`
+- Certificate: `/verify/[token]`
+
 ## Production State — Before PR #13 Merge
 
 Production is still the prior pre-member-mobile generation. Therefore **the new member-mobile functionality must not yet be claimed as working in production** solely from branch CI.
@@ -111,12 +134,13 @@ The prior production foundation remains verified:
 - production security headers/origin protection;
 - real System Administrator `/admin` login.
 
-PR #13 updates the production smoke workflow to wait specifically for:
+PR #13 production smoke waits specifically for:
 
 - release `2026-09-04-r3`;
-- deployment generation `2026-09-04-member-mobile-v1`.
+- deployment generation `2026-09-04-member-mobile-v1`;
+- `memberMobileSchema=ok`.
 
-After merge, GitHub Actions production smoke is the automated proof that Hostinger is actually serving the new member-mobile build rather than the old release.
+After merge, GitHub Actions production smoke is the automated proof that Hostinger is actually serving the new member-mobile build/schema rather than the old release.
 
 ## P0 Member Mobile Implementation
 
@@ -132,7 +156,7 @@ After merge, GitHub Actions production smoke is the automated proof that Hosting
 - no plaintext password email;
 - in-app welcome notification.
 
-**SMTP:** product owner reported `SMTP_PASSWORD` configured in Hostinger on 2026-09-04. Status is **CONFIGURED / DELIVERY NOT VERIFIED** until a real controlled approval produces a delivered Chairman welcome email.
+**SMTP:** product owner reported `SMTP_PASSWORD` configured in Hostinger on 2026-09-04. Status is **CONFIGURED / DELIVERY NOT VERIFIED** until a real controlled approval produces a delivered Chairman welcome email. Post-deploy readiness will additionally expose whether all required SMTP environment fields are present without exposing values.
 
 ### Member dashboard / chapter / finance
 
@@ -179,7 +203,7 @@ Member may update approved personal/contact fields but cannot self-change chapte
 
 ### Passkey login
 
-**CODE: IMPLEMENTED / CI TYPECHECK + BUILD GREEN**
+**CODE: IMPLEMENTED / CI TYPECHECK + BUILD GREEN ON LAST TECHNICAL CANDIDATE**
 
 - WebAuthn discoverable passkeys;
 - user verification required;
@@ -192,7 +216,7 @@ Real iOS/Android/desktop authenticator smoke remains open.
 
 ### Mobile PWA
 
-**CODE: IMPLEMENTED / CI BUILD GREEN**
+**CODE: IMPLEMENTED / CI BUILD GREEN ON LAST TECHNICAL CANDIDATE**
 
 - standalone manifest/service worker;
 - private/auth/payment/API state excluded from unsafe public caching;
@@ -300,15 +324,16 @@ Guardrails:
 - partial/unknown schema fails closed;
 - baseline initialization remains idempotent;
 - Chapter Admin finance permissions are synchronized additively;
-- Digital Member IDs are backfilled idempotently.
+- Digital Member IDs are backfilled idempotently;
+- readiness fails if the member-mobile schema is not present after deployment.
 
 ## Immediate Execution Queue
 
-1. **IN PROGRESS:** run fresh exact-head CI after final AGENTS/STATUS reconciliation.
+1. **IN PROGRESS:** run fresh exact-head CI after the readiness/smoke/AGENTS/STATUS changes.
 2. If any gate fails, inspect exact failing job, fix cause, push new head and rerun.
 3. When exact final head is green, reconfirm no unresolved review threads and mark PR #13 ready.
 4. Merge only with `expected_head_sha` equal to the exact passing head.
-5. Monitor automatic Production Smoke on `main` until Hostinger serves `r3` / `member-mobile-v1`.
+5. Monitor automatic Production Smoke on `main` until Hostinger serves `r3` / `member-mobile-v1` with `memberMobileSchema=ok`.
 6. If production smoke fails, inspect exact failing job and remediate before claiming production release success.
 7. After production smoke passes, update AGENTS/STATUS with merge SHA + production smoke evidence.
 8. Then proceed through external gates: security rotation/bootstrap cleanup; real Chairman welcome email; Android/iOS PWA; real passkey; Digital ID QR; certificate QR; PayMongo TEST split settlement; DB backup/restore.
