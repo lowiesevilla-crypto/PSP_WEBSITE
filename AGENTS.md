@@ -329,16 +329,22 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 
 ## 14. Current Delivery Baseline — 2026-09-04
 
-Current production foundation is green through the Hostinger greenfield schema/bootstrap release and verified real System Administrator `/admin` browser login.
+Current production foundation is green through the Hostinger greenfield schema/bootstrap release and verified real System Administrator `/admin` browser login. Production remains on the pre-member-mobile generation until PR #13 is merged and Hostinger serves the new exact generation.
 
 Current P0 release:
 
 - branch `feat/member-mobile-core-2026-09-04`;
-- PR #13 draft while code/docs/CI are finalized;
-- member registration/welcome, mobile dashboard, chapter/officers, balance/contributions, Digital Member ID, Chairman certificate, self-service profile, receipts, passkey and PWA are implemented on the release branch;
-- PayMongo architecture is being finalized as Platforms/Linked Accounts with configurable platform convenience fee and split settlement;
-- product owner reports Hostinger `SMTP_PASSWORD` configured; actual delivered welcome email remains unverified;
-- actual convenience-fee value has not been supplied, so payments intentionally fail closed until operations configures it;
+- PR #13 `feat: complete mobile member PWA and PayMongo split payments`;
+- release identity is `2026-09-04-r3`, deployment generation `2026-09-04-member-mobile-v1`;
+- member registration/welcome, mobile dashboard, chapter/officers, balance/contributions, Digital Member ID, Chairman certificate, self-service profile, receipts, passkey, PWA and linked PayMongo split-payment implementation are present on the release branch;
+- PSP CI #337 failed typecheck because a validated WebAuthn challenge still had the inferred type `string | undefined`; the challenge verifier was narrowed to a required string type;
+- PSP CI #340 then passed typecheck/build but failed runtime smoke because CI still asserted the old `r2` release marker; the runtime gate was updated to require `r3` and `member-mobile-v1`;
+- exact technical candidate head `dc59a06b47d84b0e410699181500ecb15333dd2a` passed PSP CI #341, including Prisma/MySQL, seed/bootstrap, strict TypeScript, production build, runtime/security smoke, canonical admin login + `/admin` redirect, cross-chapter isolation and runtime dependency audit;
+- PR #13 had no unresolved inline review threads at that candidate;
+- documentation is being reconciled on top of that candidate, so a fresh CI run on the final documentation head is required before merge;
+- production smoke has been stamped to require the exact `r3` / `member-mobile-v1` Hostinger deployment after merge so an old deployment cannot satisfy the release gate;
+- product owner reports Hostinger `SMTP_PASSWORD` configured; actual delivered Chairman welcome email remains unverified;
+- actual convenience-fee value has not been supplied, so split payments intentionally fail closed until operations configures it;
 - PayMongo Platforms capability/account linkage and TEST E2E remain external gates;
 - real Android/iOS PWA, passkey and QR smoke remain external gates.
 
