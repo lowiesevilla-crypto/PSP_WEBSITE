@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-04-r6
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-member-admin-invitation-v1
+      EXPECTED_RELEASE: 2026-09-04-r7
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-04-login-ux-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -95,8 +95,12 @@ jobs:
           curl --fail --silent --show-error "$PROD_URL/privacy" > /dev/null
           curl --fail --silent --show-error "$PROD_URL/register" > /dev/null
           curl --fail --silent --show-error "$PROD_URL/install" > /dev/null
+          curl --fail --silent --show-error "$PROD_URL/login" > /tmp/psp-login.html
           grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
           grep -q '"start_url"' /tmp/psp-manifest.json
+          grep -q 'Welcome to PSP' /tmp/psp-login.html
+          grep -q 'Email &amp; Password' /tmp/psp-login.html
+          grep -q 'Use Passkey' /tmp/psp-login.html
 
       - name: Verify production security headers
         shell: bash
