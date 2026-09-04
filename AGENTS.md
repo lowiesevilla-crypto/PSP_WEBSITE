@@ -320,7 +320,7 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - PayMongo server integration
 - QR/PDF generation
 
-Core entities include Organization, Chapters, User, Role/Permission/Assignment, MembershipApplication, Member/History, ChapterPosition/OfficerAssignment, Committee/Membership, content/events/notifications, assessments/rates/ledger, Payment/Transaction/Receipt, Certificate, PasskeyCredential, DigitalMemberId, ChapterPaymentConfig and AuditLog.
+Core entities include Organization, Chapters, User, Role/Permission/Assignment, MembershipApplication, Member/History, ChapterPosition/OfficerAssignment, Committee/Membership, content/events/notifications, assessments/rates, ledger, Payment/Transaction/Receipt, Certificate, PasskeyCredential, DigitalMemberId, ChapterPaymentConfig and AuditLog.
 
 ## 13. Production Deployment Rules
 
@@ -366,11 +366,23 @@ PR #14 is **MERGED** after exact-head CI.
 - merge SHA: `f5d44d3bdb7db37ed5140aaca256fbff52d5b600`
 - scope covers National Admin, Chapter Admin and Member responsive experience without changing database schema, API contracts, accounting, RBAC or chapter isolation.
 
-Production Smoke #6 passed immediately after the UI merge, but PR #14 reused the prior `r3 / member-mobile-v1` markers. That smoke pass proves the production member-mobile runtime is healthy, but is not accepted as exact proof that the new UI merge was already the build being served at the first smoke attempt.
+The release-proof change is now in `main` at `7269b9ab1bc3c60f015850e784f96923464bd2f5` and expects release `2026-09-04-r4` / deployment generation `2026-09-04-professional-ui-v1`. The last recorded Production Smoke `33837001102` did not observe that exact generation even though production stayed HTTP 200; re-check production before treating the professional-UI generation as closed.
 
-Current release-proof branch: `release/prod-proof-ui-2026-09-04`.
+### Admin lifecycle + announcement/event media release candidate — UNMERGED
 
-The branch changes the release identity to `2026-09-04-r4` and deployment generation to `2026-09-04-professional-ui-v1` and updates CI/Production Smoke assertions. Close the UI production deployment only after the exact branch head passes CI, is merged with `expected_head_sha`, and Production Smoke observes that new generation with readiness/security checks green.
+Active branch: `fix/admin-lifecycle-content-media-2026-09-04`.
+
+Branch implementation is code-complete for:
+
+- the Chapter Administrator assignment async form-reset defect;
+- National Admin chapter lifecycle controls (`ACTIVE`, `INACTIVE`, `SUSPENDED`, `ARCHIVED`);
+- National Admin user lifecycle controls (`ACTIVE`, `INVITED`, `SUSPENDED`, `DISABLED`) with audit logging and self-deactivation protection;
+- secure private announcement image upload and scoped member/admin delivery;
+- secure private event image upload and scoped member/admin delivery;
+- responsive announcement/event image presentation for members;
+- non-destructive chapter/user status changes and server-enforced chapter isolation.
+
+This release candidate is **not production capability yet**. It must pass the complete required PSP CI gate set on one exact head, be merged only with `expected_head_sha`, receive a new exact release/deployment generation, and pass post-deploy health/readiness/security plus controlled authenticated functional verification. See `docs/STATUS.md` and `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md` for the exact evolving head/run evidence.
 
 External gates still open and requiring real evidence:
 
