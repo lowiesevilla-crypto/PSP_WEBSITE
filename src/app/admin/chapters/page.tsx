@@ -5,9 +5,11 @@ import {
   getAuthContext,
   hasPermission,
 } from "@/lib/auth/context";
+import { chapterLogoPublicPath } from "@/lib/chapter/logo";
 import { prisma } from "@/lib/prisma";
 import { ChapterCreateForm } from "@/components/admin/chapter-create-form";
 import { ChapterAdminAssignmentForm } from "@/components/admin/chapter-admin-assignment-form";
+import { ChapterLogoControl } from "@/components/admin/chapter-logo-control";
 import { ChapterStatusControl } from "@/components/admin/chapter-status-control";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +80,13 @@ export default async function ChaptersPage() {
                   <p style={{ color: "#746b5b" }}>No Chapter Administrator assigned yet.</p>
                 )}
               </div>
+              {hasPermission(context, "content.manage", chapter.id) ? (
+                <ChapterLogoControl
+                  chapterId={chapter.id}
+                  chapterName={chapter.name}
+                  logoUrl={chapterLogoPublicPath(chapter.id, chapter.logoUrl)}
+                />
+              ) : null}
               {canManage ? (
                 <>
                   <ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} />
