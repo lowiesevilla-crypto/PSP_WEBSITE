@@ -50,10 +50,7 @@ export function verifyPayMongoSignature(input: {
   try {
     const expectedBuffer = Buffer.from(expected, "hex");
     const receivedBuffer = Buffer.from(received, "hex");
-    return (
-      expectedBuffer.length === receivedBuffer.length &&
-      timingSafeEqual(expectedBuffer, receivedBuffer)
-    );
+    return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
   } catch {
     return false;
   }
@@ -64,13 +61,42 @@ interface JsonRecord {
 }
 
 function record(value: unknown): JsonRecord | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as JsonRecord)
-    : null;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
 }
 
 function stringValue(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function parsePayMongoPaymentEvent(payload: unknown) {
+  const root = record(payload);
+  const data = record(root?.data);
+  const eventAttributes = record(data?.attributes);
+  const eventType = stringValue(eventAttributes?.type);
+  if (eventType !== "payment.paid" && eventType !== "payment.failed") return null;
+
+  const payment = record(eventAttributes?.data);
+  const paymentAttributes = record(payment?.attributes);
+  const source = record(paymentAttributes?.source);
+  const eventId = stringValue(data?.id);
+  const paymentId = stringValue(payment?.id);
+  const paymentIntentId = stringValue(paymentAttributes?.payment_intent_id);
+  if (!eventId || !paymentId || !paymentIntentId) return null;
+
+  return {
+    eventId,
+    eventType,
+    paymentId,
+    paymentIntentId,
+    paymentStatus: stringValue(paymentAttributes?.status) ?? (eventType === "payment.paid" ? "paid" : "failed"),
+    amount: numberValue(paymentAttributes?.amount),
+    paymentMethod: stringValue(source?.type),
+    paid: eventType === "payment.paid",
+  };
 }
 
 export function parsePayMongoCheckoutPaidEvent(payload: unknown) {
@@ -83,23 +109,16 @@ export function parsePayMongoCheckoutPaidEvent(payload: unknown) {
   const resource = record(eventAttributes?.data);
   const resourceAttributes = record(resource?.attributes);
   const metadata = record(resourceAttributes?.metadata);
-  const payments = Array.isArray(resourceAttributes?.payments)
-    ? resourceAttributes?.payments
-    : [];
+  const payments = Array.isArray(resourceAttributes?.payments) ? resourceAttributes?.payments : [];
   const firstPayment = record(payments[0]);
   const firstPaymentAttributes = record(firstPayment?.attributes);
 
   const eventId = stringValue(data?.id);
   const sessionId = stringValue(resource?.id);
-  const referenceNumber =
-    stringValue(resourceAttributes?.reference_number) ??
-    stringValue(metadata?.internal_reference);
+  const referenceNumber = stringValue(resourceAttributes?.reference_number) ?? stringValue(metadata?.internal_reference);
   const paymentId = stringValue(firstPayment?.id);
   const paymentStatus = stringValue(firstPaymentAttributes?.status);
-  const amount =
-    typeof firstPaymentAttributes?.amount === "number"
-      ? firstPaymentAttributes.amount
-      : null;
+  const amount = numberValue(firstPaymentAttributes?.amount);
 
   if (!eventId || !sessionId || !referenceNumber) return null;
 
