@@ -99,8 +99,9 @@ jobs:
           grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
           grep -q '"start_url"' /tmp/psp-manifest.json
           grep -q 'Welcome to PSP' /tmp/psp-login.html
-          grep -q 'Email &amp; Password' /tmp/psp-login.html
-          grep -q 'Use Passkey' /tmp/psp-login.html
+          grep -q 'data-login-design="login-ux-v1"' /tmp/psp-login.html
+          grep -q 'Forgot password?' /tmp/psp-login.html
+          grep -q 'Apply online' /tmp/psp-login.html
 
       - name: Verify production security headers
         shell: bash
