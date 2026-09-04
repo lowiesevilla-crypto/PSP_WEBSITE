@@ -18,7 +18,7 @@
 - Production email links, PWA links, verification QR URLs, payment return URLs and chapter webhook URLs use the canonical production origin.
 - QA/staging, when introduced, must use separate hostname, secrets and database.
 - Production liveness: `/api/health`
-- Production datastore/auth readiness: `/api/health/ready`
+- Production datastore/auth/member-mobile readiness: `/api/health/ready`
 
 ## 3. Official Branding / UX
 
@@ -249,7 +249,7 @@ Mandatory member experience:
 
 Authenticated/private/API/payment/certificate pages must not be cached as public offline content. Financial writes require live connectivity. Offline behavior must never fabricate payment state.
 
-Core mobile flows: registration, activation/login/recovery/passkey, dashboard/profile, chapter/officers, events/community, dues/payment, receipts, certificate, Digital ID, notifications.
+Core mobile flows: registration, activation/login/recovery/passkey, dashboard/profile, chapter/officers, events/community, dues/payment, receipts, certificate, Digital Member ID, notifications.
 
 ## 10. Roles / Authorization / Isolation
 
@@ -324,6 +324,8 @@ Core entities include Organization, Chapters, User, Role/Permission/Assignment, 
 - Never pass Prisma `--accept-data-loss` for automatic production upgrade.
 - Production initialization must not destructively reseed customized operational data.
 - Member-mobile upgrade additively synchronizes Chapter Admin finance permissions and backfills Digital Member IDs idempotently.
+- For the member-mobile release, `/api/health/ready` must verify the new passkey, Digital Member ID and chapter payment configuration tables before returning ready; missing member-mobile schema is a deployment failure.
+- Readiness may expose non-secret operational flags for SMTP configuration, PayMongo platform configuration and the live-payment gate. These flags help diagnose production but do not replace real email/payment E2E evidence.
 - Post-deploy `/api/health`, `/api/health/ready`, release/generation and functional smoke are mandatory.
 - Email/payment/passkey/device/QR gates require real evidence; source code alone does not close them.
 
@@ -340,9 +342,9 @@ Current P0 release:
 - PSP CI #337 failed typecheck because a validated WebAuthn challenge still had the inferred type `string | undefined`; the challenge verifier was narrowed to a required string type;
 - PSP CI #340 then passed typecheck/build but failed runtime smoke because CI still asserted the old `r2` release marker; the runtime gate was updated to require `r3` and `member-mobile-v1`;
 - exact technical candidate head `dc59a06b47d84b0e410699181500ecb15333dd2a` passed PSP CI #341, including Prisma/MySQL, seed/bootstrap, strict TypeScript, production build, runtime/security smoke, canonical admin login + `/admin` redirect, cross-chapter isolation and runtime dependency audit;
-- PR #13 had no unresolved inline review threads at that candidate;
-- documentation is being reconciled on top of that candidate, so a fresh CI run on the final documentation head is required before merge;
-- production smoke has been stamped to require the exact `r3` / `member-mobile-v1` Hostinger deployment after merge so an old deployment cannot satisfy the release gate;
+- production readiness was subsequently strengthened so `memberMobileSchema=ok` is mandatory and non-secret `smtpConfig`, `payMongoPlatformConfig` and `payMongoLive` statuses are visible for operational diagnosis;
+- production smoke validates the actual Digital Member ID route `/verify/member/[token]` and certificate route `/verify/[token]`, and requires exact `r3` / `member-mobile-v1` deployment;
+- these final readiness/smoke/documentation commits require a fresh exact-head PSP CI before merge;
 - product owner reports Hostinger `SMTP_PASSWORD` configured; actual delivered Chairman welcome email remains unverified;
 - actual convenience-fee value has not been supplied, so split payments intentionally fail closed until operations configures it;
 - PayMongo Platforms capability/account linkage and TEST E2E remain external gates;
