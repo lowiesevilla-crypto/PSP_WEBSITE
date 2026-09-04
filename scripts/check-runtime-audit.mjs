@@ -1,13 +1,61 @@
 import fs from "node:fs";
 
-const path = "runtime-audit.json";
+const path = process.env.RUNTIME_AUDIT_PATH ?? "runtime-audit.json";
+const validateOnly = process.argv.includes("--validate-only");
+
 if (!fs.existsSync(path)) {
-  console.error("runtime-audit.json was not generated.");
+  console.error(`${path} was not generated.`);
   process.exit(1);
 }
 
-const audit = JSON.parse(fs.readFileSync(path, "utf8"));
-const vulnerabilities = audit.vulnerabilities ?? {};
+let audit;
+try {
+  audit = JSON.parse(fs.readFileSync(path, "utf8"));
+} catch (error) {
+  console.error(`${path} is not valid npm audit JSON.`);
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
+if (!audit || typeof audit !== "object" || Array.isArray(audit)) {
+  console.error("Runtime dependency audit payload is not a JSON object.");
+  process.exit(1);
+}
+
+if (audit.error) {
+  console.error("npm audit returned an operational/registry error instead of vulnerability evidence:");
+  console.error(JSON.stringify(audit.error, null, 2));
+  process.exit(1);
+}
+
+if (audit.auditReportVersion !== 2) {
+  console.error(`Unsupported or missing npm audit report version: ${String(audit.auditReportVersion)}`);
+  process.exit(1);
+}
+
+if (!audit.vulnerabilities || typeof audit.vulnerabilities !== "object" || Array.isArray(audit.vulnerabilities)) {
+  console.error("npm audit payload is missing the vulnerabilities object.");
+  process.exit(1);
+}
+
+if (
+  !audit.metadata ||
+  typeof audit.metadata !== "object" ||
+  Array.isArray(audit.metadata) ||
+  !audit.metadata.vulnerabilities ||
+  typeof audit.metadata.vulnerabilities !== "object" ||
+  Array.isArray(audit.metadata.vulnerabilities)
+) {
+  console.error("npm audit payload is missing vulnerability metadata.");
+  process.exit(1);
+}
+
+if (validateOnly) {
+  console.log("Runtime dependency audit evidence is valid npm audit vulnerability data.");
+  process.exit(0);
+}
+
+const vulnerabilities = audit.vulnerabilities;
 
 // npm currently reports GHSA-ggr8-5vv4-36mx through Prisma's CLI/config toolchain
 // even when development dependencies are omitted/pruned. Prisma CLI is not shipped
