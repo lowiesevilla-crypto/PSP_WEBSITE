@@ -90,23 +90,60 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          curl --fail --silent --show-error --location "$PROD_URL/" > /tmp/psp-home.html
-          curl --fail --silent --show-error "$PROD_URL/manifest.webmanifest" > /tmp/psp-manifest.json
-          curl --fail --silent --show-error "$PROD_URL/privacy" > /dev/null
-          curl --fail --silent --show-error "$PROD_URL/register" > /dev/null
-          curl --fail --silent --show-error "$PROD_URL/install" > /tmp/psp-install.html
-          curl --fail --silent --show-error "$PROD_URL/login" > /tmp/psp-login.html
-          grep -qi 'Psi Sigma Phi' /tmp/psp-home.html
-          grep -q '"start_url"' /tmp/psp-manifest.json
-          grep -q '"id":"/"' /tmp/psp-manifest.json
-          grep -q 'Install PSP App' /tmp/psp-install.html
-          grep -q 'One official PSP app identity' /tmp/psp-install.html
-          curl --fail --silent --show-error --location "$PROD_URL/api/public/chapters/prod-smoke-invalid/logo" > /tmp/psp-brand-logo
-          test -s /tmp/psp-brand-logo
-          grep -q 'Welcome to PSP' /tmp/psp-login.html
-          grep -q 'data-login-design="login-ux-v1"' /tmp/psp-login.html
-          grep -q 'Forgot password?' /tmp/psp-login.html
-          grep -q 'Apply online' /tmp/psp-login.html
+
+          fetch_200() {
+            label="$1"
+            url="$2"
+            output="$3"
+            follow="${4:-no}"
+            if [ "$follow" = "yes" ]; then
+              status="$(curl --silent --show-error --location --max-time 15 --output "$output" --write-out '%{http_code}' "$url" || true)"
+            else
+              status="$(curl --silent --show-error --max-time 15 --output "$output" --write-out '%{http_code}' "$url" || true)"
+            fi
+            echo "$label -> HTTP ${status:-000}, bytes=$(wc -c < "$output" 2>/dev/null || echo 0)"
+            if [ "$status" != "200" ]; then
+              echo "FAILED_FETCH=$label" >&2
+              head -c 1600 "$output" 2>/dev/null >&2 || true
+              echo >&2
+              exit 1
+            fi
+          }
+
+          assert_contains() {
+            label="$1"
+            pattern="$2"
+            file="$3"
+            if grep -q "$pattern" "$file"; then
+              echo "$label -> PASS"
+            else
+              echo "FAILED_ASSERTION=$label pattern=$pattern" >&2
+              echo "--- response excerpt ---" >&2
+              head -c 3000 "$file" >&2 || true
+              echo >&2
+              exit 1
+            fi
+          }
+
+          fetch_200 home "$PROD_URL/" /tmp/psp-home.html yes
+          fetch_200 manifest "$PROD_URL/manifest.webmanifest" /tmp/psp-manifest.json
+          fetch_200 privacy "$PROD_URL/privacy" /tmp/psp-privacy.html
+          fetch_200 register "$PROD_URL/register" /tmp/psp-register.html
+          fetch_200 install "$PROD_URL/install" /tmp/psp-install.html
+          fetch_200 login "$PROD_URL/login" /tmp/psp-login.html
+          fetch_200 chapter-logo-fallback "$PROD_URL/api/public/chapters/prod-smoke-invalid/logo" /tmp/psp-brand-logo yes
+
+          assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
+          assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
+          assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
+          assert_contains install-primary-action 'Install PSP App' /tmp/psp-install.html
+          assert_contains install-one-app-identity 'One official PSP app identity' /tmp/psp-install.html
+          test -s /tmp/psp-brand-logo || { echo 'FAILED_ASSERTION=chapter-logo-nonempty' >&2; exit 1; }
+          echo 'chapter-logo-nonempty -> PASS'
+          assert_contains login-welcome 'Welcome to PSP' /tmp/psp-login.html
+          assert_contains login-design-marker 'data-login-design="login-ux-v1"' /tmp/psp-login.html
+          assert_contains login-forgot-password 'Forgot password?' /tmp/psp-login.html
+          assert_contains login-apply-online 'Apply online' /tmp/psp-login.html
 
       - name: Verify production security headers
         shell: bash
@@ -152,9 +189,6 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Unknown verification tokens may render an invalid/not-found state;
-          # the actual Digital Member ID and Certificate routes must exist in
-          # this exact deployment and must not produce an application 500.
           for path in "/verify/member/prod-smoke-invalid-token" "/verify/prod-smoke-invalid-token"; do
             status="$(curl --silent --show-error --location \
               --output /tmp/psp-verify.html \
