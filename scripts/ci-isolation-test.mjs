@@ -88,7 +88,59 @@ async function main() {
   });
   assert(foreignAnnouncement.status === 403, `Expected cross-chapter announcement mutation 403, received ${foreignAnnouncement.status}.`);
 
-  console.log("Cross-chapter isolation suite passed.");
+  const foreignResend = await request(
+    "/api/admin/members/ci-beta-member/resend-invitation",
+    cookie,
+    { method: "POST" },
+  );
+  assert(foreignResend.status === 403, `Expected cross-chapter invitation resend 403, received ${foreignResend.status}.`);
+
+  const ownResend = await request(
+    "/api/admin/members/ci-alpha-member/resend-invitation",
+    cookie,
+    { method: "POST" },
+  );
+  assert(
+    ownResend.status === 502,
+    `Expected authorized invitation resend to reach unconfigured CI mail delivery and return 502, received ${ownResend.status}.`,
+  );
+  const inviteFailure = await prisma.auditLog.findFirst({
+    where: {
+      action: "MEMBER_INVITATION_EMAIL_FAILED",
+      entityType: "Member",
+      entityId: "ci-alpha-member",
+      actorUserId: "ci-alpha-admin-user",
+    },
+  });
+  assert(inviteFailure, "Authorized invitation resend did not create failure audit evidence.");
+
+  const foreignDelete = await request("/api/admin/members/ci-beta-member", cookie, { method: "DELETE" });
+  assert(foreignDelete.status === 403, `Expected cross-chapter member delete 403, received ${foreignDelete.status}.`);
+
+  const ownDelete = await request("/api/admin/members/ci-alpha-member", cookie, { method: "DELETE" });
+  assert(ownDelete.status === 200, `Expected own-chapter member delete 200, received ${ownDelete.status}.`);
+
+  const [archivedMember, disabledUser, revokedDigitalId, activeRoles] = await Promise.all([
+    prisma.member.findUnique({ where: { id: "ci-alpha-member" }, select: { membershipStatus: true } }),
+    prisma.user.findUnique({ where: { id: "ci-alpha-member-user" }, select: { status: true } }),
+    prisma.digitalMemberId.findUnique({ where: { memberId: "ci-alpha-member" }, select: { status: true, revokedAt: true } }),
+    prisma.userRoleAssignment.count({
+      where: {
+        userId: "ci-alpha-member-user",
+        startsAt: { lte: new Date() },
+        OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+      },
+    }),
+  ]);
+  assert(archivedMember?.membershipStatus === "ARCHIVED", "Authorized delete did not archive the member.");
+  assert(disabledUser?.status === "DISABLED", "Authorized delete did not disable member-only account access.");
+  assert(revokedDigitalId?.status === "REVOKED" && revokedDigitalId.revokedAt, "Authorized delete did not revoke the Digital Member ID.");
+  assert(activeRoles === 0, "Authorized delete left active member role assignments.");
+
+  const betaMember = await prisma.member.findUnique({ where: { id: "ci-beta-member" }, select: { membershipStatus: true } });
+  assert(betaMember?.membershipStatus === "ACTIVE", "Unauthorized cross-chapter delete changed the foreign member.");
+
+  console.log("Cross-chapter isolation and member administration suite passed.");
 }
 
 main()
