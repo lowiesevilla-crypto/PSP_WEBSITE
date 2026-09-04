@@ -1,5 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { amountToCentavos } from "@/lib/paymongo/client";
 
 export type PlatformPayMongoConfig = {
   mode: "TEST" | "LIVE";
@@ -16,6 +15,15 @@ function integerEnv(name: string, min: number, max: number) {
   if (!Number.isInteger(value) || value < min || value > max) {
     throw new Error(`${name} must be an integer between ${min} and ${max}.`);
   }
+  return value;
+}
+
+function toCentavos(amount: Prisma.Decimal) {
+  if (amount.lte(0)) throw new Error("Payment amount must be greater than zero.");
+  const centavos = amount.mul(100);
+  if (!centavos.isInteger()) throw new Error("Payment amount has unsupported fractional centavos.");
+  const value = centavos.toNumber();
+  if (!Number.isSafeInteger(value)) throw new Error("Payment amount is outside the supported range.");
   return value;
 }
 
@@ -47,7 +55,7 @@ export function getPlatformPayMongoConfig(): PlatformPayMongoConfig {
 }
 
 export function calculatePlatformConvenienceFee(baseAmount: Prisma.Decimal, config = getPlatformPayMongoConfig()) {
-  const baseCentavos = amountToCentavos(baseAmount);
+  const baseCentavos = toCentavos(baseAmount);
   const percentageCentavos = Math.round((baseCentavos * config.feeBasisPoints) / 10000);
   const feeCentavos = Math.max(1, percentageCentavos + config.fixedFeeCentavos);
   const grossCentavos = baseCentavos + feeCentavos;
