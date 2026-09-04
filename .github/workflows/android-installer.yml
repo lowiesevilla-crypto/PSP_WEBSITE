@@ -1,0 +1,88 @@
+name: PSP Android Installer CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - 'public/downloads/PSP-Mobile.apk'
+      - 'public/.well-known/assetlinks.json'
+      - '.github/workflows/android-installer.yml'
+      - 'src/app/install/**'
+      - 'src/components/pwa-install-card.tsx'
+      - 'next.config.ts'
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - 'public/downloads/PSP-Mobile.apk'
+      - 'public/.well-known/assetlinks.json'
+      - '.github/workflows/android-installer.yml'
+      - 'src/app/install/**'
+      - 'src/components/pwa-install-card.tsx'
+      - 'next.config.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-installer:
+    name: Build Android installer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Assemble unsigned release APK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gradle -p android --no-daemon clean :app:assembleRelease
+          test -s android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android/app/build/outputs/apk/release/app-release-unsigned.apk | tee /tmp/psp-apk-badging.txt
+          grep -q "package: name='ph.org.psp.mobile' versionCode='1' versionName='1.0.0'" /tmp/psp-apk-badging.txt
+          grep -q "launchable-activity: name='com.google.androidbrowserhelper.trusted.LauncherActivity'" /tmp/psp-apk-badging.txt
+
+      - name: Verify committed signed installer when present
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [ -f public/downloads/PSP-Mobile.apk ]; then
+            test -s public/downloads/PSP-Mobile.apk
+            jarsigner -verify -strict public/downloads/PSP-Mobile.apk
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging public/downloads/PSP-Mobile.apk | tee /tmp/psp-signed-apk-badging.txt
+            grep -q "package: name='ph.org.psp.mobile' versionCode='1' versionName='1.0.0'" /tmp/psp-signed-apk-badging.txt
+          fi
+
+      - name: Upload unsigned release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: psp-android-unsigned-release
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 3
