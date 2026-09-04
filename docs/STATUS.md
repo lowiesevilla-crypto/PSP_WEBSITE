@@ -1,6 +1,6 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-04 13:32 PHT  
+**Status timestamp:** 2026-09-04 14:46 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
@@ -12,13 +12,13 @@
 
 The PSP production platform is operational. The P0 Member Mobile / PWA release is deployed and runtime-ready. The professional responsive UI/UX release for National Admin, Chapter Admin, and Member experiences is merged to `main` and passed exact-head CI before merge plus post-merge CI.
 
-However, exact production-generation proof for the professional UI release is still **OPEN**. `main` now expects `2026-09-04-r4 / 2026-09-04-professional-ui-v1`, but Production Smoke run `33837001102` failed at the deployment-wait step because production stayed healthy at HTTP 200 while continuing to serve `2026-09-04-r3 / 2026-09-04-member-mobile-v1` for all 40 polling attempts. This is a deployment-generation mismatch, not an application-health failure.
+Exact production-generation proof for the professional UI release remains **OPEN pending a fresh production check**. `main` expects `2026-09-04-r4 / 2026-09-04-professional-ui-v1`, while the last recorded Production Smoke run `33837001102` stayed healthy at HTTP 200 but continued to observe the prior `2026-09-04-r3 / 2026-09-04-member-mobile-v1` generation for all deployment-wait attempts.
 
-A separate production defect/enhancement branch is now active:
+The active production-defect/enhancement branch is:
 
 `fix/admin-lifecycle-content-media-2026-09-04`
 
-The branch addresses the National Admin Chapter Admin-assignment crash, National Admin chapter/user lifecycle controls, and Chapter Admin announcement/event media requirements. Code work through `5ef0655f0fc23a835957d4daf84dff5600320875` plus documentation commit `989cfaea69d4d8a8904422bce2536ae95296924d` is **NOT YET MERGED OR DEPLOYED**.
+All requested branch-side implementation is now code-complete through event media support. The latest implementation head before documentation commits is `1bdce47f4f118a3eab1ac163e81f75539d96035d`. This work is **NOT YET MERGED OR DEPLOYED** and must pass exact-head PSP CI before merge.
 
 ## Completed — P0 Member Mobile / PWA + PayMongo Architecture
 
@@ -44,7 +44,7 @@ Deployed/runtime-ready scope includes registration/approval, Chairman welcome/ac
 
 Implemented scope includes the shared professional black/gold administration shell, National/Chapter scope context, permission-filtered desktop navigation, mobile admin menu, responsive cards/forms, responsive Chapter Organization and Chapter Management, responsive Announcements workspace, Finance table-to-mobile-card transformation, Operational Reports mobile cards, and Member PWA UI refinement.
 
-## Production Release-Proof Status — OPEN
+## Production Release-Proof Status — RECHECK REQUIRED
 
 `main` currently contains the release-proof change and points to SHA `7269b9ab1bc3c60f015850e784f96923464bd2f5`.
 
@@ -53,18 +53,18 @@ Expected exact production identity:
 - release: `2026-09-04-r4`
 - deployment generation: `2026-09-04-professional-ui-v1`
 
-Latest exact-generation Production Smoke:
+Last recorded exact-generation Production Smoke:
 
 - run: `33837001102`
 - result: **FAILED — deployment generation not observed**
 - health endpoint: HTTP 200 on every polling attempt
-- last observed production identity: `2026-09-04-r3 / 2026-09-04-member-mobile-v1`
+- last observed production identity in that run: `2026-09-04-r3 / 2026-09-04-member-mobile-v1`
 
 Required closure:
 
-1. Hostinger must serve the current `main` release/generation markers.
-2. Production Smoke must then pass release identity, readiness, public-route, security-header, canonical-origin, and member-mobile verification-route checks on that exact generation.
-3. Record the successful run and observed generation here and in `AGENTS.md`.
+1. Re-check the live health/readiness endpoints and latest Production Smoke evidence.
+2. Require the exact expected release/generation before closing the professional-UI deployment proof.
+3. After the active admin/media branch is merged, require a new release/deployment generation for exact proof of that release as well.
 
 ## Current Development Task — Admin Lifecycle + Content Media
 
@@ -72,7 +72,7 @@ Detailed tracker: `docs/ADMIN_LIFECYCLE_CONTENT_MEDIA_2026-09-04.md`
 
 Branch: `fix/admin-lifecycle-content-media-2026-09-04`
 
-### Code completed on branch
+### Code complete on branch
 
 - Fixed Chapter Administrator assignment browser error `Cannot read properties of null (reading 'reset')` by capturing the form element before the asynchronous request and resetting the stable reference afterward.
 - Applied the same safe async form-reset pattern to Chapter creation.
@@ -80,39 +80,36 @@ Branch: `fix/admin-lifecycle-content-media-2026-09-04`
 - Added a National Admin User Management page and audited user status endpoint for `ACTIVE`, `INVITED`, `SUSPENDED`, and `DISABLED`.
 - Added self-protection so the active National Admin cannot suspend/disable their own current account through the new control.
 - Preserved non-destructive history: chapter/user lifecycle changes do not delete membership, finance, chapter, or audit records.
-- Confirmed Chapter Admin already has server-enforced `content.manage` and `events.manage` in its assigned chapter; National publishing remains restricted to national permission.
+- Confirmed Chapter Admin already has server-enforced `content.manage` and `events.manage` in its assigned chapter; national publishing remains restricted to national permission.
 - Added secure announcement image upload using PSP private-media validation/storage.
-- Added authenticated/scoped content-media delivery for announcement media.
+- Added authenticated/scoped private content-media delivery for announcements and events.
 - Added announcement image preview for Admin and responsive image rendering on the Member Announcements page.
+- Added secure Event Manager image upload using multipart submission while preserving JSON API compatibility.
+- Event media accepts only validated JPG/PNG/WEBP through PSP private storage and records only a private media reference in `Event.imageUrl`.
+- Added orphaned-file cleanup when event persistence fails.
+- Added Admin event image preview and responsive Member Event image rendering.
+- Added scoped event-media access so only authorized admin scope or an active same-chapter/national member can retrieve a published event image.
 - Blocked new Chapter Administrator assignment to non-active chapters.
 
-### Pending development
-
-**P0 — Event image support**
-
-- add image upload to Event Manager;
-- convert event creation to secure multipart handling;
-- validate/store JPG/PNG/WEBP using private media;
-- persist private event media reference;
-- serve event media through scoped content-media route;
-- render event image in Admin event management;
-- render responsive event image on Member Events.
+### Pending — validation and delivery
 
 **P0 — Regression / security validation**
 
+- run the full required PSP CI gate set;
 - validate Chapter Admin assignment behavior;
 - validate chapter lifecycle authorization and audit trail;
 - validate National Admin user suspend/disable/reactivate and self-protection;
 - validate announcement upload type/size/scope/member retrieval;
-- validate event upload type/size/scope/member retrieval after implementation;
-- validate cross-chapter media isolation.
+- validate event upload type/size/scope/member retrieval;
+- validate cross-chapter content-media isolation.
 
 **P0 — PR / CI / merge**
 
-- no PR exists yet for the active branch;
-- exact-head PSP CI has not yet run for this branch;
-- do not merge until the final implementation head passes all required gates;
-- on any CI failure: inspect the exact failed job, fix the cause, push a new head, rerun, and merge only the exact passing head.
+- open PR from the completed branch head;
+- exact-head PSP CI must pass before merge;
+- on any CI failure: inspect the exact failed job, fix the exact cause, push a new head, rerun, and continue;
+- merge only the exact passing head using `expected_head_sha` protection;
+- a green run from an older head does not authorize a newer head.
 
 **P0 — Production validation after merge**
 
@@ -154,7 +151,7 @@ Credential-dependent, payment, email, backup, device and production-runtime chec
 
 After every material state change:
 
-1. update `AGENTS.md` when architecture/security/hosting/payment/isolation/delivery rules or the accepted production baseline change;
+1. update `AGENTS.md` when architecture/security/hosting/payment/isolation/delivery rules or accepted baseline state change;
 2. update this status ledger with exact PR/head/merge/run evidence;
 3. update the detailed work tracker for the active task;
 4. never leave phase/deployment checklists stale;
