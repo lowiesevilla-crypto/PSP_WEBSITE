@@ -11,6 +11,10 @@ function parseSignatureHeader(header: string) {
   return values;
 }
 
+function livePaymentsEnabled() {
+  return process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true";
+}
+
 export function verifyPayMongoSignature(input: {
   rawBody: string;
   signatureHeader: string | null;
@@ -30,6 +34,8 @@ export function verifyPayMongoSignature(input: {
   if (Math.abs(nowSeconds - timestamp) > DEFAULT_TOLERANCE_SECONDS) return false;
 
   const live = process.env.PAYMONGO_SECRET_KEY?.trim().startsWith("sk_live_") ?? false;
+  if (live && !livePaymentsEnabled()) return false;
+
   const received = parts.get(live ? "li" : "te");
   if (!received) return false;
 
