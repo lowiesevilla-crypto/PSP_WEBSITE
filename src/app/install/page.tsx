@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { PwaInstallCard } from "@/components/pwa-install-card";
+import { PSP_DEPLOYMENT_GENERATION } from "@/lib/release";
 
 // `/install` is an operational entry point linked from activation emails and
 // shared directly with members. Host/CDN caches must not keep an older install
-// experience after an exact PSP release has become live.
+// experience after an exact PSP release has become live. The exact deployment
+// generation is rendered into the page so release-keyed URLs can prove that
+// the installer HTML belongs to the expected release even when a hosting CDN
+// ignores origin cache-control headers on a previously cached public path.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -14,7 +18,11 @@ export const metadata = {
 
 export default function InstallPage() {
   return (
-    <main className="app-shell" data-pwa-install-version="simple-cross-platform-pwa-v1">
+    <main
+      className="app-shell"
+      data-pwa-install-version="simple-cross-platform-pwa-v1"
+      data-pwa-install-release={PSP_DEPLOYMENT_GENERATION}
+    >
       <div className="container app-main" style={{ maxWidth: 680 }}>
         <section style={{ textAlign: "center", padding: "24px 0 14px" }}>
           <img
