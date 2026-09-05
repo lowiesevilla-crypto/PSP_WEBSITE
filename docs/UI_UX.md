@@ -181,6 +181,7 @@ The member should not be able to mistake platform fee for dues/contribution paid
 - iOS/iPadOS: explain Safari Share → Add to Home Screen.
 - In standalone mode, avoid repeatedly showing install banners.
 - Update-ready state should provide a clear refresh action.
+- The public installer must expose one stable PSP app identity and current installer content; stale installer HTML after a new exact release is a failed production gate.
 
 ## Forms
 
@@ -191,6 +192,18 @@ The member should not be able to mistake platform fee for dues/contribution paid
 - Disable duplicate submissions while requests are in flight.
 - Minimum comfortable mobile controls around 44–48px height.
 - Never make protected fields editable merely because they are displayed in a form.
+
+### Registration acknowledgements
+
+The final Membership Application and Data Privacy acknowledgements are mandatory actions and must be easy to complete on a phone, including in narrow/in-app browser layouts.
+
+- Checkbox visuals must remain approximately 30×30 CSS px.
+- Checkbox flex items must not shrink below their intended size when the acknowledgement text wraps.
+- The complete acknowledgement card/label is the touch target, not only the checkbox square.
+- Text and checkbox remain top-aligned so long legal copy stays readable.
+- Keyboard/native checkbox semantics must be preserved.
+- The Submit Application button stays disabled until both acknowledgements are checked.
+- Production verification uses `data-registration-acknowledgement-version="mobile-checkbox-v1"` so the deployed registration experience can be distinguished from the former tiny/shrinking control.
 
 ## Tables / Admin
 
