@@ -132,8 +132,8 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-05-r11"'
-          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-05-pwa-install-cache-fix-v1"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-05-r12"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-05-registration-checkbox-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
@@ -147,7 +147,8 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /tmp/psp-manifest.json
           grep -q '"id":"/"' /tmp/psp-manifest.json
           curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
-          curl --fail --silent http://127.0.0.1:3000/register > /dev/null
+          curl --fail --silent http://127.0.0.1:3000/register > /tmp/psp-register.html
+          grep -q 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html
           curl --fail --silent http://127.0.0.1:3000/install > /tmp/psp-install.html
           grep -q 'Install PSP App' /tmp/psp-install.html
           grep -q 'One PSP app' /tmp/psp-install.html

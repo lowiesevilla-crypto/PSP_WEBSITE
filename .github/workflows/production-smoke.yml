@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-05-r11
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-05-pwa-install-cache-fix-v1
+      EXPECTED_RELEASE: 2026-09-05-r12
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-05-registration-checkbox-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -136,6 +136,7 @@ jobs:
           assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
           assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
           assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
+          assert_contains registration-mobile-checkbox 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html
           assert_contains install-primary-action 'Install PSP App' /tmp/psp-install.html
           assert_contains install-one-app 'One PSP app' /tmp/psp-install.html
           assert_contains install-design-marker 'data-pwa-install-version="simple-cross-platform-pwa-v1"' /tmp/psp-install.html

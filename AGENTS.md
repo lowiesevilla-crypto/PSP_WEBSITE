@@ -70,6 +70,8 @@ Approved registration fields, in order:
 
 Final registration requires separate server-validated Membership Application and Data Privacy acknowledgements. Current privacy notice version remains `2026-08-20-v1` unless explicitly superseded.
 
+Registration acknowledgement UX is a mobile-critical control. Each required checkbox must remain clearly visible at phone width, must not shrink inside a flex row, should render at approximately 30×30 CSS px, and the complete acknowledgement card/label must remain tappable so users do not need to target a tiny browser-default checkbox.
+
 After `APPROVED`:
 
 - create/activate User/Member as applicable;
@@ -412,30 +414,31 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 
 ## 18. Current Delivery Baseline — 2026-09-05
 
-Accepted implementation history includes PR #13, #14, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28 and PR #30.
+Accepted implementation history includes PR #13, #14, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #30 and #31.
 
 PR #29 native Android installer experiment was closed without merge and is not part of the product baseline.
 
-PR #30 simplified the canonical mobile installation to PWA-only:
+PR #30 simplified the canonical mobile installation to PWA-only. PR #31 closed the stale-installer production issue:
 
-- exact passing head `da6902fd51161473a250a984ec1a2fa69ec19951`;
-- PSP CI #497 / run `33929737781`: PASSED;
-- merge SHA `642f430194537e8be144f097f226e20565c2f251`;
-- post-merge PSP CI #498 / run `33929909162`: PASSED;
-- exact r10 health/readiness became live with `2026-09-05-r10 / 2026-09-05-simple-pwa-install-v1`;
-- Production Smoke run `33929909263` failed twice at the installer-content assertion because `/install` continued returning the older r9 HTML while `/api/health` and `/api/health/ready` were already r10.
+- PR #31 exact passing head `995385a57101e5598f28b5f76f020e44035a2bcf`;
+- PSP CI #507 / run `33930404982`: PASSED;
+- merge SHA `588e528962c2e21c3238cbcac76a0aa20107b7a9`;
+- post-merge PSP CI #508 / run `33930559567`: PASSED;
+- exact r11 identity `2026-09-05-r11 / 2026-09-05-pwa-install-cache-fix-v1` is live;
+- Production Smoke run `33930559380` first attempt found stale installer HTML, exact failed-job retry then PASSED every public/runtime/security gate;
+- successful production evidence specifically passed `Install PSP App`, `One PSP app`, `data-pwa-install-version="simple-cross-platform-pwa-v1"`, manifest stable `id: "/"`, and non-stale `/install` cache-control assertions.
 
-This r10 evidence proves a deterministic stale-public-page/cache condition, not an application/database/auth regression. Release closure is therefore still open.
+Therefore the automated/public **installable PWA delivery gate is CLOSED / PASSED for r11**. Physical Android installation and physical iPhone/iPad Add-to-Home-Screen acceptance remain separate real-device gates.
 
-Active corrective release:
+Active r12 registration accessibility release:
 
-- branch `fix/pwa-install-cache-refresh-2026-09-05`;
-- target release `2026-09-05-r11`;
-- target generation `2026-09-05-pwa-install-cache-fix-v1`;
-- `/install` is forced dynamic with revalidation disabled;
-- CI and Production Smoke require the simplified PWA marker and cache-control that prevents stale installer HTML.
+- branch `fix/mobile-registration-checkbox-2026-09-05`;
+- target release `2026-09-05-r12`;
+- target generation `2026-09-05-registration-checkbox-v1`;
+- the two final registration acknowledgement checkboxes are increased to 30×30 CSS px, explicitly non-shrinking in the flex row, and the full acknowledgement card remains a tappable label;
+- CI and Production Smoke require `data-registration-acknowledgement-version="mobile-checkbox-v1"` on `/register` while retaining the already-proven PWA installer checks.
 
-r11 must not be called production-proven until its final exact PR head passes the complete PSP CI gate, is merged with exact-head protection, and exact r11 Production Smoke passes every required gate.
+r12 must not merge until its final exact PR head passes the complete PSP CI gate and has no unresolved review threads. After merge, exact r12 Production Smoke must pass before the checkbox change is called production-proven.
 
 Approval-email behavior remains as previously proven at code/CI-contract level: Admin sees sent/failed delivery state, approval is not rolled back on SMTP failure, failure is audit logged, and production SMTP readiness is configured. Actual recipient inbox receipt remains external acceptance.
 

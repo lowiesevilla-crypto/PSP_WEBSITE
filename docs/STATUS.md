@@ -1,26 +1,26 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-05 07:38 PHT  
+**Status timestamp:** 2026-09-05 08:16 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current main SHA:** `642f430194537e8be144f097f226e20565c2f251`
+**Current proven main SHA:** `588e528962c2e21c3238cbcac76a0aa20107b7a9`
 
 > This is the authoritative operational status ledger. Read it with `../AGENTS.md` before changing code, schema, UI, security, payments, deployment, or documentation. Never claim credential-dependent, device-dependent, payment, email-inbox, backup or production state-changing behavior without direct evidence.
 
 ## Executive Status
 
-PR #30 is merged and the exact **r10** application runtime is live, but r10 is **NOT accepted as complete production proof** because production served stale `/install` HTML after the new health/readiness generation became visible.
+The exact **r11 PWA installer correction is live and publicly proven**.
 
-Current observed production runtime identity:
+Current proven production identity:
 
-- release: `2026-09-05-r10`
-- deployment generation: `2026-09-05-simple-pwa-install-v1`
-- PR #30 exact passing head: `da6902fd51161473a250a984ec1a2fa69ec19951`
-- PSP CI #497 / run `33929737781`: **PASSED**
-- PR #30 merge SHA: `642f430194537e8be144f097f226e20565c2f251`
-- post-merge PSP CI #498 / run `33929909162`: **PASSED**
-- Production Smoke run `33929909263`, attempts 1 and 2: **FAILED** only at the new `/install` content assertion
+- release: `2026-09-05-r11`
+- deployment generation: `2026-09-05-pwa-install-cache-fix-v1`
+- PR #31 exact passing head: `995385a57101e5598f28b5f76f020e44035a2bcf`
+- PSP CI #507 / run `33930404982`: **PASSED**
+- PR #31 merge SHA: `588e528962c2e21c3238cbcac76a0aa20107b7a9`
+- post-merge PSP CI #508 / run `33930559567`: **PASSED**
+- Production Smoke run `33930559380`: first attempt failed at stale `/install` content; exact failed-job retry **PASSED every gate**
 - database: **ok**
 - auth schema: **ok**
 - baseline: **ok**
@@ -30,18 +30,25 @@ Current observed production runtime identity:
 - PayMongo Platforms configuration: **not configured**
 - PayMongo live gate: **disabled**
 
-Both failed Production Smoke attempts reached exact r10 health/readiness successfully, then received HTTP 200 from `/install` with the previous r9 installer HTML (`PSP Mobile App`, `Android / Chrome / Edge`, `No app-store download required`) instead of the r10 marker/action. Exact retry reproduced the same result. This is deterministic stale public-page/cache behavior, not evidence of a database, authentication or application-startup regression.
+Successful r11 production smoke explicitly verified:
 
-The active corrective release is **r11**:
+- `/api/health` exact r11 identity;
+- `/api/health/ready` ready;
+- stable manifest `id: "/"`;
+- `/install` contains **Install PSP App**;
+- `/install` contains **One PSP app**;
+- `/install` contains `data-pwa-install-version="simple-cross-platform-pwa-v1"`;
+- `/install` cache-control is non-stale (`no-store` or `no-cache`);
+- login UX marker and recovery/registration links;
+- public Chapter-logo fallback;
+- production security headers;
+- canonical invalid login 401;
+- cross-site login rejection 403;
+- public Digital Member ID / Certificate verification routes without application 500.
 
-- branch: `fix/pwa-install-cache-refresh-2026-09-05`
-- target release: `2026-09-05-r11`
-- target generation: `2026-09-05-pwa-install-cache-fix-v1`
-- `/install` is forced dynamic with revalidation disabled;
-- CI and Production Smoke require the simplified installer marker and a cache-control response containing `no-store` or `no-cache`;
-- all existing readiness, security, origin-control, isolation and runtime dependency-audit gates remain unchanged.
+Therefore the automated/public **installable PWA delivery gate is CLOSED / PASSED**. Physical Android installation and physical iPhone/iPad Add-to-Home-Screen validation remain separate device acceptance gates and are not fabricated from HTTP smoke.
 
-r11 is **NOT MERGE-ELIGIBLE / NOT PRODUCTION-PROVEN** until the final exact corrective PR head passes all required CI, is merged with exact-head protection, and exact r11 Production Smoke passes every gate.
+A new **r12 mobile registration accessibility correction is ACTIVE / NOT YET MERGED**.
 
 ## Completed Delivery History
 
@@ -127,48 +134,47 @@ The Chapter-logo fallback uses the configured canonical PSP origin. Admin approv
 
 Product direction is PWA-only. PR #29's native Android/APK experiment was closed without merge.
 
-PR #30 delivered:
+PR #30 delivered the simple PWA-only flow and passed exact-head/post-merge CI, but its first production release exposed stale `/install` HTML through hosting/cache behavior. That release therefore remained open until PR #31 corrected and proved the effective public page.
 
-- simplified `/install` experience;
-- Android `beforeinstallprompt` support and browser-menu fallback;
-- iPhone/iPad Safari Add-to-Home-Screen flow;
-- in-app browser detection and guidance;
-- standalone installed-state handling;
-- stable manifest `id: "/"` retained;
-- no APK/IPA/App Store distribution language;
-- exact r10 release marker and installer content assertions.
+### PR #31 — PWA Installer Cache/Freshness Correction
 
-Evidence:
-
-- exact passing head `da6902fd51161473a250a984ec1a2fa69ec19951`
-- PSP CI #497 / run `33929737781`: **PASSED**
+- exact passing head `995385a57101e5598f28b5f76f020e44035a2bcf`
+- PSP CI #507 / run `33930404982`: **PASSED**
 - no unresolved review threads
-- merge `642f430194537e8be144f097f226e20565c2f251`
-- post-merge PSP CI #498 / run `33929909162`: **PASSED**
-- exact r10 health/readiness observed live
-- Production Smoke `33929909263`: attempts 1 and 2 **FAILED** at `/install` because stale r9 HTML remained publicly served
+- merge `588e528962c2e21c3238cbcac76a0aa20107b7a9`
+- post-merge PSP CI #508 / run `33930559567`: **PASSED**
+- exact r11 identity became live
+- Production Smoke run `33930559380`: exact failed-job retry **PASSED every gate**
 
-PR #30 is merged, but r10 production closure is intentionally **OPEN** because exact runtime identity alone did not prove release-consistent installer HTML.
+PR #31 closes the public installer freshness defect. The production installer now returns the new simplified PWA content and non-stale cache policy in automated smoke.
 
-## Active — r11 PWA Installer Cache/Freshness Correction
+## Active — r12 Mobile Registration Checkbox Accessibility
 
-Branch: `fix/pwa-install-cache-refresh-2026-09-05`
+Branch: `fix/mobile-registration-checkbox-2026-09-05`
 
 Target identity:
 
-- `2026-09-05-r11`
-- `2026-09-05-pwa-install-cache-fix-v1`
+- release `2026-09-05-r12`
+- generation `2026-09-05-registration-checkbox-v1`
 
-Changes:
+Problem confirmed from mobile screenshot and source inspection:
 
-- `/install` uses `dynamic = "force-dynamic"`;
-- `/install` uses `revalidate = 0`;
-- simplified PWA marker remains `simple-cross-platform-pwa-v1`;
-- CI requires `/install` to contain the new installer actions/marker and return non-stale cache-control;
-- Production Smoke verifies the same behavior after exact r11 deployment;
-- no security, RBAC, finance, membership, email or PayMongo behavior is weakened or altered.
+- the final Registration Review & Acknowledgement step used 20×20 checkbox styles;
+- the acknowledgement row is a flex container;
+- because application layout applies `min-width: 0` and the checkbox had no non-shrinking flex basis, a narrow mobile/in-app-browser layout could visually compress the checkbox to an almost invisible mark while the legal text wrapped.
 
-If CI shows that framework-level dynamic/no-revalidate output does not produce adequate cache-control, fix the exact response behavior (for example with an explicit route/header policy) rather than weakening the production freshness assertion.
+Implemented correction:
+
+- both required acknowledgement checkboxes are now 30×30 CSS px;
+- explicit `minWidth`, `minHeight` and `flex: 0 0 30px` prevent flex shrink;
+- acknowledgement spacing/padding is increased for mobile readability;
+- the entire acknowledgement card remains the native nested `<label>` touch target;
+- native checkbox semantics and keyboard operation remain intact;
+- Submit Application still requires both acknowledgements;
+- `/register` exposes `data-registration-acknowledgement-version="mobile-checkbox-v1"`;
+- PSP CI and Production Smoke assert that marker while retaining all r11 installer/readiness/security/isolation/dependency-audit checks.
+
+**Current gate:** NOT MERGE-ELIGIBLE until the newest exact branch head passes complete PSP CI and has no unresolved review threads. After exact-head merge, r12 Production Smoke must prove the registration marker in production before closure.
 
 ## Admin Approval Email — Current Verified Behavior
 
