@@ -63,12 +63,25 @@ const labelTextStyle: CSSProperties = {
 const acknowledgementStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
-  gap: 11,
-  padding: 16,
+  gap: 14,
+  minHeight: 72,
+  padding: 18,
   border: "1px solid #e1dac8",
   borderRadius: 15,
   background: "#fffcf4",
   lineHeight: 1.55,
+  cursor: "pointer",
+};
+
+const acknowledgementCheckboxStyle: CSSProperties = {
+  width: 30,
+  height: 30,
+  minWidth: 30,
+  minHeight: 30,
+  flex: "0 0 30px",
+  marginTop: 1,
+  accentColor: "#fec009",
+  cursor: "pointer",
 };
 
 export function RegistrationWizard() {
@@ -283,7 +296,12 @@ export function RegistrationWizard() {
   const progress = `${step * 25}%`;
 
   return (
-    <form className="app-panel" onSubmit={submitApplication} noValidate>
+    <form
+      className="app-panel"
+      data-registration-acknowledgement-version="mobile-checkbox-v1"
+      onSubmit={submitApplication}
+      noValidate
+    >
       <div style={{ display: "grid", gap: 22 }}>
         <div>
           <div
@@ -553,7 +571,7 @@ export function RegistrationWizard() {
                 type="checkbox"
                 checked={applicationAcknowledged}
                 onChange={(event) => setApplicationAcknowledged(event.target.checked)}
-                style={{ width: 20, height: 20, marginTop: 2, accentColor: "#fec009" }}
+                style={acknowledgementCheckboxStyle}
               />
               <span>
                 I confirm that the information I provided is accurate. I understand that this
@@ -567,7 +585,7 @@ export function RegistrationWizard() {
                 type="checkbox"
                 checked={privacyAcknowledged}
                 onChange={(event) => setPrivacyAcknowledged(event.target.checked)}
-                style={{ width: 20, height: 20, marginTop: 2, accentColor: "#fec009" }}
+                style={acknowledgementCheckboxStyle}
               />
               <span>
                 I acknowledge that I have read and understood the{" "}
