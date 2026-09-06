@@ -12,6 +12,7 @@ const [
   schema,
   paymentRoute,
   paymentRuntime,
+  paymentAdminUi,
   publicPage,
   announcementRoute,
   announcementManager,
@@ -26,6 +27,7 @@ const [
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
   source("src/lib/paymongo/chapter-config.ts"),
+  source("src/components/admin/chapter-payment-config.tsx"),
   source("src/app/page.tsx"),
   source("src/app/api/announcements/route.ts"),
   source("src/components/admin/announcement-manager.tsx"),
@@ -46,7 +48,18 @@ assert(schema.includes("isPublic  Boolean       @default(false)"), "Public annou
 assert(paymentRoute.includes("PENDING_LINKED_WEBHOOK_SECRET"), "Payment draft marker contract is missing.");
 assert(paymentRoute.includes("if (input.isEnabled)"), "Payment activation is not separated from draft save.");
 assert(paymentRoute.includes("createLinkedWebhook"), "Payment activation no longer provisions the linked child webhook.");
+assert(paymentRoute.includes("secretKeyCiphertext: input.linkedAccountId"), "Disabled Chapter drafts must store the non-secret linked org_* identifier without requiring credential encryption.");
+assert(paymentRoute.includes("webhookSecretCiphertext = PENDING_LINKED_WEBHOOK_SECRET"), "Disabled Chapter drafts must use the non-secret pending webhook marker without requiring credential encryption.");
+assert(!paymentRoute.includes("encryptSecret(input.linkedAccountId)"), "PayMongo linked Account IDs are identifiers and must not make draft saving depend on PAYMENT_CONFIG_ENCRYPTION_KEY.");
+const encryptionGuardIndex = paymentRoute.indexOf("if (!paymentEncryptionReady())");
+const webhookCreationIndex = paymentRoute.indexOf("const createdWebhook = await createLinkedWebhook");
+assert(encryptionGuardIndex >= 0 && webhookCreationIndex > encryptionGuardIndex, "Credential-encryption readiness must be checked before creating a PayMongo child webhook.");
+assert(paymentRuntime.includes('direct.startsWith("org_")'), "Runtime payment configuration must support direct non-secret linked org_* identifiers.");
 assert(paymentRuntime.includes("isPendingLinkedWebhookSecret"), "Runtime payment configuration does not reject staged webhook state.");
+assert(paymentAdminUi.includes("PSP PARENT SPLIT-PAYMENT PLATFORM"), "Finance Admin UI must visibly separate PSP parent split-payment setup from Chapter setup.");
+assert(paymentAdminUi.includes('<option value="TEST">TEST</option>') && paymentAdminUi.includes('<option value="LIVE">LIVE</option>'), "Disabled Chapter PayMongo mode must be editable as TEST/LIVE in the Admin UI.");
+assert(paymentAdminUi.includes("paymentEncryptionReady"), "Finance Admin UI must surface credential-encryption readiness before activation.");
+assert(paymentAdminUi.includes("Save Disabled Chapter Draft"), "Finance Admin UI must make the safe draft-save action explicit.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
