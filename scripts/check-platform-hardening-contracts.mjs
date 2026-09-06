@@ -23,6 +23,10 @@ const [
   certificatePage,
   verificationPage,
   adminCss,
+  certificateGenerator,
+  certificateDelivery,
+  certificatePdfRoute,
+  certificateManager,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -38,6 +42,10 @@ const [
   source("src/app/certificate/page.tsx"),
   source("src/app/verify/[token]/page.tsx"),
   source("src/app/admin/admin-responsive.css"),
+  source("src/lib/certificates/generator.ts"),
+  source("src/lib/certificates/delivery.ts"),
+  source("src/app/api/member/certificates/[id]/pdf/route.ts"),
+  source("src/components/admin/certificate-manager.tsx"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -82,8 +90,25 @@ assert(certificateRoute.includes('certificateType: z.enum(certificateTypes)'), "
 assert(certificateRoute.includes("memberIds"), "Bulk certificate recipient contract is missing.");
 assert(certificateRoute.includes("selectAll"), "All-active-Chapter certificate issuance contract is missing.");
 assert(certificateRoute.includes('hasPermission(context, "certificates.manage", member.chapterId)'), "Certificate issuance does not reapply recipient Chapter authorization.");
+assert(certificateRoute.includes("sendCertificateIssuedEmail"), "Admin certificate issuance must attempt member email delivery.");
+assert(certificateRoute.includes("CERTIFICATE_EMAIL_SENT") && certificateRoute.includes("CERTIFICATE_EMAIL_FAILED"), "Certificate email delivery must create success/failure audit evidence.");
+assert(certificateRoute.includes("export async function DELETE"), "Certificate Admin API must expose Delete/Invalidate.");
+assert(certificateRoute.includes("CERTIFICATE_DELETED_INVALIDATED"), "Delete/Invalidate must preserve explicit audit evidence.");
+assert(certificateRoute.includes('data: { status: "REVOKED", revokedAt, revocationReason: reason }'), "Delete/Invalidate must soft-revoke instead of physically deleting the certificate record.");
 assert(certificatePage.includes("validCertificates.map"), "Member certificate page does not render all valid assigned certificates.");
-assert(verificationPage.includes('data-certificate-verification-version="custom-metadata-v1"'), "Custom certificate verification marker is missing.");
+assert(verificationPage.includes('data-certificate-verification-version="custom-metadata-v2"'), "Certificate verification invalidation marker is missing.");
+assert(verificationPage.includes("INVALID ·"), "Revoked certificate verification must display INVALID status.");
+assert(verificationPage.includes("/api/public/chapters/"), "Certificate verification must show the issuing Chapter logo.");
+assert(certificateGenerator.includes("chapterLogoUrl: string | null"), "Certificate PDF generator must receive the issuing Chapter logo.");
+assert(certificateGenerator.includes("privateMediaStorageKey(chapterLogoUrl)"), "Certificate PDF generator must resolve PSP-managed Chapter logo storage.");
+assert(certificateGenerator.includes("readPrivateFile(storageKey)"), "Certificate PDF generator must read the stored Chapter logo bytes.");
+assert(certificateGenerator.includes("sharp(source)"), "Certificate PDF generator must normalize Chapter JPG/PNG/WEBP logos before embedding.");
+assert(certificateDelivery.includes("attachments") && certificateDelivery.includes("application/pdf"), "Certificate email must attach the generated PDF.");
+assert(certificateDelivery.includes("signatoryName") && certificateDelivery.includes("Fraternally"), "Certificate email must include the issuing Chairman signature context.");
+assert(certificatePdfRoute.includes('certificate.status !== "VALID"') && certificatePdfRoute.includes("status: 410"), "Revoked certificates must fail closed at the PDF endpoint.");
+assert(certificatePdfRoute.includes("chapterLogoUrl: certificate.chapter.logoUrl"), "Certificate PDF route must pass the issuing Chapter logo into the generator.");
+assert(certificateManager.includes("Delete / Invalidate"), "Certificate Admin UI must expose Delete / Invalidate.");
+assert(certificateManager.includes('method: "DELETE"'), "Certificate Delete / Invalidate UI must call the audited DELETE API.");
 
 assert(adminCss.includes(".admin-responsive-table"), "Administration table standard CSS is missing.");
 assert(adminCss.includes('content: attr(data-label)'), "Administration mobile record-card transformation is missing.");
