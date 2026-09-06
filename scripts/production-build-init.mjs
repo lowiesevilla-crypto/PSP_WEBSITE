@@ -21,6 +21,14 @@ const MEMBER_MOBILE_COLUMNS = [
   ["Certificate", "signatoryName"],
   ["Certificate", "signatoryTitle"],
 ];
+const CUSTOM_CERTIFICATE_COLUMNS = [
+  ["Certificate", "certificateType"],
+  ["Certificate", "title"],
+  ["Certificate", "citationText"],
+  ["Certificate", "certificateDate"],
+  ["Certificate", "referenceLabel"],
+  ["Certificate", "batchId"],
+];
 
 function runNode(scriptPath, args = []) {
   const result = spawnSync(process.execPath, [scriptPath, ...args], {
@@ -91,10 +99,16 @@ const presentFeatureColumns = MEMBER_MOBILE_COLUMNS.filter(([table, column]) =>
 );
 const featureItemCount = MEMBER_MOBILE_TABLES.length + MEMBER_MOBILE_COLUMNS.length;
 const presentFeatureItemCount = presentFeatureTables.length + presentFeatureColumns.length;
+const presentCustomCertificateColumns = CUSTOM_CERTIFICATE_COLUMNS.filter(([table, column]) =>
+  columnKeys.has(`${table}.${column}`),
+);
+
+let schemaPushPerformed = false;
 
 if (tableNames.size === 0) {
   console.log("Empty dedicated PSP database detected; applying the initial greenfield Prisma schema.");
   runPrismaPush();
+  schemaPushPerformed = true;
 } else if (presentRequired.length !== REQUIRED_PSP_TABLES.length) {
   console.error(
     `Production database is not empty but does not contain the complete PSP baseline tables (${presentRequired.length}/${REQUIRED_PSP_TABLES.length}). Refusing automatic schema push.`,
@@ -108,6 +122,7 @@ if (tableNames.size === 0) {
     "Recognized pre-member-mobile PSP schema detected; applying the reviewed additive member-mobile schema sync.",
   );
   runPrismaPush();
+  schemaPushPerformed = true;
 } else if (presentFeatureItemCount !== featureItemCount) {
   console.error(
     `Partial member-mobile schema detected (${presentFeatureItemCount}/${featureItemCount}). Refusing automatic schema sync.`,
@@ -117,7 +132,25 @@ if (tableNames.size === 0) {
   );
   process.exit(1);
 } else {
-  console.log("Existing current PSP schema detected; automatic schema push skipped.");
+  console.log("Existing member-mobile PSP schema detected.");
+}
+
+if (!schemaPushPerformed) {
+  if (presentCustomCertificateColumns.length === 0) {
+    console.log("Applying reviewed additive custom-certificate metadata columns.");
+    runPrismaPush();
+    schemaPushPerformed = true;
+  } else if (presentCustomCertificateColumns.length !== CUSTOM_CERTIFICATE_COLUMNS.length) {
+    console.error(
+      `Partial custom-certificate schema detected (${presentCustomCertificateColumns.length}/${CUSTOM_CERTIFICATE_COLUMNS.length}). Refusing automatic schema sync.`,
+    );
+    console.error(
+      "Use the reviewed recovery procedure before continuing so certificate issuance cannot run against a partially upgraded schema.",
+    );
+    process.exit(1);
+  } else {
+    console.log("Existing current PSP custom-certificate schema detected; automatic schema push skipped.");
+  }
 }
 
 console.log("Running idempotent PSP production baseline and member-mobile synchronization...");
