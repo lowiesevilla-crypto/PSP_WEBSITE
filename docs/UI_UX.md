@@ -1,250 +1,274 @@
 # PSP UI / UX Standards
 
-## Brand
+## Brand & Experience
+
+Primary PSP palette:
 
 - Gold `#FEC009`
 - Black `#000000`
 - Charcoal `#151515`
 - White `#FFFFFF`
-- Official Psi Sigma Phi Philippines Inc. seal is the primary brand mark.
 
-The member experience should feel premium, disciplined and fraternity-specific rather than like a generic admin portal.
+Use the official Psi Sigma Phi Philippines Inc. seal as the primary national brand mark. The experience should feel institutional, premium, disciplined, mobile-first, and fraternity-specific—not like a generic browser-admin form collection.
 
-## Product Experience Principle
+## Responsive Product Principle
 
-The **member product is PWA-first/mobile-first**. A member must be able to complete the normal lifecycle without a desktop computer.
+The Member product is PWA-first/mobile-first. Normal member lifecycle must not require a desktop computer.
 
-Desktop/tablet layouts may expand content, but they must not be prerequisites for member registration, activation, passkey, profile, Digital ID, chapter/officers, payment, receipts or certificate.
-
-## Responsive Reference Ranges
+Reference ranges:
 
 - Mobile: `<768px`
 - Tablet: `768–1023px`
 - Laptop: `1024–1439px`
 - Desktop/Wide: `>=1440px`
 
-Use fluid layouts rather than device-specific assumptions. Support portrait/landscape and CSS safe-area insets.
-
-## Login / Authentication UX
-
-The public PSP sign-in screen must make the available authentication methods obvious without presenting multiple competing primary actions.
-
-- Use the official PSP seal and premium black/charcoal/white/gold visual system.
-- The page hierarchy is `Welcome to PSP` → short helper text → sign-in method → selected method fields/action → recovery/registration/support links.
-- On passkey-capable devices, show `Email & Password` and `Use Passkey` as a clear segmented/tab control rather than stacking two equal primary sign-in buttons.
-- Email/password remains the default for a device that has not previously enabled a PSP passkey.
-- A device that previously enabled a PSP passkey may prioritize the passkey tab, but an explicit `Use email & password instead` fallback must remain available.
-- Password fields use a visibility toggle and preserve password-manager autocomplete semantics.
-- `Forgot password?` must remain visible in the password flow.
-- `Apply online` remains visible for new applicants.
-- Access-help copy should direct members to their Chapter Administrator without implying that support bypasses authentication.
-- Login errors must use an accessible live alert and must not expose sensitive authentication details.
-- Keyboard focus must be highly visible; primary controls remain touch-friendly on mobile.
-- The login card must fit phone widths without horizontal overflow and must respect reduced-motion preferences.
-- Visual redesign must never change server authorization, session, password, passkey, origin/CSRF, or post-login routing authority.
-
-Detailed implementation tracker: `LOGIN_UX_REDESIGN_2026-09-04.md`.
+Use fluid layouts, portrait/landscape support, safe-area insets, visible keyboard focus, touch targets around 44–48px+, and no uncontrolled horizontal overflow.
 
 ## Professional Administration Shell
 
-National and Chapter Administration use one consistent responsive application shell while retaining server-enforced RBAC and chapter scope.
+National and Chapter Administration share one responsive application shell while server RBAC/Chapter scope remains authoritative.
 
-- sticky black/gold PSP administration header with official seal;
-- visible National vs Chapter Administration context;
-- visible current chapter scope when the administrator is chapter-scoped;
-- navigation is permission-filtered for convenience only; server authorization remains authoritative;
-- desktop/laptop uses compact navigation while tablet/mobile uses a touch-friendly menu;
-- controls use a minimum comfortable height around 44–48px;
-- forms use consistent labels, spacing, focus rings, borders and disabled/busy states;
-- cards use a consistent surface, radius, border and restrained elevation hierarchy;
-- Finance and Operational Reports tables transform into labeled stacked record cards below 768px instead of forcing desktop-width data presentation;
-- dense desktop tables remain horizontally navigable when a table genuinely requires all columns.
+- sticky PSP institutional navigation;
+- visible National vs Chapter context;
+- current Chapter scope visible for Chapter-scoped administrators;
+- permission-filtered navigation for convenience only;
+- consistent form spacing, labels, controls, busy/disabled states, validation, panels, borders and elevation;
+- compact desktop navigation and touch-friendly tablet/mobile navigation;
+- destructive or privileged actions explain impact and prevent duplicate submission.
 
-The admin experience should feel like a production-grade institutional operations system, not a collection of browser-default forms.
+## PSP Administration Table Standard
 
-## Member Administration Actions
+High-density registers use this standard unless a detail/card workflow is intentionally more appropriate:
 
-The Member Directory exposes privileged actions only when the authenticated administrator has server-backed `members.manage` authority for the member's exact chapter. National/System Admin may manage across chapters through national scope; Chapter Admin remains chapter-scoped.
+- **server-driven pagination** for unbounded business records; never silently truncate with fixed `take` limits;
+- default page size around 20–25;
+- search by relevant human identifiers such as name, member number, email, Chapter/code, title, certificate number;
+- filters for Chapter/status/category/lifecycle where applicable;
+- URL query parameters preserve search/filter/page state across refresh/back/forward;
+- explicit result count and `Page X of Y`;
+- Previous/Next controls disabled at boundaries;
+- desktop/tablet uses semantic `<table>` headers and rows;
+- below 768px, `.admin-responsive-table` transforms each row into a labeled record card using cell `data-label` values;
+- mobile actions remain usable without horizontal scrolling;
+- empty states reflect active filters/search;
+- every query/write reapplies server permission and Chapter scope.
 
-- **Resend Invitation** appears only while an approved active membership still requires account activation.
-- Resend does not expose the activation token in the UI; it triggers a new secure email invitation and shows delivery success/failure status.
-- **Delete Member** requires an explicit confirmation explaining that PSP uses non-destructive archival rather than erasing historical records.
-- Delete Member removes active chapter access, archives membership, revokes Digital Member ID and valid certificates, and retains finance/audit/history evidence.
-- Administrator self-deletion is visibly disabled to prevent lockout.
-- All privileged buttons must disable while requests are in flight to prevent duplicate execution.
-- Archived members are removed from the normal active directory while remaining available to authorized reporting/audit workflows.
+Current covered registers include:
 
-## Member Home — Required Information Hierarchy
+- Member Directory / Members;
+- Users;
+- Chapter Management;
+- Organization Officer/Committee histories;
+- Finance Payments;
+- Finance Member Balances;
+- Effective-Dated Rates;
+- Assessments;
+- Certificate register.
 
-The mobile member home should expose within the initial journey:
+## Member Administration
 
-1. member identity + membership number;
-2. chapter;
-3. outstanding balance;
-4. total confirmed contributions;
-5. Pay Now;
-6. Digital Member ID;
-7. Certificate;
-8. Receipts;
-9. My Chapter / officers;
-10. Profile / Passkey security;
+Member Directory exposes privileged actions only with exact server-backed `members.manage` authority.
+
+Admin Edit:
+
+- allowed profile/contact/member details are editable within exact scope;
+- membership number is not a generic-edit field;
+- login email/credential identity is not silently changed;
+- Chapter transfer remains the separate audited transfer workflow;
+- archived/deleted records remain history-preserving;
+- changes use clear edit/save/cancel UX and disable duplicate submission.
+
+Resend Invitation:
+
+- appears only while an approved active membership still requires activation;
+- never exposes activation token;
+- reports delivery success/failure.
+
+Delete/Archive:
+
+- requires explicit confirmation;
+- explains non-destructive archival;
+- blocks administrator self-delete;
+- preserves finance/audit/history.
+
+## Chapter Management Workflow
+
+Chapter Management should act as an operational launch point, not a disconnected card list.
+
+Each Chapter row should make status, member/application counts and active administrator context clear and provide direct links to relevant Members and Finance/Payment setup where authority allows.
+
+Chapter setup/payment readiness must expose actionable states instead of a single ambiguous checkbox.
+
+## Member Home — Payment-First Hierarchy
+
+The Member dashboard prioritizes:
+
+1. member identity, membership number, Chapter;
+2. outstanding balance;
+3. primary `Pay Now` / `View Dues` action;
+4. online-payment readiness and supported methods;
+5. receipts;
+6. total confirmed contributions;
+7. Digital Member ID;
+8. Certificates;
+9. Chapter/officers;
+10. Profile/Passkey security;
 11. Install App;
-12. announcements/events/notifications.
+12. announcements/events/notifications/community.
 
-Critical functions must not be buried in a desktop-only side menu.
+If Chapter online payment is unavailable:
 
-## Primary Mobile Navigation
+- show a clear unavailable/readiness state;
+- do not make the member discover the problem only after pressing Pay;
+- do not start fee-preview/checkout calls;
+- direct detailed remediation to authorized Chapter/National Admin Finance configuration.
 
-Current member bottom navigation prioritizes:
+## Member Finance UX
 
-- Home
-- Digital ID
-- Payments
-- Chapter / Receipts depending on current context
-- More/Profile
-
-Secondary actions include community, events, notifications, certificate, receipts, passkey and PWA installation through dashboard quick actions/contextual links.
-
-## Digital Member ID
-
-- Designed as a phone-first membership card.
-- Member name, number, chapter and current validity must be legible at normal phone zoom.
-- QR must be large enough to scan from another device.
-- Verification page must clearly distinguish valid vs invalid/revoked state.
-- Public verification must avoid unnecessary personal contact/private data.
-
-## Certificate
-
-- Member can generate/open/download from phone.
-- Chairman signatory is clearly visible on PDF.
-- QR verification is visually explained.
-- Verification page uses concise valid/status treatment and minimum identity disclosure.
-
-## Member Finance / Split Payment UX
-
-Member must clearly understand three distinct values before final payment confirmation:
+Before final confirmation show three distinct values:
 
 - **Chapter amount**
 - **Platform convenience fee**
 - **Total to pay**
 
-Never hide or blend the convenience fee into the chapter amount.
+Never blend platform fee into Chapter dues/contribution.
 
-Payment method choices are touch-friendly:
+Payment choices remain touch-friendly:
 
 - QR Ph
 - GCash
 - Maya
 
-### QR Ph
+QR Ph displays provider QR, total, current status and receipt link after authoritative confirmation. GCash/Maya use provider authorization/redirect flow. Browser redirect/polling never presents `PAID` as authoritative before PSP receives trusted gateway evidence.
 
-- render PayMongo QR inside the mobile PWA;
-- show total + current status;
-- poll internal PSP payment status while open;
-- when confirmed, show receipt link;
-- do not imply PAID before signed webhook confirmation.
+Payment history on mobile uses stacked records rather than forcing a desktop-width table.
 
-### GCash / Maya
+## Chapter PayMongo Setup UX
 
-- disclose fee/total and obtain member confirmation before creating/attaching payment intent;
-- then redirect to provider authorization as required;
-- return page/status must clearly explain that PSP waits for gateway confirmation.
+Admin payment configuration exposes explicit readiness states:
 
-### Payment history
+- `NOT CONFIGURED`
+- `DRAFT · DISABLED`
+- `READY TO ACTIVATE`
+- `ONLINE PAYMENT ENABLED`
+- `ENABLED · ACTION REQUIRED` / blocked remediation
 
-On mobile, use stacked cards rather than a wide finance table. Each record should expose type/purpose, status, total paid, chapter amount, platform fee and receipt where available.
+UX rules:
+
+- Chapter can save linked `org_*` account + methods as a disabled Draft even while PSP parent platform is unavailable;
+- Draft save messaging explicitly says Online Payment remains disabled;
+- child webhook is described as created/validated on activation when needed;
+- platform/account/webhook/payment readiness are shown separately;
+- activation blockers are human-readable but never expose secrets;
+- Enable Online Payment is disabled when prerequisites are unavailable;
+- failed activation leaves the saved Draft intact and disabled.
+
+## Certificates
+
+Member Certificate area shows all valid assigned certificates, not only one current Membership Certificate.
+
+Admin custom certificate UX supports:
+
+- type: Membership, Attendance, Appreciation, Recognition, Outstanding Member, Custom;
+- title;
+- certificate date;
+- citation/text;
+- event/reference;
+- one, multiple, or all eligible members in exact authorized scope.
+
+Member-facing certificate cards expose actual title/type/date with Download PDF and Verify actions. Public verification displays actual certificate metadata with minimum necessary identity disclosure.
+
+Standard self-service Membership Certificate remains independently available and is not blocked merely because another custom certificate exists.
+
+## Public Website — Updates & Events
+
+The anonymous homepage provides a global organization view without exposing member/private content.
+
+Events:
+
+- only published event records appear;
+- show National/Chapter attribution, title, readable description excerpt, date and venue.
+
+Announcements:
+
+- only records explicitly marked `isPublic=true` appear;
+- Admin publication includes a dedicated `Show on the public PSP website` opt-in;
+- Admin history clearly badges `PUBLIC WEBSITE` vs `MEMBERS ONLY`;
+- existing/member-only announcements remain private by default;
+- private announcement images are not exposed on the public feed merely for visual richness.
+
+The public feed should remain readable at phone width and use responsive cards/grid rather than dense tables.
+
+## Digital Member ID
+
+- phone-first member card;
+- readable name/number/Chapter/status;
+- QR large enough for another device;
+- verification clearly distinguishes valid vs invalid/revoked;
+- public verification exposes minimum necessary information.
 
 ## Receipts
 
-Receipt list and detail must be usable at phone width.
+Receipt list/detail must work at phone width and clearly separate Chapter amount, platform fee, and total paid.
 
-Detail clearly separates:
+## Passkey / Login UX
 
-- chapter amount;
-- platform convenience fee;
-- total paid.
+Login hierarchy remains `Welcome to PSP` → helper text → sign-in method → selected fields/action → recovery/registration/support.
 
-The member should not be able to mistake platform fee for dues/contribution paid to the chapter.
-
-## Passkey UX
-
-- Enrollment lives in account/profile security.
-- Explain that passkey may use device biometrics/PIN depending on OS.
-- Once a passkey is successfully enabled on the current device, login prioritizes passkey and hides email/password fields by default.
-- Provide an explicit recovery/password fallback; do not permanently trap the user in passkey-only UI.
-- Error states must distinguish unsupported browser/device vs failed verification where possible without exposing security-sensitive detail.
+- Email/password and Passkey are presented as clear modes on supported devices.
+- Password recovery remains visible.
+- Member can always fall back from passkey to email/password.
+- Errors use accessible live alerts and avoid sensitive detail.
+- Visual changes never alter server session/RBAC/origin authority.
 
 ## PWA Installation
 
-- `/install` is the canonical member installation guide and may be linked from approval welcome email.
-- Android/Chromium: use browser install prompt when available.
-- iOS/iPadOS: explain Safari Share → Add to Home Screen.
-- In standalone mode, avoid repeatedly showing install banners.
-- Update-ready state should provide a clear refresh action.
-- The public installer must expose one stable PSP app identity and current installer content; stale installer HTML after a new exact release is a failed production gate.
+- `/install` is canonical.
+- Android/Chromium uses browser install prompt when available, with browser-menu fallback.
+- iOS/iPadOS explains Safari Share → Add to Home Screen.
+- in-app browser limitations are explained.
+- standalone mode avoids repeated install prompts.
+- update-ready state offers refresh.
+- manifest `id: "/"` remains stable so a new PSP release does not create a second app identity.
+- release-specific deployment-generation marker distinguishes stale installer content without changing the manifest app identity.
 
-## Forms
+## Forms / Async Actions
 
-- Native input modes (`email`, `tel`, numeric/date where appropriate).
-- Break long registration into understandable steps.
-- Preserve values on validation failures.
-- Field-level + concise form-level error status.
-- Disable duplicate submissions while requests are in flight.
-- Minimum comfortable mobile controls around 44–48px height.
-- Never make protected fields editable merely because they are displayed in a form.
-
-### Registration acknowledgements
-
-The final Membership Application and Data Privacy acknowledgements are mandatory actions and must be easy to complete on a phone, including in narrow/in-app browser layouts.
-
-- Checkbox visuals must remain approximately 30×30 CSS px.
-- Checkbox flex items must not shrink below their intended size when the acknowledgement text wraps.
-- The complete acknowledgement card/label is the touch target, not only the checkbox square.
-- Text and checkbox remain top-aligned so long legal copy stays readable.
-- Keyboard/native checkbox semantics must be preserved.
-- The Submit Application button stays disabled until both acknowledgements are checked.
-- Production verification uses `data-registration-acknowledgement-version="mobile-checkbox-v1"` so the deployed registration experience can be distinguished from the former tiny/shrinking control.
-
-## Tables / Admin
-
-Member core flows should avoid horizontal tables. Admin reporting/reconciliation may use larger tables on wide screens but must remain navigable on tablets/narrow screens; stacked records are preferred when columns become unusable.
-
-For high-density Finance and Operational Reports screens, use semantic tables on wide displays and labeled card-style rows below the mobile breakpoint. Do not make a phone user zoom a desktop table to perform normal admin review.
+- native input modes where appropriate;
+- preserve values on validation failures where practical;
+- field-level + concise form-level errors;
+- loading/busy state visible;
+- disable duplicate submissions while requests are in flight;
+- protected fields never become editable merely because displayed.
 
 ## Accessibility
 
+- semantic labels/headings/tables;
 - keyboard accessible controls;
-- semantic labels/headings;
-- visible focus states;
+- visible focus;
 - sufficient contrast;
-- no hover-only critical actions;
+- no hover-only critical action;
 - touch-friendly hit areas;
-- status/error messaging uses appropriate live-region/role semantics;
-- respect `prefers-reduced-motion`.
+- status/error uses appropriate `role`/live-region semantics;
+- respect reduced motion.
 
 ## PWA / Cache Safety
 
-- standalone mode where supported;
-- manifest + service worker;
-- safe-area handling for notches/gesture bars;
-- no uncontrolled horizontal overflow;
-- private/auth/member/payment/API/certificate content must not become authoritative offline cache state;
-- offline mode must never fabricate successful payment/credential/member status.
+- private/auth/member/payment/API/certificate content must not become authoritative public offline state;
+- financial writes require live connectivity;
+- offline mode never fabricates successful payment, credential, membership, or certificate state.
 
-## Member Mobile P0 Device Acceptance
+## Device Acceptance Still Required
 
-Before closure, perform real-device smoke for:
+Automated responsive/runtime checks do not replace real devices. Final controlled acceptance still includes:
 
 - Android Chrome installed PWA;
-- iOS Safari Add to Home Screen installed PWA;
-- small and normal phone widths;
-- portrait and landscape;
-- dashboard/card navigation;
-- Digital ID QR rendering/scanning;
-- payment fee preview + QR payment display;
-- receipt detail/PDF access;
-- certificate generation/QR;
-- profile editing protections;
+- iPhone/iPad Safari Add-to-Home-Screen;
+- small/normal phone widths, portrait/landscape;
+- payment fee/QR/receipt flows;
+- custom certificate download/QR scanning;
+- Digital ID QR;
+- profile protections;
 - passkey enrollment/login;
 - safe-area bottom navigation;
 - no uncontrolled horizontal overflow.
