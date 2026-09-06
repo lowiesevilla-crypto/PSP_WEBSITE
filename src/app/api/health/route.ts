@@ -14,6 +14,7 @@ export async function GET() {
       release: PSP_RELEASE_ID,
       deploymentGeneration: PSP_DEPLOYMENT_GENERATION,
       financePaymentConfigVersion: "chapter-draft-ux-v2",
+      certificateHotfixVersion: "chapter-logo-email-invalidation-v1",
       timestamp: new Date().toISOString(),
     },
     {
