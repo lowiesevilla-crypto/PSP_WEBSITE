@@ -49,12 +49,25 @@ const emptyPlatformConfiguration: PlatformConfiguration = {
   liveEnabled: false,
 };
 
+function configuredMethods(value: unknown): Method[] {
+  if (!Array.isArray(value)) return ["qrph"];
+  const selected = value.filter((item): item is Method => methods.some((method) => method.code === item));
+  return selected.length ? selected : ["qrph"];
+}
+
+function sameMethods(left: Method[], right: Method[]) {
+  return left.length === right.length && left.every((method) => right.includes(method));
+}
+
 export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   const [chapterId, setChapterId] = useState(chapters[0]?.id ?? "");
   const [mode, setMode] = useState<"TEST" | "LIVE">("TEST");
   const [selectedMethods, setSelectedMethods] = useState<Method[]>(["qrph"]);
   const [enabled, setEnabled] = useState(false);
   const [linkedAccountId, setLinkedAccountId] = useState("");
+  const [savedLinkedAccountId, setSavedLinkedAccountId] = useState("");
+  const [savedMode, setSavedMode] = useState<"TEST" | "LIVE" | null>(null);
+  const [savedMethods, setSavedMethods] = useState<Method[]>([]);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [hasWebhookSecret, setHasWebhookSecret] = useState(false);
   const [platformReady, setPlatformReady] = useState(false);
@@ -85,9 +98,16 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         if (!response.ok) throw new Error(payload.message ?? "Unable to load payment configuration.");
         if (cancelled) return;
         const config = payload.config;
-        setMode(config?.mode ?? payload.platformMode ?? "TEST");
+        const loadedMode = config?.mode ?? payload.platformMode ?? "TEST";
+        const loadedLinkedAccountId = config?.linkedAccountId ?? "";
+        const loadedMethods = configuredMethods(config?.paymentMethods);
+        setMode(loadedMode);
+        setSavedMode(config ? loadedMode : null);
         setEnabled(Boolean(config?.isEnabled));
-        setLinkedAccountId(config?.linkedAccountId ?? "");
+        setLinkedAccountId(loadedLinkedAccountId);
+        setSavedLinkedAccountId(loadedLinkedAccountId);
+        setSelectedMethods(loadedMethods);
+        setSavedMethods(config ? loadedMethods : []);
         setHasWebhookSecret(Boolean(config?.hasWebhookSecret));
         setPlatformReady(Boolean(payload.platformReady));
         setPlatformMode(payload.platformMode ?? null);
@@ -96,10 +116,6 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         setPlatformConfiguration(payload.platformConfiguration ?? emptyPlatformConfiguration);
         setConfigurationState(payload.configurationState ?? (config ? "DRAFT" : "NOT_CONFIGURED"));
         setActivationBlockers(Array.isArray(payload.activationBlockers) ? payload.activationBlockers : []);
-        const configuredMethods = Array.isArray(config?.paymentMethods)
-          ? config.paymentMethods.filter((value): value is Method => methods.some((method) => method.code === value))
-          : ["qrph" as Method];
-        setSelectedMethods(configuredMethods.length ? configuredMethods : ["qrph"]);
         setWebhookUrl(payload.webhookUrl ?? "");
       })
       .catch((cause) => {
@@ -121,6 +137,9 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
     setBusy(true);
     setError(null);
     setMessage(null);
+    setSavedLinkedAccountId("");
+    setSavedMode(null);
+    setSavedMethods([]);
     setChapterId(nextChapterId);
   }
 
@@ -158,6 +177,15 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
       setEnabled(Boolean(payload.config?.isEnabled));
       setConfigurationState(payload.configurationState ?? (payload.config?.isEnabled ? "ENABLED" : "DRAFT"));
       setActivationBlockers(Array.isArray(payload.activationBlockers) ? payload.activationBlockers : []);
+      if (payload.config) {
+        const persistedMethods = configuredMethods(payload.config.paymentMethods);
+        setLinkedAccountId(payload.config.linkedAccountId ?? linkedAccountId.trim());
+        setSavedLinkedAccountId(payload.config.linkedAccountId ?? linkedAccountId.trim());
+        setMode(payload.config.mode);
+        setSavedMode(payload.config.mode);
+        setSelectedMethods(persistedMethods);
+        setSavedMethods(persistedMethods);
+      }
       setMessage(
         payload.config?.isEnabled
           ? `${currentChapter?.name ?? "Chapter"} online payment is enabled. Child webhook signing is configured.`
@@ -172,8 +200,18 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 
   if (!chapters.length) return null;
 
+  const currentLinkedAccountId = linkedAccountId.trim();
+  const linkedIdSaved = Boolean(savedLinkedAccountId) && savedLinkedAccountId === currentLinkedAccountId;
+  const draftMatchesSaved = linkedIdSaved && savedMode === mode && sameMethods(savedMethods, selectedMethods);
   const modeMatchesPlatform = !platformMode || mode === platformMode;
-  const canRequestEnable = platformReady && paymentEncryptionReady && modeMatchesPlatform && linkedAccountId.trim().startsWith("org_");
+  const canRequestEnable = platformReady && paymentEncryptionReady && modeMatchesPlatform && draftMatchesSaved;
+  const chapterAccountStatus = linkedIdSaved
+    ? "Linked ID saved"
+    : currentLinkedAccountId.startsWith("org_")
+      ? "Valid ID · unsaved changes"
+      : savedLinkedAccountId
+        ? "Saved ID has unsaved changes"
+        : "Not configured";
 
   return (
     <section className="app-panel" style={{ marginTop: 18 }}>
@@ -219,7 +257,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 10, marginTop: 16 }}>
         <ReadinessItem label="PSP Platform" value={platformReady ? `Ready · ${platformMode ?? mode}` : "Configuration required"} ready={platformReady} />
-        <ReadinessItem label="Chapter Account" value={linkedAccountId.startsWith("org_") ? "Linked ID saved" : "Not configured"} ready={linkedAccountId.startsWith("org_")} />
+        <ReadinessItem label="Chapter Account" value={chapterAccountStatus} ready={linkedIdSaved} />
         <ReadinessItem label="Child Webhook" value={hasWebhookSecret ? "Signing ready" : "Created on activation"} ready={hasWebhookSecret || !enabled} />
         <ReadinessItem label="Online Payment" value={enabled ? "Enabled" : "Disabled"} ready={enabled} />
       </div>
@@ -248,6 +286,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
           </div>
         </div>
         {webhookUrl ? <div style={{ padding: 12, background: "#f7f4ec", borderRadius: 12, overflowWrap: "anywhere" }}><small style={{ color: "#746b5b" }}>Chapter webhook endpoint</small><br/><strong>{webhookUrl}</strong><small style={{ display: "block", marginTop: 5, color: "#6b665c" }}>{hasWebhookSecret ? "Webhook signing is configured and stored encrypted." : "This endpoint will be registered on the linked child account only when Online Payment is activated."}</small></div> : null}
+        {!enabled && currentLinkedAccountId.startsWith("org_") && !draftMatchesSaved ? <div style={infoStyle}><strong>Unsaved Chapter payment changes</strong><div style={{ marginTop: 4 }}>Save the disabled Chapter draft first. The Enable Online Payment switch will unlock only after this exact Account ID, mode and payment-method selection are persisted.</div></div> : null}
         <label style={{ display: "flex", gap: 10, alignItems: "center", minHeight: 48, padding: "9px 11px", border: "1px solid #ddd5c1", borderRadius: 12, background: enabled ? "#fff8df" : "#fff" }}>
           <input
             type="checkbox"
@@ -256,14 +295,14 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
             disabled={busy || (!enabled && !canRequestEnable)}
             style={{ width: 24, height: 24, flex: "0 0 24px" }}
           />
-          <span><strong>Enable Online Payment</strong><small style={{ display: "block", color: "#6b665c", marginTop: 2 }}>Activation is fail-closed. Save the Chapter as a disabled draft first; this switch unlocks only when parent platform, encryption, mode and linked-account requirements are ready.</small></span>
+          <span><strong>Enable Online Payment</strong><small style={{ display: "block", color: "#6b665c", marginTop: 2 }}>Activation is fail-closed. Save the Chapter as a disabled draft first; this switch unlocks only when the saved draft, parent platform, credential encryption and matching mode are ready.</small></span>
         </label>
 
         {!platformReady ? <div style={warningStyle}><strong>Platform activation requirement</strong><div style={{ marginTop: 4 }}>{platformMessage ?? "Complete the PSP parent PayMongo account and convenience-fee configuration."}</div></div> : null}
         {activationBlockers.length ? <div style={warningStyle}><strong>Before enabling online payment</strong><ul style={{ margin: "7px 0 0", paddingLeft: 20 }}>{activationBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div> : null}
         {message ? <div role="status" style={successStyle}>{message}</div> : null}
         {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
-        <button className="btn btn-primary" type="submit" disabled={busy || !selectedMethods.length || !linkedAccountId.trim().startsWith("org_")} style={{ width: "100%", minHeight: 48 }}>{busy ? "Saving…" : enabled ? "Save & Activate Online Payment" : "Save Disabled Chapter Draft"}</button>
+        <button className="btn btn-primary" type="submit" disabled={busy || !selectedMethods.length || !currentLinkedAccountId.startsWith("org_")} style={{ width: "100%", minHeight: 48 }}>{busy ? "Saving…" : enabled ? "Save & Activate Online Payment" : "Save Disabled Chapter Draft"}</button>
       </form>
     </section>
   );
@@ -300,5 +339,6 @@ const fieldStyle: React.CSSProperties = { minHeight: 48, border: "1px solid #ddd
 const platformPanelStyle: React.CSSProperties = { marginTop: 16, padding: 14, border: "1px solid #ddd5c1", borderRadius: 14, background: "#fbfaf6" };
 const stateBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, border: "1px solid", fontWeight: 900, fontSize: ".76rem" };
 const warningStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#fff6dd", border: "1px solid #ebd594", color: "#684d00", lineHeight: 1.45 };
+const infoStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#eef6ff", border: "1px solid #bdd6ee", color: "#174d78", lineHeight: 1.45 };
 const successStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#eef8ef", border: "1px solid #bcdcbc", color: "#245b2a" };
 const errorStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#fff1f1", border: "1px solid #e8b5b5", color: "#7b2424" };
