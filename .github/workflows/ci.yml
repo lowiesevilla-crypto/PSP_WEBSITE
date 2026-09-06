@@ -72,6 +72,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Enforce complete dependency audit
+        run: npm audit --audit-level=high --no-fund
+
       - name: Upload generated dependency lockfile
         uses: actions/upload-artifact@v4
         with:
@@ -105,6 +108,9 @@ jobs:
 
       - name: Prepare cross-chapter security fixtures
         run: node scripts/ci-prepare-isolation.mjs
+
+      - name: Validate production additive schema upgrade
+        run: node scripts/ci-test-production-additive-upgrade.mjs
 
       - name: Prepare platform hardening fixtures
         run: node scripts/ci-prepare-platform-hardening.mjs
