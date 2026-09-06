@@ -8,11 +8,29 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-const [schema, paymentRoute, paymentRuntime, publicPage, memberRoute, certificateRoute, certificatePage, verificationPage, adminCss] = await Promise.all([
+const [
+  schema,
+  paymentRoute,
+  paymentRuntime,
+  publicPage,
+  announcementRoute,
+  announcementManager,
+  productionBuildInit,
+  readinessRoute,
+  memberRoute,
+  certificateRoute,
+  certificatePage,
+  verificationPage,
+  adminCss,
+] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
   source("src/lib/paymongo/chapter-config.ts"),
   source("src/app/page.tsx"),
+  source("src/app/api/announcements/route.ts"),
+  source("src/components/admin/announcement-manager.tsx"),
+  source("scripts/production-build-init.mjs"),
+  source("src/app/api/health/ready/route.ts"),
   source("src/app/api/admin/members/[id]/route.ts"),
   source("src/app/api/admin/certificates/route.ts"),
   source("src/app/certificate/page.tsx"),
@@ -23,6 +41,7 @@ const [schema, paymentRoute, paymentRuntime, publicPage, memberRoute, certificat
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
 assert(schema.includes('title             String            @default("Certificate of Membership")'), "Certificate title metadata is missing from Prisma schema.");
 assert(schema.includes("@@unique([batchId, memberId])"), "Certificate batch/recipient idempotency constraint is missing.");
+assert(schema.includes("isPublic  Boolean       @default(false)"), "Public announcement visibility must default fail-closed in Prisma schema.");
 
 assert(paymentRoute.includes("PENDING_LINKED_WEBHOOK_SECRET"), "Payment draft marker contract is missing.");
 assert(paymentRoute.includes("if (input.isEnabled)"), "Payment activation is not separated from draft save.");
@@ -31,7 +50,13 @@ assert(paymentRuntime.includes("isPendingLinkedWebhookSecret"), "Runtime payment
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
+assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
+assert(announcementRoute.includes("isPublic: z.boolean().optional().default(false)"), "Announcement API does not default public visibility to false.");
+assert(announcementRoute.includes("isPublic: input.isPublic"), "Announcement API does not persist explicit public visibility.");
+assert(announcementManager.includes('name="isPublic"'), "Announcement Admin UI lacks explicit public publication control.");
+assert(productionBuildInit.includes("PUBLIC_ANNOUNCEMENT_COLUMNS"), "Production schema initializer does not track public announcement visibility.");
+assert(readinessRoute.includes("publicAnnouncementSchemaReady"), "Readiness does not verify the public announcement schema.");
 
 assert(memberRoute.includes('requirePermission("members.manage", member.chapterId)'), "Admin member editing does not enforce exact member Chapter scope.");
 assert(memberRoute.includes("MEMBER_PROFILE_UPDATED_ADMIN"), "Admin member edit audit contract is missing.");
