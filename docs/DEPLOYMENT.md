@@ -10,25 +10,32 @@
 - Runtime: Node.js 22+
 - Database: dedicated PSP MySQL, completely separate from HOAHub
 
-## Current Deployment Status — 2026-09-06
+## Current Deployment Status — 2026-09-06 11:01 PHT
 
-PSP r14 application code is **MERGED AND POST-MERGE CI GREEN**, but exact production deployment is **NOT YET PROVEN**.
+PSP r14 application code is **MERGED AND FULLY GREEN IN EXACT-HEAD/POST-MERGE CI**, but Hostinger is still serving the previous r13 build.
 
-Current release evidence:
+Target identity:
 
-- target identity: `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`;
-- PR #34 final exact head: `6a4fbe1552fdcd857363b12975f34c25f0c7b954`;
-- exact-head PSP CI #572 / run `34004473069`: PASSED;
-- merge/main SHA: `3701313f371b473df8400ed7404359fb6a5ccf72`;
-- post-merge PSP CI #573 / run `34005600398`: PASSED every required gate.
+```text
+release = 2026-09-06-r14
+deploymentGeneration = 2026-09-06-platform-hardening-v1
+```
 
-Production Smoke run #25 has not yet proven r14:
+Fresh Production Smoke run #26 / run `34007514552` probed production 40 times from 10:51–11:01 PHT. Every request returned HTTP 200 with zero network failures, but the final live health payload remained:
 
-- attempt 1: production was reachable on all 40 probes but remained on r13 for the complete deployment window;
-- attempt 2: GitHub runner timed out on all 40 probes while DNS still resolved;
-- attempt 3: exact retry initiated against the same merge SHA.
+```text
+release = 2026-09-05-r13
+deploymentGeneration = 2026-09-05-release-keyed-pwa-install-v1
+```
 
-Do not mark r14 deployed until `/api/health` reports the exact r14 release/generation and the remaining readiness/public/PWA/security smoke steps pass.
+Therefore the immediate release blocker is **Hostinger deployment/Git integration**, not application CI. The live r14 readiness/public/PWA/security checks have not run because exact r14 is not deployed.
+
+## Proven Repository Evidence
+
+- PR #34 final exact head `6a4fbe1552fdcd857363b12975f34c25f0c7b954` — PSP CI #572 PASSED.
+- Implementation merge SHA `3701313f371b473df8400ed7404359fb6a5ccf72` — post-merge PSP CI #573 PASSED.
+- Documentation PR #35 exact head `c677b1a7789884855f9aaa3b088f8398825d3f7e` — PSP CI #578 PASSED and merged.
+- Documentation-bearing main SHA `38b9a2ed95300201bc0befa744c8611ac970037d` — post-merge PSP CI #579 PASSED.
 
 ## Hostinger Application Setup
 
@@ -41,9 +48,20 @@ Start command supplied by repo: npm run start
 Canonical URL: https://psp.hoahub.tech
 ```
 
-The repository contains CI and Production Smoke workflows only; it does **not** contain a GitHub Actions production-publish workflow. Hostinger deployment is therefore an external hosting/Git integration responsibility. A successful Git merge is not production evidence by itself.
+The repository contains CI and Production Smoke workflows only; there is no GitHub Actions production-publish workflow. Hostinger owns publication of `main`. A GitHub merge is not sufficient production evidence.
 
-Hostinger may manage runtime start itself, so guarded production initialization is invoked by `npm run build` when `APP_ENV=production`.
+### Required hosting-side correction
+
+In Hostinger, verify the application Git integration still points to:
+
+```text
+Repository: lowiesevilla-crypto/PSP_WEBSITE
+Branch: main
+```
+
+Then redeploy/pull the latest `main` and use the existing production build command `npm run build`. Do not alter application code merely to force another deployment signal.
+
+After redeploy, rerun `PSP Production Smoke` unchanged. The first step must observe exact r14 before any later assertion is accepted.
 
 ## Production Schema Upgrade Safety
 
@@ -52,18 +70,16 @@ Hostinger may manage runtime start itself, so guarded production initialization 
 Safety rules:
 
 1. Require `DATABASE_URL`.
-2. Inspect only the connected PSP DB `information_schema` to classify schema state.
-3. Empty dedicated PSP DB may receive initial Prisma schema.
-4. Recognized additive upgrade states may synchronize only the reviewed additive fields.
-5. Exact current schema skips unnecessary push.
-6. Partial/unknown schema fails closed.
-7. Automatic Prisma invocation never passes `--accept-data-loss`.
-8. Existing PSP baseline/System Admin synchronization remains idempotent.
-9. Existing member-mobile/finance permissions and Digital Member ID backfill remain idempotent.
-10. r14 hardening schema includes custom-certificate metadata and `Announcement.isPublic`.
-11. Any initialization failure stops the build rather than publishing a partial release.
+2. Inspect only the connected PSP DB `information_schema`.
+3. Empty or specifically recognized additive states may be synchronized.
+4. Exact current schema skips unnecessary push.
+5. Partial/unknown schema fails closed.
+6. Automatic Prisma invocation never uses `--accept-data-loss`.
+7. Baseline/System Admin, finance permissions and Digital Member ID backfill remain idempotent.
+8. r14 additive schema includes custom-certificate metadata and `Announcement.isPublic`.
+9. Any initialization failure stops publication rather than allowing a partial release.
 
-Before any future non-additive production schema change, take a verified backup and use a reviewed migration/recovery plan.
+Before any non-additive production schema change, require verified backup and reviewed migration/recovery.
 
 ## Core Production Environment
 
@@ -79,58 +95,20 @@ STORAGE_ROOT=<persistent private storage path>
 MAX_IMAGE_UPLOAD_BYTES=5242880
 ```
 
-Requirements:
-
-- `DATABASE_URL` must be PSP-only, never HOAHub.
-- `AUTH_SECRET` and all credential values are Hostinger secrets, never GitHub/chat/screenshots.
-- `STORAGE_ROOT` must be persistent and private.
-
-## System Admin Bootstrap
-
-Temporary bootstrap values exist only for initialization/recovery. The real production `/admin` login has previously been verified by the product owner.
-
-After an intended production admin password/bootstrap change:
-
-1. remove all temporary `BOOTSTRAP_ADMIN_*` variables;
-2. restart/redeploy;
-3. verify `/api/health/ready` remains green;
-4. confirm normal `/admin` login without bootstrap variables.
-
-Previously exposed secrets must be rotated before final operational signoff. Never record replacements in documentation or logs.
-
-## SMTP / Welcome Email
-
-Supported variables include `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`/`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`/`MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`, `MAIL_REPLY_TO`, and `SMTP_ENCRYPTION`.
-
-SMTP configuration does not prove inbox delivery. Real welcome/activation and recovery-email rendering remains controlled external acceptance.
+Secrets belong only in Hostinger secret/environment management, never GitHub, chat, screenshots or logs.
 
 ## PayMongo Platforms / Linked Accounts
 
-Required server-only platform environment:
+Required server-only variables include parent platform secret/account, stable payment-config encryption key, deliberately approved convenience fee and `PAYMONGO_LIVE_ENABLED=false` until controlled TEST signoff.
 
-```text
-PAYMONGO_PLATFORM_SECRET_KEY=<PSP parent/platform secret key>
-PAYMONGO_PLATFORM_ACCOUNT_ID=<PSP parent org_* account id>
-PAYMENT_CONFIG_ENCRYPTION_KEY=<stable random secret, minimum 32 characters>
-PLATFORM_CONVENIENCE_FEE_BPS=<approved integer basis points, optional when fixed fee used>
-PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS=<approved fixed centavos, optional when percentage used>
-PAYMONGO_LIVE_ENABLED=false
-```
+r14 behavior:
 
-r14 Chapter configuration behavior:
-
-1. Chapter Admin/Finance may save a disabled linked-account Draft without parent platform readiness.
-2. Draft save does not contact PayMongo or create a child webhook.
-3. Chapter remains non-payable while Draft/Blocked.
-4. Activation validates parent platform, fee, mode, unique child `org_*`, methods and real child webhook signing readiness.
-5. Failed activation preserves `isEnabled=false`.
-6. LIVE remains blocked unless `PAYMONGO_LIVE_ENABLED=true` after controlled TEST signoff.
-
-Member must see Chapter amount, PSP platform convenience fee and total before confirmation. Chapter ledger and contribution totals include Chapter amount only.
-
-### PayMongo TEST gate
-
-Before LIVE prove actual provider behavior for DUES, CONTRIBUTION and OTHER; QR Ph/GCash/Maya; exact gross/fee/child settlement; signed webhook; invalid signature rejection; idempotent duplicate handling; cross-Chapter rejection; Chapter-only ledger posting; and receipt/admin reconciliation.
+- authorized Chapter may save a disabled linked-account Draft without parent readiness;
+- Draft does not contact PayMongo or create a child webhook;
+- Draft/Blocked Chapter remains non-payable;
+- activation requires platform/fee/mode/unique child/webhook/method readiness;
+- failed activation remains disabled;
+- LIVE stays blocked until explicitly approved after real TEST acceptance.
 
 ## Production Health / Smoke
 
@@ -140,12 +118,7 @@ Before LIVE prove actual provider behavior for DUES, CONTRIBUTION and OTHER; QR 
 GET https://psp.hoahub.tech/api/health
 ```
 
-For r14 closure it must report:
-
-```text
-release = 2026-09-06-r14
-deploymentGeneration = 2026-09-06-platform-hardening-v1
-```
+Exact r14 identity is mandatory before release acceptance.
 
 ### Readiness
 
@@ -153,70 +126,50 @@ deploymentGeneration = 2026-09-06-platform-hardening-v1
 GET https://psp.hoahub.tech/api/health/ready
 ```
 
-HTTP 200 is required with at least:
+After exact r14 is visible, require HTTP 200 and `ok` for database, auth schema, baseline, member-mobile schema, custom-certificate schema, public-announcement schema and auth configuration.
 
-- database `ok`;
-- auth schema `ok`;
-- baseline `ok`;
-- member-mobile schema `ok`;
-- custom-certificate schema `ok`;
-- public-announcement schema `ok`;
-- auth configuration `ok`.
+### Remaining public/runtime checks
 
-### Exact Production Smoke
+After exact r14 identity:
 
-The GitHub `PSP Production Smoke` workflow must prove the exact release before it checks the rest. An older Hostinger build must never satisfy the release gate.
-
-After exact r14 appears, smoke also verifies:
-
-- public homepage and r14 public-feed marker;
-- manifest stable `id: "/"`;
+- public homepage global-feed marker;
+- stable manifest `id: "/"`;
 - registration mobile acknowledgement marker;
-- install page content and r14 deployment marker;
+- install page deployment marker;
 - login/recovery/registration markers;
 - production security headers;
-- canonical-origin invalid login 401;
+- canonical invalid login 401;
 - cross-site login 403;
-- public Digital Member ID/Certificate verification routes do not return application 500.
+- public Digital ID/Certificate verification routes without application 500.
 
-## Member / Admin Live Acceptance
+## Controlled Production Acceptance
 
-Credential-dependent production validation still requires controlled records/accounts for:
-
-- Chapter/National member editing;
-- Chapter payment Draft/config readiness;
-- custom certificate issuance and member download;
-- real member dashboard/payment readiness;
-- approval/welcome email;
-- Digital ID and Certificate second-device QR validation;
-- passkey enrollment/login.
-
-Do not perform state-changing acceptance against real member/financial records without an agreed controlled record.
+Credential/state-changing checks still require controlled accounts/records for Admin member editing, Chapter payment configuration, custom certificate issuance, member dashboard/payment readiness, approval/welcome email, second-device QR validation and passkey enrollment/login.
 
 ## PWA Device Gate
 
-Representative physical-device acceptance remains required for Android Chrome and iOS/iPadOS Add to Home Screen, standalone launch, safe areas, portrait/landscape, payment QR rendering and no false offline financial state.
+Physical Android Chrome and iOS/iPadOS Add-to-Home-Screen acceptance remains required, including standalone launch, safe areas, portrait/landscape, payment QR rendering and no false offline financial truth.
 
 ## Backup / Recovery Gate
 
 Before final operational signoff:
 
 1. confirm current production MySQL backup;
-2. document restore procedure;
-3. prove restore/recovery method is available;
-4. retain last known-good Git release SHA;
-5. do not perform destructive rollback after member/financial data exists without reviewed recovery.
+2. document and prove restore procedure;
+3. retain last known-good Git release SHA;
+4. never perform destructive rollback after member/financial data exists without reviewed recovery.
 
 ## Current r14 Release Checklist
 
-- [x] canonical domain / HTTPS previously proven
 - [x] PR #34 exact-head CI #572 green
 - [x] PR #34 exact passing head merged
-- [x] post-merge `main` PSP CI #573 green
+- [x] implementation post-merge PSP CI #573 green
+- [x] documentation reconciliation CI #578 / post-merge CI #579 green
 - [x] r14 code/schema/runtime/security contracts automated in CI
-- [ ] Hostinger serves exact r14 release/generation
-- [ ] r14 Production Smoke passes readiness/public/PWA/security checks
-- [ ] controlled production Admin/Member workflow acceptance where required
+- [x] production endpoint proven reachable during fresh run #26
+- [ ] Hostinger serves exact r14 release/generation — **CURRENT BLOCKER**
+- [ ] r14 Production Smoke readiness/public/PWA/security checks
+- [ ] controlled production Admin/Member workflow acceptance
 - [ ] real recipient email delivery/rendering
 - [ ] Android/iOS physical PWA smoke
 - [ ] passkey physical-device smoke
@@ -225,4 +178,4 @@ Before final operational signoff:
 - [ ] MySQL backup/restore evidence
 - [ ] controlled low-value PayMongo LIVE validation after explicit approval
 
-See `STATUS.md`, `PSP_PLATFORM_HARDENING_2026-09-06.md`, `PAYMENTS.md`, and `MEMBER_MOBILE_P0.md` for authoritative details.
+See `STATUS.md`, `PSP_PLATFORM_HARDENING_2026-09-06.md`, `PAYMENTS.md`, and `MEMBER_MOBILE_P0.md`.
