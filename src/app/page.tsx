@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const features = [
   { icon: "ID", title: "Digital Membership", description: "Secure member records, chapter affiliation, membership status, and a premium digital member experience." },
