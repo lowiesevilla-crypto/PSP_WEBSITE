@@ -130,6 +130,13 @@ jobs:
           INSTALL_URL="$PROD_URL/install?release=$EXPECTED_DEPLOYMENT_GENERATION"
 
           fetch_200 home "$PROD_URL/" /tmp/psp-home.html yes
+          curl --silent --show-error --head "$PROD_URL/" > /tmp/psp-home.headers
+          echo '--- production homepage headers ---'
+          cat /tmp/psp-home.headers
+          grep -Eqi '^cache-control:.*no-store' /tmp/psp-home.headers || {
+            echo 'FAILED_ASSERTION=public-home-no-store-cache-control' >&2
+            exit 1
+          }
           fetch_200 manifest "$PROD_URL/manifest.webmanifest" /tmp/psp-manifest.json
           fetch_200 privacy "$PROD_URL/privacy" /tmp/psp-privacy.html
           fetch_200 register "$PROD_URL/register" /tmp/psp-register.html
@@ -161,6 +168,7 @@ jobs:
           grep -qi '^x-content-type-options: *nosniff' /tmp/psp-headers.txt
           grep -qi '^x-frame-options:' /tmp/psp-headers.txt
           grep -qi '^referrer-policy:' /tmp/psp-headers.txt
+          grep -Eqi '^cache-control:.*no-store' /tmp/psp-headers.txt
 
       - name: Verify canonical login origin and JSON failures
         shell: bash
