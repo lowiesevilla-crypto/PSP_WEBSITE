@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 const features = [
   {
@@ -23,7 +26,7 @@ const features = [
     icon: "QR",
     title: "Verified Certificates",
     description:
-      "Downloadable Certificates of Membership with unique certificate numbers and live QR verification.",
+      "Downloadable certificates with unique certificate numbers and live QR verification.",
   },
   {
     icon: "◎",
@@ -39,9 +42,75 @@ const features = [
   },
 ];
 
-export default function HomePage() {
+function publicDate(value: Date) {
+  return new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "Asia/Manila",
+  }).format(value);
+}
+
+function excerpt(value: string, max = 220) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= max ? normalized : `${normalized.slice(0, max - 1).trimEnd()}…`;
+}
+
+async function loadPublicFeed() {
+  const now = new Date();
+  try {
+    const [announcements, events] = await Promise.all([
+      prisma.announcement.findMany({
+        where: {
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+          ],
+        },
+        orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+        take: 8,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          audience: true,
+          startsAt: true,
+          createdAt: true,
+          chapter: { select: { name: true, code: true } },
+        },
+      }),
+      prisma.event.findMany({
+        where: {
+          isPublished: true,
+          status: "PUBLISHED",
+          startsAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        orderBy: { startsAt: "asc" },
+        take: 8,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          venue: true,
+          startsAt: true,
+          endsAt: true,
+          audience: true,
+          chapter: { select: { name: true, code: true } },
+        },
+      }),
+    ]);
+    return { announcements, events };
+  } catch (error) {
+    console.error("Public chapter feed unavailable", error instanceof Error ? error.name : "UnknownError");
+    return { announcements: [], events: [] };
+  }
+}
+
+export default async function HomePage() {
+  const { announcements, events } = await loadPublicFeed();
+
   return (
-    <main className="site-shell">
+    <main className="site-shell" data-public-chapter-feed-version="global-chapter-feed-v1">
       <header className="topbar">
         <div className="container nav">
           <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
@@ -54,6 +123,7 @@ export default function HomePage() {
 
           <nav className="nav-links" aria-label="Primary navigation">
             <a href="#platform">Platform</a>
+            <a href="#updates">Updates</a>
             <a href="#chapters">Chapters</a>
             <a href="#membership">Membership</a>
             <a href="#events">Events</a>
@@ -80,20 +150,20 @@ export default function HomePage() {
             <p>
               A premium, mobile-first Psi Sigma Phi ecosystem for membership, chapter
               organization, community updates, events, online dues, digital receipts,
-              and QR-verifiable Certificates of Membership.
+              and QR-verifiable certificates.
             </p>
             <div className="hero-actions">
               <Link className="btn btn-primary" href="/register">
                 Start Membership Registration
               </Link>
               <Link className="btn btn-secondary" href="/member">
-                Preview Member PWA
+                Open Member PWA
               </Link>
             </div>
             <div className="trust-row" aria-label="Platform highlights">
               <span>Installable PWA</span>
               <span>Chapter Scoped</span>
-              <span>PayMongo Ready</span>
+              <span>PayMongo Platforms</span>
               <span>QR Verified</span>
             </div>
           </div>
@@ -116,21 +186,74 @@ export default function HomePage() {
           <div className="section-header">
             <h2>Built for the full Ψ Σ Φ ecosystem.</h2>
             <p>
-              The first release combines the official website, installable Member PWA,
+              The digital platform combines the official website, installable Member PWA,
               Chapter Admin Portal, and National/System Admin Portal in one architecture.
             </p>
           </div>
           <div className="feature-grid">
             {features.map((feature) => (
               <article className="feature-card" key={feature.title}>
-                <div className="feature-icon" aria-hidden="true">
-                  {feature.icon}
-                </div>
+                <div className="feature-icon" aria-hidden="true">{feature.icon}</div>
                 <h3>{feature.title}</h3>
                 <p>{feature.description}</p>
               </article>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="section" id="updates">
+        <div className="container">
+          <div className="section-header">
+            <div className="eyebrow">Across Psi Sigma Phi Philippines Inc.</div>
+            <h2>Latest National & Chapter Updates</h2>
+            <p>Official announcements from across the organization are visible here so members, families and visitors can follow current Chapter activity.</p>
+          </div>
+          {announcements.length ? (
+            <div className="feature-grid">
+              {announcements.map((announcement) => (
+                <article className="feature-card" key={announcement.id}>
+                  <small style={{ color: "#7b6630", fontWeight: 900 }}>
+                    {announcement.chapter ? `${announcement.chapter.name} · ${announcement.chapter.code}` : "National"}
+                  </small>
+                  <h3>{announcement.title}</h3>
+                  <p>{excerpt(announcement.body)}</p>
+                  <small style={{ color: "#716a5f" }}>{publicDate(announcement.startsAt ?? announcement.createdAt)}</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="feature-card"><h3>No current public announcements</h3><p>New National and Chapter announcements will appear here when published.</p></div>
+          )}
+        </div>
+      </section>
+
+      <section className="section" id="events">
+        <div className="container">
+          <div className="section-header">
+            <div className="eyebrow">Organization Calendar</div>
+            <h2>Published National & Chapter Events</h2>
+            <p>Upcoming and recently published events from every Chapter are presented in one clear public view.</p>
+          </div>
+          {events.length ? (
+            <div className="feature-grid">
+              {events.map((event) => (
+                <article className="feature-card" key={event.id}>
+                  <small style={{ color: "#7b6630", fontWeight: 900 }}>
+                    {event.chapter ? `${event.chapter.name} · ${event.chapter.code}` : "National"}
+                  </small>
+                  <h3>{event.title}</h3>
+                  <p>{excerpt(event.description)}</p>
+                  <div style={{ display: "grid", gap: 4, color: "#615847", fontSize: ".86rem" }}>
+                    <strong>{publicDate(event.startsAt)}{event.endsAt ? ` – ${publicDate(event.endsAt)}` : ""}</strong>
+                    {event.venue ? <span>{event.venue}</span> : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="feature-card"><h3>No published events yet</h3><p>Published National and Chapter events will appear here automatically.</p></div>
+          )}
         </div>
       </section>
 
@@ -140,7 +263,7 @@ export default function HomePage() {
             <h2>Designed mobile-first for every member.</h2>
             <p>
               Core membership workflows are designed to work completely from a phone,
-              while chapter and national administration adapt cleanly to tablet and desktop.
+              while Chapter and National administration adapt cleanly to tablet and desktop.
             </p>
           </div>
 
@@ -152,34 +275,16 @@ export default function HomePage() {
               </div>
               <div className="member-card-name">Juan Dela Cruz</div>
               <div className="member-card-meta">
-                <div>
-                  <small>Member No.</small>
-                  <strong>PSP-2026-000001</strong>
-                </div>
-                <div>
-                  <small>Chapter</small>
-                  <strong>Rho Alpha De Las Piñas</strong>
-                </div>
+                <div><small>Member No.</small><strong>PSP-2026-000001</strong></div>
+                <div><small>Chapter</small><strong>Rho Alpha De Las Piñas</strong></div>
               </div>
             </div>
 
             <div className="member-dashboard">
-              <div className="metric-card gold">
-                <small>Outstanding Dues</small>
-                <strong>₱500.00</strong>
-              </div>
-              <div className="metric-card">
-                <small>Next Event</small>
-                <strong>Chapter Assembly</strong>
-              </div>
-              <div className="metric-card">
-                <small>Certificate</small>
-                <strong>Available</strong>
-              </div>
-              <div className="metric-card">
-                <small>Community</small>
-                <strong>12 New Updates</strong>
-              </div>
+              <div className="metric-card gold"><small>Outstanding Dues</small><strong>₱500.00</strong></div>
+              <div className="metric-card"><small>Next Event</small><strong>Chapter Assembly</strong></div>
+              <div className="metric-card"><small>Certificate</small><strong>Available</strong></div>
+              <div className="metric-card"><small>Community</small><strong>12 New Updates</strong></div>
             </div>
           </div>
         </div>
@@ -187,21 +292,11 @@ export default function HomePage() {
 
       <section className="section" id="chapters">
         <div className="container section-header">
-          <h2>Independent chapters. One national platform.</h2>
+          <h2>Independent Chapters. One National platform.</h2>
           <p>
-            Each chapter can maintain its own officers, organization structure, member list,
-            monthly contribution rate, events, announcements, and financial reporting without
-            exposing restricted chapter information to other chapters.
-          </p>
-        </div>
-      </section>
-
-      <section className="section" id="events">
-        <div className="container section-header">
-          <h2>Registration is only the beginning.</h2>
-          <p>
-            The roadmap continues through community engagement, PayMongo payments,
-            verifiable certificates, reporting, auditability, and future digital member ID.
+            Each Chapter maintains its own officers, organization structure, member list,
+            contribution rates, events, announcements, and financial reporting without
+            exposing restricted Chapter information to other Chapters.
           </p>
         </div>
       </section>
@@ -209,7 +304,7 @@ export default function HomePage() {
       <footer className="footer">
         <div className="container footer-row">
           <div>© 2026 Psi Sigma Phi Philippines Inc.</div>
-          <div>Ψ Σ Φ Digital Membership Platform · Foundation Build</div>
+          <div>Ψ Σ Φ Digital Membership Platform</div>
         </div>
       </footer>
     </main>
