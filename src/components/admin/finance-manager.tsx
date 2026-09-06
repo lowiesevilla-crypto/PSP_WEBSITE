@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface Option { id: string; name: string; code: string }
+interface Option { id: string; name: string; code?: string }
 interface AssessmentTypeOption { code: string; name: string }
 
 export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option[]; assessmentTypes: AssessmentTypeOption[] }) {
@@ -94,7 +94,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
     }
   }
 
-  const chapterOptions = chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name} · {chapter.code}</option>);
+  const chapterOptions = chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name}{chapter.code ? ` · ${chapter.code}` : ""}</option>);
   const typeOptions = assessmentTypes.map((type) => <option key={type.code} value={type.code}>{type.name}</option>);
 
   return (
