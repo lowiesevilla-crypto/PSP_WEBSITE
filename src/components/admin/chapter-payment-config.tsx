@@ -77,6 +77,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   const [platformConfiguration, setPlatformConfiguration] = useState<PlatformConfiguration>(emptyPlatformConfiguration);
   const [configurationState, setConfigurationState] = useState<ConfigurationState>("NOT_CONFIGURED");
   const [activationBlockers, setActivationBlockers] = useState<string[]>([]);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [busy, setBusy] = useState(Boolean(chapters[0]?.id));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
     if (!chapterId) return;
     const controller = new AbortController();
     let cancelled = false;
+    setBusy(true);
 
     void fetch(`/api/admin/finance/payment-config?chapterId=${encodeURIComponent(chapterId)}`, {
       headers: { Accept: "application/json" },
@@ -117,6 +119,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         setConfigurationState(payload.configurationState ?? (config ? "DRAFT" : "NOT_CONFIGURED"));
         setActivationBlockers(Array.isArray(payload.activationBlockers) ? payload.activationBlockers : []);
         setWebhookUrl(payload.webhookUrl ?? "");
+        setError(null);
       })
       .catch((cause) => {
         if (!cancelled && (cause as Error).name !== "AbortError") {
@@ -131,10 +134,9 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
       cancelled = true;
       controller.abort();
     };
-  }, [chapterId]);
+  }, [chapterId, refreshNonce]);
 
   function changeChapter(nextChapterId: string) {
-    setBusy(true);
     setError(null);
     setMessage(null);
     setSavedLinkedAccountId("");
@@ -157,13 +159,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
       const response = await fetch("/api/admin/finance/payment-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          chapterId,
-          mode,
-          linkedAccountId: linkedAccountId.trim(),
-          paymentMethods: selectedMethods,
-          isEnabled: enabled,
-        }),
+        body: JSON.stringify({ chapterId, mode, linkedAccountId: linkedAccountId.trim(), paymentMethods: selectedMethods, isEnabled: enabled }),
       });
       const payload = (await response.json()) as ConfigPayload;
       if (!response.ok) throw new Error(payload.message ?? "Unable to save linked PayMongo account.");
@@ -186,11 +182,9 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         setSelectedMethods(persistedMethods);
         setSavedMethods(persistedMethods);
       }
-      setMessage(
-        payload.config?.isEnabled
-          ? `${currentChapter?.name ?? "Chapter"} online payment is enabled. Child webhook signing is configured.`
-          : `${currentChapter?.name ?? "Chapter"} linked Account ID, mode and payment methods were saved as a disabled draft.`,
-      );
+      setMessage(payload.config?.isEnabled
+        ? `${currentChapter?.name ?? "Chapter"} online payment is enabled. Child webhook signing is configured.`
+        : `${currentChapter?.name ?? "Chapter"} linked Account ID, mode and payment methods were saved as a disabled draft.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save linked PayMongo account.");
     } finally {
@@ -204,7 +198,14 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   const linkedIdSaved = Boolean(savedLinkedAccountId) && savedLinkedAccountId === currentLinkedAccountId;
   const draftMatchesSaved = linkedIdSaved && savedMode === mode && sameMethods(savedMethods, selectedMethods);
   const modeMatchesPlatform = !platformMode || mode === platformMode;
-  const canRequestEnable = platformReady && paymentEncryptionReady && modeMatchesPlatform && draftMatchesSaved;
+  const interactiveBlockers = Array.from(new Set([
+    ...(!draftMatchesSaved ? ["Save the current Account ID, mode and payment methods as a disabled Chapter draft first."] : []),
+    ...(!paymentEncryptionReady ? ["Configure PAYMENT_CONFIG_ENCRYPTION_KEY in the production server environment with a stable value of at least 32 characters."] : []),
+    ...(!platformReady ? [platformMessage ?? "Complete the PSP parent PayMongo platform and convenience-fee configuration."] : []),
+    ...(!modeMatchesPlatform ? [`Chapter mode ${mode} must match PSP platform mode ${platformMode}.`] : []),
+    ...activationBlockers,
+  ]));
+  const canRequestEnable = interactiveBlockers.length === 0;
   const chapterAccountStatus = linkedIdSaved
     ? "Linked ID saved"
     : currentLinkedAccountId.startsWith("org_")
@@ -213,19 +214,33 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         ? "Saved ID has unsaved changes"
         : "Not configured";
 
+  function requestOnlinePayment(nextEnabled: boolean) {
+    setMessage(null);
+    setError(null);
+    if (!nextEnabled) {
+      setEnabled(false);
+      return;
+    }
+    if (!canRequestEnable) {
+      setEnabled(false);
+      setError(`Online Payment remains disabled. ${interactiveBlockers.join(" ")}`);
+      return;
+    }
+    setEnabled(true);
+    setMessage("Activation selected. Click Save & Activate Online Payment to create the child webhook and enable this Chapter.");
+  }
+
   return (
-    <section className="app-panel" style={{ marginTop: 18 }}>
+    <section className="app-panel" style={{ marginTop: 18 }} data-payment-activation-ux-version="national-admin-v2">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
           <small style={{ color: "#806500", fontWeight: 900 }}>PAYMONGO PLATFORMS</small>
           <h2 style={{ margin: "5px 0 6px" }}>Split Payment & Chapter Linked Account</h2>
           <p style={{ color: "#6b665c", lineHeight: 1.6, margin: 0, maxWidth: 820 }}>
-            The PSP parent platform controls split settlement and the convenience fee. Each Chapter then saves its own linked child Account ID, TEST/LIVE draft mode and accepted methods. Saving a disabled Chapter draft does not activate online payment.
+            The PSP parent platform controls split settlement and the convenience fee. Each Chapter then saves its linked child Account ID, TEST/LIVE draft mode and accepted methods. Saving a disabled Chapter draft does not activate online payment.
           </p>
         </div>
-        <span style={{ ...stateBadgeStyle, ...stateBadgeTone(configurationState) }}>
-          {stateLabel(configurationState)}
-        </span>
+        <span style={{ ...stateBadgeStyle, ...stateBadgeTone(configurationState) }}>{stateLabel(configurationState)}</span>
       </div>
 
       <div style={platformPanelStyle}>
@@ -234,7 +249,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
             <small style={{ color: "#806500", fontWeight: 900 }}>PSP PARENT SPLIT-PAYMENT PLATFORM</small>
             <h3 style={{ margin: "4px 0 5px" }}>National / System Payment Setup</h3>
             <p style={{ margin: 0, color: "#6b665c", lineHeight: 1.5, maxWidth: 760 }}>
-              Parent PayMongo credentials and the PSP split/convenience fee are server-level settings. They are intentionally separate from a Chapter&apos;s linked account and no parent secret key is shown in this page.
+              Parent PayMongo credentials, PSP fee and credential encryption are server-level settings. Secret values are intentionally never displayed or stored in this browser form.
             </p>
           </div>
           <span style={{ ...stateBadgeStyle, ...(platformReady ? { background: "#eaf7ec", color: "#245b2a", borderColor: "#bcdcbc" } : { background: "#fff6dd", color: "#684d00", borderColor: "#ebd594" }) }}>
@@ -247,6 +262,30 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
           <ReadinessItem label="Split / Convenience Fee" value={platformConfiguration.feeConfigured ? "Configured" : "Required"} ready={platformConfiguration.feeConfigured} />
           <ReadinessItem label="Credential Encryption" value={paymentEncryptionReady ? "Ready" : "Required for activation"} ready={paymentEncryptionReady} />
         </div>
+
+        {!paymentEncryptionReady ? (
+          <div style={credentialSetupStyle} data-payment-encryption-setup="national-admin-v1">
+            <small style={{ color: "#8b5700", fontWeight: 900 }}>NATIONAL ADMIN ACTION · CREDENTIAL ENCRYPTION</small>
+            <h4 style={{ margin: "5px 0 7px" }}>Configure PAYMENT_CONFIG_ENCRYPTION_KEY</h4>
+            <p style={{ margin: 0, lineHeight: 1.55 }}>
+              This master key protects each Chapter&apos;s PayMongo child-webhook signing secret. For security it is configured only in the production server environment and is never entered in, stored by, or displayed from the PSP Admin page.
+            </p>
+            <ol style={{ margin: "10px 0", paddingLeft: 22, lineHeight: 1.55 }}>
+              <li>Open Hostinger hPanel for <strong>psp.hoahub.tech</strong>, then open the production app&apos;s <strong>Environment Variables</strong> settings.</li>
+              <li>Add <code>PAYMENT_CONFIG_ENCRYPTION_KEY</code> with a unique, stable random value of at least <strong>32 characters</strong>.</li>
+              <li>Save the environment setting and redeploy/restart the production web app so the new value is loaded.</li>
+              <li>Return here and click <strong>Re-check activation readiness</strong>. Credential Encryption must show <strong>Ready</strong>.</li>
+            </ol>
+            <p style={{ margin: "8px 0", fontSize: ".82rem" }}><strong>Security:</strong> do not paste this key into Chapter settings, chat, email, screenshots, source code or GitHub. Keep the same value for existing encrypted webhook secrets unless a controlled key-rotation migration is performed.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <a className="btn" href="https://hpanel.hostinger.com/" target="_blank" rel="noreferrer" style={{ border: "1px solid #d8b45c", background: "#fff" }}>Open Hostinger hPanel</a>
+              <button className="btn" type="button" onClick={() => setRefreshNonce((value) => value + 1)} disabled={busy} style={{ border: "1px solid #d8b45c", background: "#fff" }}>{busy ? "Checking…" : "Re-check activation readiness"}</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ ...successStyle, marginTop: 12 }} data-payment-encryption-setup="ready"><strong>Credential Encryption Ready</strong><div style={{ marginTop: 4 }}>The production server has a valid payment credential encryption key. The key value remains hidden by design.</div></div>
+        )}
+
         <details style={{ marginTop: 12, borderTop: "1px solid #e5dece", paddingTop: 10 }}>
           <summary style={{ cursor: "pointer", fontWeight: 900 }}>Where do I configure PSP split payments?</summary>
           <div style={{ marginTop: 9, color: "#625b4e", lineHeight: 1.55 }}>
@@ -272,12 +311,9 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         <label style={labelStyle}>
           <strong>PayMongo Mode</strong>
           <select value={mode} onChange={(event) => setMode(event.target.value as "TEST" | "LIVE")} disabled={busy || enabled} style={fieldStyle}>
-            <option value="TEST">TEST</option>
-            <option value="LIVE">LIVE</option>
+            <option value="TEST">TEST</option><option value="LIVE">LIVE</option>
           </select>
-          <small style={{ color: "#6b665c" }}>
-            Editable while this Chapter is disabled. Activation requires the Chapter mode to match the PSP parent platform{platformMode ? ` (${platformMode})` : ""}. LIVE also remains blocked until the global LIVE gate is explicitly approved.
-          </small>
+          <small style={{ color: "#6b665c" }}>Editable while this Chapter is disabled. Activation requires the Chapter mode to match the PSP parent platform{platformMode ? ` (${platformMode})` : ""}. LIVE also remains blocked until the global LIVE gate is explicitly approved.</small>
         </label>
         <div>
           <strong>Accepted Payment Methods</strong>
@@ -286,20 +322,22 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
           </div>
         </div>
         {webhookUrl ? <div style={{ padding: 12, background: "#f7f4ec", borderRadius: 12, overflowWrap: "anywhere" }}><small style={{ color: "#746b5b" }}>Chapter webhook endpoint</small><br/><strong>{webhookUrl}</strong><small style={{ display: "block", marginTop: 5, color: "#6b665c" }}>{hasWebhookSecret ? "Webhook signing is configured and stored encrypted." : "This endpoint will be registered on the linked child account only when Online Payment is activated."}</small></div> : null}
-        {!enabled && currentLinkedAccountId.startsWith("org_") && !draftMatchesSaved ? <div style={infoStyle}><strong>Unsaved Chapter payment changes</strong><div style={{ marginTop: 4 }}>Save the disabled Chapter draft first. The Enable Online Payment switch will unlock only after this exact Account ID, mode and payment-method selection are persisted.</div></div> : null}
-        <label style={{ display: "flex", gap: 10, alignItems: "center", minHeight: 48, padding: "9px 11px", border: "1px solid #ddd5c1", borderRadius: 12, background: enabled ? "#fff8df" : "#fff" }}>
+        {!enabled && currentLinkedAccountId.startsWith("org_") && !draftMatchesSaved ? <div style={infoStyle}><strong>Unsaved Chapter payment changes</strong><div style={{ marginTop: 4 }}>Save the disabled Chapter draft first. Online Payment can only be activated from the exact persisted Account ID, mode and method selection.</div></div> : null}
+
+        <label style={{ display: "flex", gap: 10, alignItems: "center", minHeight: 52, padding: "10px 12px", border: `1px solid ${canRequestEnable || enabled ? "#d9bd5d" : "#ddd5c1"}`, borderRadius: 12, background: enabled ? "#fff8df" : "#fff" }}>
           <input
             type="checkbox"
             checked={enabled}
-            onChange={(event) => setEnabled(event.target.checked)}
-            disabled={busy || (!enabled && !canRequestEnable)}
+            onChange={(event) => requestOnlinePayment(event.target.checked)}
+            disabled={busy}
+            aria-describedby="online-payment-activation-help"
             style={{ width: 24, height: 24, flex: "0 0 24px" }}
           />
-          <span><strong>Enable Online Payment</strong><small style={{ display: "block", color: "#6b665c", marginTop: 2 }}>Activation is fail-closed. Save the Chapter as a disabled draft first; this switch unlocks only when the saved draft, parent platform, credential encryption and matching mode are ready.</small></span>
+          <span><strong>{enabled ? "Online Payment activation selected" : "Enable Online Payment"}</strong><small id="online-payment-activation-help" style={{ display: "block", color: "#6b665c", marginTop: 2 }}>{canRequestEnable ? "Ready. Select this control, then click Save & Activate Online Payment." : "Clickable for visibility. If activation is blocked, selecting it will show the exact requirement while keeping Online Payment safely disabled."}</small></span>
         </label>
 
         {!platformReady ? <div style={warningStyle}><strong>Platform activation requirement</strong><div style={{ marginTop: 4 }}>{platformMessage ?? "Complete the PSP parent PayMongo account and convenience-fee configuration."}</div></div> : null}
-        {activationBlockers.length ? <div style={warningStyle}><strong>Before enabling online payment</strong><ul style={{ margin: "7px 0 0", paddingLeft: 20 }}>{activationBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div> : null}
+        {interactiveBlockers.length ? <div style={warningStyle}><strong>Before enabling online payment</strong><ul style={{ margin: "7px 0 0", paddingLeft: 20 }}>{interactiveBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div> : null}
         {message ? <div role="status" style={successStyle}>{message}</div> : null}
         {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
         <button className="btn btn-primary" type="submit" disabled={busy || !selectedMethods.length || !currentLinkedAccountId.startsWith("org_")} style={{ width: "100%", minHeight: 48 }}>{busy ? "Saving…" : enabled ? "Save & Activate Online Payment" : "Save Disabled Chapter Draft"}</button>
@@ -309,12 +347,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 }
 
 function ReadinessItem({ label, value, ready }: { label: string; value: string; ready: boolean }) {
-  return (
-    <div style={{ padding: 11, borderRadius: 12, border: "1px solid #e4ddcf", background: ready ? "#f3faf3" : "#faf8f2" }}>
-      <small style={{ display: "block", color: "#746b5b", fontWeight: 800 }}>{label}</small>
-      <strong style={{ display: "block", marginTop: 3, fontSize: ".9rem" }}>{value}</strong>
-    </div>
-  );
+  return <div style={{ padding: 11, borderRadius: 12, border: "1px solid #e4ddcf", background: ready ? "#f3faf3" : "#faf8f2" }}><small style={{ display: "block", color: "#746b5b", fontWeight: 800 }}>{label}</small><strong style={{ display: "block", marginTop: 3, fontSize: ".9rem" }}>{value}</strong></div>;
 }
 
 function stateLabel(state: ConfigurationState) {
@@ -337,6 +370,7 @@ function stateBadgeTone(state: ConfigurationState): React.CSSProperties {
 const labelStyle: React.CSSProperties = { display: "grid", gap: 7 };
 const fieldStyle: React.CSSProperties = { minHeight: 48, border: "1px solid #ddd5c1", borderRadius: 12, padding: "10px 12px", background: "#fff", font: "inherit" };
 const platformPanelStyle: React.CSSProperties = { marginTop: 16, padding: 14, border: "1px solid #ddd5c1", borderRadius: 14, background: "#fbfaf6" };
+const credentialSetupStyle: React.CSSProperties = { marginTop: 12, padding: 14, border: "1px solid #e7c56a", borderRadius: 12, background: "#fff9e8", color: "#624900" };
 const stateBadgeStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 999, border: "1px solid", fontWeight: 900, fontSize: ".76rem" };
 const warningStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#fff6dd", border: "1px solid #ebd594", color: "#684d00", lineHeight: 1.45 };
 const infoStyle: React.CSSProperties = { padding: 12, borderRadius: 12, background: "#eef6ff", border: "1px solid #bdd6ee", color: "#174d78", lineHeight: 1.45 };
