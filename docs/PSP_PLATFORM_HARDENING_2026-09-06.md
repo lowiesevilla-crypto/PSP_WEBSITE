@@ -3,29 +3,29 @@
 **Requested:** 2026-09-06 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production:** `https://psp.hoahub.tech`  
-**PR:** #34 — merged  
+**Implementation PR:** #34 — merged  
 **Final PR head:** `6a4fbe1552fdcd857363b12975f34c25f0c7b954`  
-**Merge/main SHA:** `3701313f371b473df8400ed7404359fb6a5ccf72`  
+**Implementation merge SHA:** `3701313f371b473df8400ed7404359fb6a5ccf72`  
 **Target release:** `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`
 
-> `COMPLETE (AUTOMATED)` means implementation plus required CI/runtime evidence exists. `PRODUCTION-PROVEN` requires the exact live r14 generation to pass Production Smoke. Provider/device/state-changing facts remain external until directly observed.
+> `COMPLETE (AUTOMATED)` means implementation plus required CI/runtime evidence exists. `PRODUCTION-PROVEN` requires the exact live r14 generation to pass Production Smoke.
 
 ## Requirement Matrix
 
 | ID | Priority | Requirement | Evidence status |
 | --- | --- | --- | --- |
-| PSP-HARD-001 | P0 | Safe per-Chapter PayMongo setup before parent readiness | **COMPLETE (AUTOMATED)** — Draft save, exact Chapter scope, no real webhook, blocked activation preserving `isEnabled=false` proven |
-| PSP-HARD-002 | P0 | Real PayMongo Platforms split settlement per Chapter | **PENDING CONTROLLED PAYMONGO ACCEPTANCE** — real TEST DUES/CONTRIBUTION/OTHER + child webhook/settlement not observed |
-| PSP-HARD-003 | P0 | Finance configurable per Chapter + National authorized visibility | **COMPLETE (AUTOMATED)** — complete-history summaries, rates/assessments/config, responsive registers and isolation green |
-| PSP-HARD-004 | P0 | National/Chapter Admin edit member information within scope | **COMPLETE (AUTOMATED)** — own edit + audit passed; cross-Chapter edit denied; protected fields remain controlled |
-| PSP-HARD-005 | P0 | Public homepage safe updates/events across Chapters | **COMPLETE (AUTOMATED)** — public announcement/event inclusion and private-announcement non-leak proven in runtime CI |
-| PSP-HARD-006 | P1 | Custom certificates for one/multiple/all recipients | **COMPLETE (AUTOMATED)** — scope denial, issuance, metadata, PDF and public QR verification passed |
-| PSP-HARD-007 | P1 | Searchable/paginated responsive Admin table standard | **COMPLETE (AUTOMATED)** — Members, Users, Chapters, Organization, Finance and Certificates converted; lint/typecheck/build green |
-| PSP-HARD-008 | P1 | Professional Member dashboard/payment UX | **COMPLETE (AUTOMATED)** — payment-first hierarchy/readiness/disabled checkout implemented; physical device acceptance external |
-| PSP-HARD-009 | P1 | Complete per-Chapter setup/config workflow | **COMPLETE (APPLICATION)** — lifecycle/admin/branding/organization/finance/payment setup scoped and navigable; real PayMongo activation remains under HARD-002 |
-| PSP-HARD-010 | P1 | PWA/mobile-responsive regression | **COMPLETE (AUTOMATED)** — PWA/auth/security/runtime contracts green; physical Android/iOS remains external |
-| PSP-HARD-011 | P1 | Status/architecture/payment/UI documentation reconciliation | **COMPLETE FOR MERGED IMPLEMENTATION; LIVE EVIDENCE OPEN** — docs reconciled to merge/post-merge CI and production deployment blocker |
-| PSP-HARD-012 | P0 Release | Exact r14 production deployment and smoke | **BLOCKED EXTERNALLY** — first live smoke observed r13 for full window; second retry had 40/40 runner timeouts; third exact retry initiated |
+| PSP-HARD-001 | P0 | Safe per-Chapter PayMongo setup before parent readiness | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-002 | P0 | Real PayMongo Platforms split settlement per Chapter | **PENDING CONTROLLED PAYMONGO ACCEPTANCE** |
+| PSP-HARD-003 | P0 | Finance configurable per Chapter + National authorized visibility | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-004 | P0 | National/Chapter Admin edit member information within scope | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-005 | P0 | Public homepage safe updates/events across Chapters | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-006 | P1 | Custom certificates for one/multiple/all recipients | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-007 | P1 | Searchable/paginated responsive Admin table standard | **COMPLETE (AUTOMATED)** |
+| PSP-HARD-008 | P1 | Professional Member dashboard/payment UX | **COMPLETE (AUTOMATED)**; physical-device acceptance external |
+| PSP-HARD-009 | P1 | Complete per-Chapter setup/config workflow | **COMPLETE (APPLICATION)**; real PayMongo activation remains external |
+| PSP-HARD-010 | P1 | PWA/mobile-responsive regression | **COMPLETE (AUTOMATED)**; physical Android/iOS external |
+| PSP-HARD-011 | P1 | Documentation reconciliation | **COMPLETE FOR IMPLEMENTATION/CI; PRODUCTION BLOCKER RECORDED** |
+| PSP-HARD-012 | P0 Release | Exact r14 production deployment and smoke | **BLOCKED — HOSTINGER STILL SERVES r13** |
 
 ## Implemented Application Contract
 
@@ -33,120 +33,118 @@
 
 States: `NOT_CONFIGURED`, `DRAFT`, `READY`, `ENABLED`, `BLOCKED`.
 
-Draft behavior:
-
-- saves authorized linked `org_*`, mode and methods while disabled;
-- does not require the PSP parent platform;
-- does not call PayMongo or create a child webhook;
-- stores only an internal staged marker where needed;
-- remains non-payable.
-
-Activation requires parent platform/account, deliberate convenience fee, matching mode, unique child account, real child webhook signing readiness, allowed methods and the LIVE global gate when applicable. Failed activation leaves the saved Draft disabled.
+- Disabled Draft can be saved without PSP parent platform readiness.
+- Draft does not call PayMongo, does not create a child webhook and remains non-payable.
+- Activation requires parent platform/account, deliberate convenience fee, matching mode, unique child account, real webhook signing readiness, allowed methods and LIVE gate where applicable.
+- Failed activation preserves `isEnabled=false`.
 
 ### Finance
 
 - effective-dated Chapter rates preserve history;
-- posted assessments remain historical;
+- posted assessments retain historical amounts;
 - member balance is ledger-derived;
-- Finance summaries no longer use only the latest 200 payments;
-- Payments/Balances/Rates/Assessments are searchable and paginated;
+- summaries are not restricted to the latest 200 payments;
+- Payments/Balances/Rates/Assessments are searchable/paginated;
 - Chapter amount, PSP platform fee and gross total remain distinct;
 - National visibility and Chapter isolation are server-authorized.
 
 ### Admin Member Editing
 
-Generic Admin edit validates approved profile/contact fields server-side and does not silently change membership number, login identity or Chapter. Chapter transfer and archive remain audited separate workflows.
+Approved profile/contact fields are server-validated. Generic edit does not silently change membership number, login identity or Chapter. Transfer/archive remain audited separate workflows.
 
 ### Public Content Privacy
 
 - `Announcement.isPublic` defaults false;
-- anonymous homepage announcement query requires `isPublic=true`;
-- Admin explicitly opts into public website publication;
-- protected images remain member-authenticated;
-- events require their existing published lifecycle state.
+- anonymous announcement listing requires `isPublic=true`;
+- Admin explicitly opts into public publication;
+- protected images remain authenticated;
+- events retain published lifecycle requirements.
 
 ### Custom Certificates
 
-Supported types: Membership, Attendance, Appreciation, Recognition, Outstanding Member and Custom. Admin may issue to one, multiple or all eligible in-scope active recipients. One immutable recipient record/token is created per issue; batch+member uniqueness protects retry idempotency. Chairman and certificate metadata are snapshotted. Member PDF and public QR verification render the actual certificate metadata.
+Supported types: Membership, Attendance, Appreciation, Recognition, Outstanding Member and Custom. Admin issuance supports one, multiple or all eligible in-scope recipients, batch+member idempotency, Chairman/metadata snapshot, member download and public QR verification.
 
 ### Admin Table / Mobile Standard
 
-Member Directory/Members, Users, Chapters, Organization, Finance and Certificate registers use server pagination, search/filter URL state, result/page counts, semantic tables and below-768px labeled row-to-record-card transformation.
+Members, Users, Chapters, Organization, Finance and Certificate registers use server pagination, search/filter state, result/page counts, semantic desktop tables and mobile labeled record-card transformation.
 
 ### Member Dashboard / PWA
 
-Member home prioritizes outstanding balance, Pay/View Dues, payment readiness/methods, receipts, confirmed contributions, Digital ID, certificates, Chapter and security. Stable manifest `id: "/"` remains unchanged; r14 changes deployment generation only.
+Member home prioritizes balance, Pay/View Dues, payment readiness/methods, receipts, contributions, Digital ID, certificates, Chapter and security. Stable manifest `id: "/"` remains unchanged.
 
 ## Automated Release Evidence
 
-### Exact PR head
+### Implementation PR #34
 
-- final head: `6a4fbe1552fdcd857363b12975f34c25f0c7b954`
-- PSP CI #572 / run `34004473069`: **PASSED every gate**
-- unresolved review threads: none
-- merged using exact expected head only
+- exact head `6a4fbe1552fdcd857363b12975f34c25f0c7b954`;
+- PSP CI #572 / run `34004473069`: **PASSED every gate**;
+- no unresolved review threads;
+- merged with expected exact head only.
 
-### Post-merge main
+### Implementation post-merge
 
-- merge/main SHA: `3701313f371b473df8400ed7404359fb6a5ccf72`
-- PSP CI #573 / run `34005600398`: **PASSED every gate**
+- merge SHA `3701313f371b473df8400ed7404359fb6a5ccf72`;
+- PSP CI #573 / run `34005600398`: **PASSED every gate**.
 
-Gates include secret/security config scans, Prisma validate/generate/schema apply, seed/bootstrap, cross-Chapter fixtures, platform-hardening fixtures, ESLint, hardening source contracts, TypeScript, production build, runtime security/PWA/isolation/hardening smoke, and production dependency audit enforcement.
+### Documentation reconciliation PR #35
 
-Runtime CI proves own-vs-foreign member editing, PayMongo Draft/blocked activation, foreign payment/certificate denial, successful custom certificate PDF/public verification, explicit-public announcement persistence, public-feed inclusion, private-announcement non-leakage and existing isolation/security/PWA contracts.
+- exact head `c677b1a7789884855f9aaa3b088f8398825d3f7e`;
+- PSP CI #578: **PASSED every gate**;
+- merged;
+- documentation-bearing main SHA `38b9a2ed95300201bc0befa744c8611ac970037d`;
+- post-merge PSP CI #579 / run `34007514538`: **PASSED every gate**.
 
-## Production Validation Evidence
+Automated gates cover Prisma/schema/bootstrap, lint/typecheck/build, cross-Chapter fixtures, platform-hardening fixtures, runtime security/PWA/isolation tests and production dependency audit.
 
-Production Smoke run #25 targets exact `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`.
+Runtime hardening proves own-vs-foreign member editing, PayMongo Draft/blocked activation, foreign payment/certificate denial, successful custom certificate PDF/public verification, explicit-public announcement persistence, public-feed inclusion and private-announcement non-leakage.
 
-### Attempt 1
+## Definitive Production Validation
 
-- production endpoint reachable: **40/40 probes HTTP 200**;
-- DNS/network healthy from runner;
-- last live health payload still reported `2026-09-05-r13 / 2026-09-05-release-keyed-pwa-install-v1`;
-- result: **FAIL — Hostinger had not published r14**;
-- later readiness/public/PWA/security assertions correctly skipped.
+Fresh Production Smoke run #26 / run `34007514552` targeted current `main` and exact r14 identity.
 
-### Attempt 2
+From **10:51 PHT through 11:01 PHT on 2026-09-06**:
 
-- exact same merge SHA and unchanged smoke criteria;
-- all 40 runner probes timed out with HTTP `000` while DNS resolved;
-- result: **FAIL — external reachability/hosting gate**;
-- no r14 application assertion executed.
+- all 40 `/api/health` probes returned HTTP 200;
+- network-level failures: 0/40;
+- production DNS resolved normally;
+- the final health payload still reported `release=2026-09-05-r13` and `deploymentGeneration=2026-09-05-release-keyed-pwa-install-v1`.
 
-### Attempt 3
+Expected: `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`.
 
-- triggered against the same merge SHA with unchanged exact-release criteria;
-- current outcome must be recorded before r14 is called production-proven.
+Result: **FAIL — exact r14 deployment never became visible.** Readiness/public/PWA/security r14 assertions were skipped by design because the older build cannot satisfy release acceptance.
 
-This evidence means the merged implementation is correct under exact-head and post-merge runtime CI, but **correct production deployment is not yet proven**. The last directly observed live application identity remains r13.
+Therefore:
 
-## Production Acceptance Required for Closure
+- r14 implementation correctness is proven in exact-head and post-merge runtime CI;
+- r14 production deployment correctness is **not** proven;
+- the last directly observed live production identity is r13;
+- Hostinger deployment/Git integration must be repaired or manually redeployed before further production application verification.
 
-Production Smoke must reach exact r14 and then pass:
+## Production Acceptance Required After Hosting Repair
 
-1. `/api/health` exact release/generation;
+Once Hostinger serves latest `main`, rerun Production Smoke unchanged and require:
+
+1. exact r14 `/api/health` identity;
 2. `/api/health/ready` database/auth/baseline/member-mobile/custom-certificate/public-announcement/auth-config checks;
-3. public homepage r14 global-feed marker;
-4. PWA manifest/install/registration/login release markers;
+3. public homepage global-feed marker;
+4. PWA manifest/install/registration/login markers;
 5. security headers;
-6. canonical login 401 and cross-site rejection 403;
+6. canonical invalid login 401 and cross-site rejection 403;
 7. public member/certificate verification routes without application 500.
+
+If an application assertion then fails, fix that exact cause through a new PR and again merge only an exact passing head. Do not change application code simply to force Hostinger to publish.
 
 ## Controlled / External Pending
 
-- Hostinger exact r14 publish + full Production Smoke;
-- real PayMongo Platforms TEST DUES split payment;
-- real TEST CONTRIBUTION payment;
-- real TEST OTHER payment;
+- Hostinger deploy latest `main` + full r14 Production Smoke;
+- real PayMongo Platforms TEST DUES/CONTRIBUTION/OTHER split payments;
 - real child webhook/signature and split settlement;
 - provider invalid/duplicate/cross-Chapter webhook acceptance;
 - controlled LIVE payment after TEST signoff + explicit owner approval;
 - actual recipient email receipt/rendering;
-- physical Android installed PWA;
-- physical iPhone/iPad Add-to-Home-Screen;
+- physical Android/iOS PWA acceptance;
 - real passkey device acceptance;
-- second-device Digital ID / Certificate QR acceptance where required;
+- second-device Digital ID / Certificate QR acceptance;
 - database backup/restore drill;
 - controlled production credential/state-changing acceptance and bootstrap cleanup/rotation where required.
 
