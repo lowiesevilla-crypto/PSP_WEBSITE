@@ -1,7 +1,7 @@
 import { decryptSecret } from "@/lib/security/encryption";
 import { prisma } from "@/lib/prisma";
 import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
-import { isPendingLinkedWebhookSecret } from "@/lib/paymongo/chapter-config-state";
+import { isPendingLinkedWebhookSecret, PENDING_LINKED_WEBHOOK_SECRET } from "@/lib/paymongo/chapter-config-state";
 
 export type ChapterPayMongoRuntimeConfig = {
   chapterId: string;
@@ -21,6 +21,17 @@ function normalizeMethods(value: unknown) {
   return methods.length ? Array.from(new Set(methods)) : ["qrph"];
 }
 
+function linkedAccountFromStorage(value: string) {
+  const direct = value.trim();
+  if (direct.startsWith("org_")) return direct;
+  return decryptSecret(value);
+}
+
+function webhookSecretFromStorage(value: string) {
+  if (value === PENDING_LINKED_WEBHOOK_SECRET) return value;
+  return decryptSecret(value);
+}
+
 export async function getChapterPayMongoConfig(chapterId: string): Promise<ChapterPayMongoRuntimeConfig> {
   const config = await prisma.chapterPaymentConfig.findUnique({
     where: { chapterId },
@@ -30,11 +41,12 @@ export async function getChapterPayMongoConfig(chapterId: string): Promise<Chapt
     throw new Error("Online payment is not configured for this chapter.");
   }
 
-  // The legacy-named secretKeyCiphertext column is intentionally retained for
-  // additive production compatibility. In linked-account mode it stores the
-  // encrypted PayMongo child Account-Id (org_*), never a chapter API secret.
-  const accountId = decryptSecret(config.secretKeyCiphertext);
-  const webhookSecret = decryptSecret(config.webhookSecretCiphertext);
+  // The legacy-named secretKeyCiphertext column is retained for additive
+  // production compatibility. In linked-account mode it stores only the
+  // PayMongo child Account ID (org_*), which is a non-secret identifier. Older
+  // encrypted identifiers remain readable during the compatibility window.
+  const accountId = linkedAccountFromStorage(config.secretKeyCiphertext);
+  const webhookSecret = webhookSecretFromStorage(config.webhookSecretCiphertext);
   if (!accountId.startsWith("org_")) {
     throw new Error("Chapter PayMongo linked account id is invalid.");
   }
