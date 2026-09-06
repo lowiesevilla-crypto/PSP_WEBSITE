@@ -9,7 +9,9 @@ interface AssessmentTypeOption { code: string; name: string }
 export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option[]; assessmentTypes: AssessmentTypeOption[] }) {
   const router = useRouter();
   const [rateMessage, setRateMessage] = useState<string | null>(null);
+  const [rateSuccess, setRateSuccess] = useState(false);
   const [assessmentMessage, setAssessmentMessage] = useState<string | null>(null);
+  const [assessmentSuccess, setAssessmentSuccess] = useState(false);
   const [busyAction, setBusyAction] = useState<"rate" | "assessment" | null>(null);
   const busy = busyAction !== null;
 
@@ -18,6 +20,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
     if (busy) return;
     setBusyAction("rate");
     setRateMessage(null);
+    setRateSuccess(false);
     const form = new FormData(event.currentTarget);
     const chapterId = String(form.get("chapterId") || "");
     const effectiveFrom = String(form.get("effectiveFrom") || "");
@@ -38,6 +41,8 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         return;
       }
       const savedId = typeof payload.rate?.id === "string" ? payload.rate.id : "";
+      setRateSuccess(true);
+      setRateMessage(`Rate saved successfully${savedId ? ` · Record ${savedId}` : ""}. Opening the persisted Rates register…`);
       const query = new URLSearchParams({ view: "rates", chapter: chapterId, notice: "rate" });
       if (savedId) query.set("saved", savedId);
       router.push(`/admin/finance?${query.toString()}`);
@@ -54,6 +59,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
     if (busy) return;
     setBusyAction("assessment");
     setAssessmentMessage(null);
+    setAssessmentSuccess(false);
     const form = new FormData(event.currentTarget);
     const chapterId = String(form.get("chapterId") || "");
     const iso = (name: string) => {
@@ -83,6 +89,8 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
       }
       const savedId = typeof payload.assessment?.id === "string" ? payload.assessment.id : "";
       const chargedMembers = Number.isInteger(payload.chargedMembers) ? String(payload.chargedMembers) : "0";
+      setAssessmentSuccess(true);
+      setAssessmentMessage(`Assessment saved and posted to ${chargedMembers} ACTIVE member(s)${savedId ? ` · Record ${savedId}` : ""}. Opening the persisted Assessments register…`);
       const query = new URLSearchParams({ view: "assessments", chapter: chapterId, notice: "assessment", chargedMembers });
       if (savedId) query.set("saved", savedId);
       router.push(`/admin/finance?${query.toString()}`);
@@ -107,7 +115,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         <label>Amount (PHP)<input name="amount" type="number" min="0.01" step="0.01" required /></label>
         <label>Effective From<input name="effectiveFrom" type="datetime-local" required /></label>
         <button className="btn btn-primary" disabled={busy}>{busyAction === "rate" ? "Saving rate…" : "Save Rate"}</button>
-        {rateMessage && <p role="alert" style={{ margin: 0, color: "#7b2424" }}>{rateMessage}</p>}
+        {rateMessage && <p role={rateSuccess ? "status" : "alert"} style={{ margin: 0, color: rateSuccess ? "#245b2a" : "#7b2424", fontWeight: 700 }}>{rateMessage}</p>}
       </form>
 
       <form className="app-panel" onSubmit={submitAssessment} style={{ display: "grid", gap: 12 }}>
@@ -124,7 +132,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
           <label>Due Date<input name="dueAt" type="datetime-local" /></label>
         </div>
         <button className="btn btn-primary" disabled={busy}>{busyAction === "assessment" ? "Posting to active members…" : "Post to Active Members"}</button>
-        {assessmentMessage && <p role="alert" style={{ margin: 0, color: "#7b2424" }}>{assessmentMessage}</p>}
+        {assessmentMessage && <p role={assessmentSuccess ? "status" : "alert"} style={{ margin: 0, color: assessmentSuccess ? "#245b2a" : "#7b2424", fontWeight: 700 }}>{assessmentMessage}</p>}
       </form>
     </div>
   );
