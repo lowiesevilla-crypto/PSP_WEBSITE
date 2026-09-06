@@ -42,7 +42,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   const [platformMessage, setPlatformMessage] = useState<string | null>(null);
   const [configurationState, setConfigurationState] = useState<ConfigurationState>("NOT_CONFIGURED");
   const [activationBlockers, setActivationBlockers] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(Boolean(chapters[0]?.id));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,13 +50,13 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
 
   useEffect(() => {
     if (!chapterId) return;
+    const controller = new AbortController();
     let cancelled = false;
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    fetch(`/api/admin/finance/payment-config?chapterId=${encodeURIComponent(chapterId)}`, {
+
+    void fetch(`/api/admin/finance/payment-config?chapterId=${encodeURIComponent(chapterId)}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
+      signal: controller.signal,
     })
       .then(async (response) => {
         const payload = (await response.json()) as ConfigPayload;
@@ -77,10 +77,27 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
         setSelectedMethods(configuredMethods.length ? configuredMethods : ["qrph"]);
         setWebhookUrl(payload.webhookUrl ?? "");
       })
-      .catch((cause) => !cancelled && setError(cause instanceof Error ? cause.message : "Unable to load payment configuration."))
-      .finally(() => !cancelled && setBusy(false));
-    return () => { cancelled = true; };
+      .catch((cause) => {
+        if (!cancelled && (cause as Error).name !== "AbortError") {
+          setError(cause instanceof Error ? cause.message : "Unable to load payment configuration.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [chapterId]);
+
+  function changeChapter(nextChapterId: string) {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    setChapterId(nextChapterId);
+  }
 
   function toggleMethod(method: Method) {
     setSelectedMethods((current) => current.includes(method) ? current.filter((item) => item !== method) : [...current, method]);
@@ -152,7 +169,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
       </div>
 
       <form onSubmit={submit} style={{ display: "grid", gap: 14, marginTop: 18 }}>
-        <label style={labelStyle}><strong>Chapter</strong><select value={chapterId} onChange={(event) => setChapterId(event.target.value)} style={fieldStyle}>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></label>
+        <label style={labelStyle}><strong>Chapter</strong><select value={chapterId} onChange={(event) => changeChapter(event.target.value)} disabled={busy} style={fieldStyle}>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></label>
         <label style={labelStyle}>
           <strong>PayMongo Linked Child Account ID</strong>
           <input autoComplete="off" value={linkedAccountId} onChange={(event) => setLinkedAccountId(event.target.value)} placeholder="org_..." style={fieldStyle} />
