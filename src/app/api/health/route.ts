@@ -13,6 +13,7 @@ export async function GET() {
       service: "psi-sigma-phi-digital-platform",
       release: PSP_RELEASE_ID,
       deploymentGeneration: PSP_DEPLOYMENT_GENERATION,
+      financePaymentConfigVersion: "chapter-draft-ux-v2",
       timestamp: new Date().toISOString(),
     },
     {
