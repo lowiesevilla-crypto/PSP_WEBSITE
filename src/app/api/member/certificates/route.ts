@@ -4,6 +4,7 @@ import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
 import { prisma } from "@/lib/prisma";
 import { requireCurrentMember } from "@/lib/member/current-member";
 import { checkCertificateEligibility } from "@/lib/certificates/eligibility";
+import { sendCertificateIssuedEmail } from "@/lib/certificates/delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,59 @@ export async function POST() {
       return certificate;
     });
 
-    return NextResponse.json({ certificate: created, created: true }, { status: 201 });
+    const memberName = [member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ");
+    let emailDelivery: "sent" | "failed" = "failed";
+    try {
+      await sendCertificateIssuedEmail({
+        certificateId: created.id,
+        certificateNumber: created.certificateNumber,
+        certificateType: created.certificateType,
+        title: created.title,
+        citationText: created.citationText,
+        certificateDate: created.certificateDate,
+        referenceLabel: created.referenceLabel,
+        issuedAt: created.issuedAt,
+        verificationToken: created.verificationToken,
+        memberName,
+        membershipNo: member.membershipNo,
+        memberEmail: member.user.email,
+        chapterId: member.chapterId,
+        chapterName: member.chapter.name,
+        chapterLogoUrl: member.chapter.logoUrl,
+        chapterEmail: member.chapter.email,
+        signatoryName: chairman.name,
+        signatoryTitle: chairman.title,
+      });
+      emailDelivery = "sent";
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: context.user.id,
+          chapterId: member.chapterId,
+          action: "CERTIFICATE_EMAIL_SENT",
+          entityType: "Certificate",
+          entityId: created.id,
+          metadataJson: { certificateNumber: created.certificateNumber, recipientUserId: member.userId },
+        },
+      });
+    } catch (error) {
+      console.error("Certificate email delivery failed", error);
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: context.user.id,
+          chapterId: member.chapterId,
+          action: "CERTIFICATE_EMAIL_FAILED",
+          entityType: "Certificate",
+          entityId: created.id,
+          metadataJson: {
+            certificateNumber: created.certificateNumber,
+            recipientUserId: member.userId,
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          },
+        },
+      });
+    }
+
+    return NextResponse.json({ certificate: created, created: true, emailDelivery }, { status: 201 });
   } catch (error) {
     return errorResponse(error);
   }
