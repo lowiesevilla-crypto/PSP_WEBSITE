@@ -21,6 +21,7 @@ export async function requireCurrentMember() {
           description: true,
           foundingDate: true,
           address: true,
+          email: true,
           logoUrl: true,
           status: true,
         },
