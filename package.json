@@ -35,6 +35,9 @@
     "prisma": "6.19.3",
     "typescript": "^5.9.0"
   },
+  "overrides": {
+    "deepmerge-ts": "8.0.1"
+  },
   "engines": {
     "node": ">=22.0.0"
   }
