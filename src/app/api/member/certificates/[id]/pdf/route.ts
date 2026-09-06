@@ -54,6 +54,11 @@ export async function GET(
       verificationToken: certificate.verificationToken,
       signatoryName,
       signatoryTitle,
+      certificateType: certificate.certificateType,
+      title: certificate.title,
+      citationText: certificate.citationText,
+      certificateDate: certificate.certificateDate,
+      referenceLabel: certificate.referenceLabel,
     });
 
     return new Response(Buffer.from(pdf), {
