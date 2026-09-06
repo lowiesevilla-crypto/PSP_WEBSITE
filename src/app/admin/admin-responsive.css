@@ -1,10 +1,155 @@
-/* Mobile card transformation for dense administration tables. */
+/* PSP administration table, search, pagination and mobile record-card standard. */
+.admin-list-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+  padding: 14px;
+  margin-bottom: 14px;
+  border: 1px solid #e2dccf;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-list-toolbar label {
+  display: grid;
+  gap: 5px;
+  min-width: min(100%, 180px);
+  flex: 1 1 180px;
+  color: #615847;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-list-toolbar input,
+.admin-list-toolbar select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #d8d1c4;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #fff;
+  color: #1e1c18;
+  font: inherit;
+}
+
+.admin-list-toolbar .admin-search-field {
+  flex: 2 1 280px;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2dccf;
+  border-radius: 14px;
+  background: #fff;
+}
+
 .admin-responsive-table {
   width: 100%;
   border-collapse: collapse;
+  background: #fff;
+}
+
+.admin-responsive-table th {
+  padding: 11px 12px;
+  border-bottom: 1px solid #ddd5c7;
+  background: #f7f4ec;
+  color: #5e5544;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-responsive-table td {
+  padding: 12px;
+  border-top: 1px solid #eee9df;
+  vertical-align: top;
+  color: #312d25;
+}
+
+.admin-responsive-table tbody tr:first-child td {
+  border-top: 0;
+}
+
+.admin-responsive-table tbody tr:hover {
+  background: #fffdf7;
+}
+
+.admin-table-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.admin-pagination {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.admin-pagination-summary {
+  color: #6c6353;
+  font-size: 0.88rem;
+}
+
+.admin-pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-page-button {
+  min-height: 42px;
+  min-width: 92px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ddd5c1;
+  background: #fff;
+}
+
+.admin-page-button.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 @media (max-width: 767px) {
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-list-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-list-toolbar label,
+  .admin-list-toolbar .admin-search-field {
+    flex-basis: 100%;
+  }
+
+  .admin-list-toolbar .btn {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .admin-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
   .admin-responsive-table {
     min-width: 0 !important;
   }
@@ -66,6 +211,19 @@
     font-weight: 850;
     letter-spacing: 0.035em;
     text-transform: uppercase;
+  }
+
+  .admin-table-actions {
+    min-width: 0;
+  }
+
+  .admin-pagination,
+  .admin-pagination-actions {
+    width: 100%;
+  }
+
+  .admin-pagination-actions > * {
+    flex: 1;
   }
 }
 
