@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
+import sharp from "sharp";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { privateMediaStorageKey } from "@/lib/content/media";
+import { readPrivateFile } from "@/lib/storage/private-media";
 
 function appOrigin() {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "https://psp.hoahub.tech").replace(/\/$/, "");
@@ -39,10 +42,45 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number, m
   return lines;
 }
 
+function safePublicAssetPath(value: string) {
+  const publicRoot = path.resolve(process.cwd(), "public");
+  const candidate = path.resolve(publicRoot, `.${value}`);
+  if (!candidate.startsWith(`${publicRoot}${path.sep}`)) return null;
+  return candidate;
+}
+
+async function certificateLogoPng(chapterLogoUrl: string | null) {
+  let source: Buffer;
+  const storageKey = privateMediaStorageKey(chapterLogoUrl);
+
+  if (storageKey) {
+    source = await readPrivateFile(storageKey);
+  } else if (chapterLogoUrl?.startsWith("/")) {
+    const publicPath = safePublicAssetPath(chapterLogoUrl);
+    if (!publicPath) throw new Error("Invalid Chapter logo path.");
+    source = await readFile(publicPath);
+  } else if (chapterLogoUrl) {
+    throw new Error("Chapter certificate logo must be uploaded to PSP managed storage.");
+  } else {
+    source = await readFile(path.join(process.cwd(), "public", "brand", "psp-logo.jpg"));
+  }
+
+  return sharp(source)
+    .rotate()
+    .resize(512, 512, {
+      fit: "contain",
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+      withoutEnlargement: true,
+    })
+    .png()
+    .toBuffer();
+}
+
 export async function generateMembershipCertificatePdf(input: {
   memberName: string;
   membershipNo: string;
   chapterName: string;
+  chapterLogoUrl: string | null;
   certificateNumber: string;
   issuedAt: Date;
   verificationToken: string;
@@ -68,13 +106,9 @@ export async function generateMembershipCertificatePdf(input: {
   page.drawRectangle({ x: 18, y: 18, width: width - 36, height: height - 36, borderWidth: 3, borderColor: black });
   page.drawRectangle({ x: 27, y: 27, width: width - 54, height: height - 54, borderWidth: 1.5, borderColor: gold });
 
-  try {
-    const logoBytes = await readFile(path.join(process.cwd(), "public", "brand", "psp-logo.jpg"));
-    const logo = await document.embedJpg(logoBytes);
-    page.drawImage(logo, { x: width / 2 - 42, y: height - 126, width: 84, height: 84 });
-  } catch {
-    // Certificate remains valid if the optional embedded logo asset is temporarily unavailable.
-  }
+  const logoBytes = await certificateLogoPng(input.chapterLogoUrl);
+  const logo = await document.embedPng(logoBytes);
+  page.drawImage(logo, { x: width / 2 - 42, y: height - 126, width: 84, height: 84 });
 
   const centerText = (text: string, y: number, size: number, font = serif, color = black) => {
     const textWidth = font.widthOfTextAtSize(text, size);
