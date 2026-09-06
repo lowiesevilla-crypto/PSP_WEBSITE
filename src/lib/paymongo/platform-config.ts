@@ -42,7 +42,9 @@ export function getPlatformPayMongoConfig(): PlatformPayMongoConfig {
     throw new Error("PAYMONGO_PLATFORM_SECRET_KEY must be a PayMongo test or live secret key.");
   }
   if (mode === "LIVE" && process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() !== "true") {
-    throw new Error("PayMongo live processing is disabled pending test-mode signoff and explicit approval.");
+    throw new Error(
+      "Server LIVE kill-switch is OFF. National Admin must first complete Admin > Live Approval (/admin/finance/live-approval), then set PAYMONGO_LIVE_ENABLED=true in the Hostinger production environment and redeploy.",
+    );
   }
 
   const feeBasisPoints = integerEnv("PLATFORM_CONVENIENCE_FEE_BPS", 0, 10000);
