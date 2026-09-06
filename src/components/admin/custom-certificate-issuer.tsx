@@ -82,9 +82,21 @@ export function CustomCertificateIssuer({ chapters, members }: { chapters: Chapt
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = (await response.json()) as { message?: string; createdCount?: number; skippedCount?: number; requestedCount?: number };
+      const result = (await response.json()) as {
+        message?: string;
+        createdCount?: number;
+        skippedCount?: number;
+        requestedCount?: number;
+        emailSentCount?: number;
+        emailFailedCount?: number;
+      };
       if (!response.ok) throw new Error(result.message ?? "Unable to issue certificates.");
-      setMessage(`Certificate batch processed: ${result.createdCount ?? 0} issued, ${result.skippedCount ?? 0} skipped out of ${result.requestedCount ?? 0} selected.`);
+      const sent = result.emailSentCount ?? 0;
+      const failed = result.emailFailedCount ?? 0;
+      const emailSummary = failed > 0
+        ? ` Email delivery: ${sent} sent, ${failed} failed. Failed deliveries are recorded in Audit.`
+        : ` Email delivery: ${sent} sent.`;
+      setMessage(`Certificate batch processed: ${result.createdCount ?? 0} issued, ${result.skippedCount ?? 0} skipped out of ${result.requestedCount ?? 0} selected.${emailSummary}`);
       setSelected([]);
       setBatchId(`cert-batch-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`);
       router.refresh();
@@ -98,13 +110,13 @@ export function CustomCertificateIssuer({ chapters, members }: { chapters: Chapt
   if (!chapters.length) return null;
 
   return (
-    <section className="app-panel" style={{ marginBottom: 18 }} data-custom-certificate-tool-version="bulk-v1">
+    <section className="app-panel" style={{ marginBottom: 18 }} data-custom-certificate-tool-version="bulk-v2-email">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
         <div>
           <small style={{ color: "#806500", fontWeight: 900 }}>CHAPTER CERTIFICATE TOOL</small>
           <h2 style={{ margin: "5px 0 6px" }}>Create & Assign Certificates</h2>
           <p style={{ margin: 0, maxWidth: 760, color: "#6b665c", lineHeight: 1.55 }}>
-            Create Attendance, Appreciation, Recognition, Outstanding Member or custom certificates, then assign them to one, multiple or all active members in an authorized Chapter. Every recipient receives a unique verifiable certificate and download.
+            Create Attendance, Appreciation, Recognition, Outstanding Member or custom certificates, then assign them to one, multiple or all active members in an authorized Chapter. Every newly issued certificate is emailed to the member with the Chapter Chairman&apos;s letter, the Chapter-logo PDF attachment and a QR verification link.
           </p>
         </div>
         <span style={{ padding: "7px 10px", borderRadius: 999, background: "#fff6dd", border: "1px solid #ebd594", color: "#684d00", fontWeight: 900, fontSize: ".76rem" }}>QR VERIFIED</span>
@@ -135,7 +147,7 @@ export function CustomCertificateIssuer({ chapters, members }: { chapters: Chapt
           </Field>
         </div>
 
-        <Field label="Citation / Certificate Text">
+        <Field label="Citation / Appreciation Letter Text">
           <textarea name="citationText" rows={4} maxLength={1500} style={{ ...fieldStyle, resize: "vertical" }} placeholder="Example: In grateful appreciation of exemplary service, dedication and contribution to the Chapter and Psi Sigma Phi Philippines Inc." />
         </Field>
         <Field label="Event / Reference (optional)">
