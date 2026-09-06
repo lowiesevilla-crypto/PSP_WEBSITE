@@ -20,9 +20,7 @@ export default async function AdminAnnouncementsPage() {
   });
 
   const recent = await prisma.announcement.findMany({
-    where: canPublishNational
-      ? undefined
-      : { chapterId: { in: scope ?? [] } },
+    where: canPublishNational ? undefined : { chapterId: { in: scope ?? [] } },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: { chapter: { select: { name: true } } },
@@ -39,6 +37,7 @@ export default async function AdminAnnouncementsPage() {
           <AnnouncementManager chapters={chapters} canPublishNational={canPublishNational} />
           <section className="app-panel">
             <h2 style={{ marginTop: 0 }}>Recent Announcements</h2>
+            <p style={{ color: "#6b665c", lineHeight: 1.5 }}>The visibility badge confirms whether an announcement is member-only or explicitly published to the public PSP website.</p>
             <div className="admin-history-list">
               {recent.length === 0 ? <p style={{ color: "#6b665c" }}>No announcements yet.</p> : recent.map((item) => {
                 const imageUrl = contentMediaUrl("announcement", item.id, item.imageUrl);
@@ -48,6 +47,7 @@ export default async function AdminAnnouncementsPage() {
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <strong>{item.title}</strong>
                       <small>{item.audience === "NATIONAL" ? "National" : item.chapter?.name ?? "Chapter"}</small>
+                      <small style={{ fontWeight: 900, color: item.isPublic ? "#27643a" : "#6b665c" }}>{item.isPublic ? "PUBLIC WEBSITE" : "MEMBERS ONLY"}</small>
                       {item.isPinned && <small style={{ fontWeight: 900, color: "#7c5a00" }}>PINNED</small>}
                     </div>
                     <p style={{ color: "#6b665c", marginBottom: 6, lineHeight: 1.55 }}>{item.body}</p>
