@@ -10,11 +10,25 @@
 - Runtime: Node.js 22+
 - Database: dedicated PSP MySQL, completely separate from HOAHub
 
-## Current Deployment Status — 2026-09-04
+## Current Deployment Status — 2026-09-06
 
-Current production foundation is **GREEN** through the guarded Hostinger schema/bootstrap release and verified real System Administrator `/admin` browser login.
+PSP r14 application code is **MERGED AND POST-MERGE CI GREEN**, but exact production deployment is **NOT YET PROVEN**.
 
-The next release is PR #13, branch `feat/member-mobile-core-2026-09-04`, covering member-mobile/PWA/passkey/Digital ID/Chairman certificate and PayMongo Platforms split payments. PR #13 is not production-complete until exact-head CI passes, it is merged, Hostinger deploys it, and the live validation gates in `STATUS.md` / `MEMBER_MOBILE_P0.md` are proven.
+Current release evidence:
+
+- target identity: `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`;
+- PR #34 final exact head: `6a4fbe1552fdcd857363b12975f34c25f0c7b954`;
+- exact-head PSP CI #572 / run `34004473069`: PASSED;
+- merge/main SHA: `3701313f371b473df8400ed7404359fb6a5ccf72`;
+- post-merge PSP CI #573 / run `34005600398`: PASSED every required gate.
+
+Production Smoke run #25 has not yet proven r14:
+
+- attempt 1: production was reachable on all 40 probes but remained on r13 for the complete deployment window;
+- attempt 2: GitHub runner timed out on all 40 probes while DNS still resolved;
+- attempt 3: exact retry initiated against the same merge SHA.
+
+Do not mark r14 deployed until `/api/health` reports the exact r14 release/generation and the remaining readiness/public/PWA/security smoke steps pass.
 
 ## Hostinger Application Setup
 
@@ -27,33 +41,27 @@ Start command supplied by repo: npm run start
 Canonical URL: https://psp.hoahub.tech
 ```
 
-Hostinger may manage runtime start itself, so required first-time/upgrade initialization is invoked by `npm run build` when `APP_ENV=production`.
+The repository contains CI and Production Smoke workflows only; it does **not** contain a GitHub Actions production-publish workflow. Hostinger deployment is therefore an external hosting/Git integration responsibility. A successful Git merge is not production evidence by itself.
 
-## Production Schema / Member-Mobile Upgrade Safety
+Hostinger may manage runtime start itself, so guarded production initialization is invoked by `npm run build` when `APP_ENV=production`.
+
+## Production Schema Upgrade Safety
 
 `scripts/production-build-init.mjs` runs before `next build` only for `APP_ENV=production`.
 
 Safety rules:
 
 1. Require `DATABASE_URL`.
-2. Inspect only the connected DB's `information_schema` to classify schema state.
-3. Empty dedicated PSP DB: may apply initial Prisma schema.
-4. Recognized pre-member-mobile PSP schema: may apply the reviewed additive member-mobile schema sync.
-5. Exact current member-mobile schema: automatic schema push is skipped.
-6. Partial/unknown member-mobile schema: fail closed and refuse automatic sync.
+2. Inspect only the connected PSP DB `information_schema` to classify schema state.
+3. Empty dedicated PSP DB may receive initial Prisma schema.
+4. Recognized additive upgrade states may synchronize only the reviewed additive fields.
+5. Exact current schema skips unnecessary push.
+6. Partial/unknown schema fails closed.
 7. Automatic Prisma invocation never passes `--accept-data-loss`.
 8. Existing PSP baseline/System Admin synchronization remains idempotent.
-9. Member-mobile upgrade additively synchronizes Chapter Admin `finance.view` / `finance.manage` permissions.
-10. Existing active members receive Digital Member IDs through an idempotent backfill.
-11. Any failure stops the build rather than publishing a partially upgraded release.
-
-The additive member-mobile schema introduces/uses:
-
-- `PasskeyCredential`
-- `DigitalMemberId`
-- `ChapterPaymentConfig`
-- Payment category/description
-- certificate Chairman signatory snapshot fields
+9. Existing member-mobile/finance permissions and Digital Member ID backfill remain idempotent.
+10. r14 hardening schema includes custom-certificate metadata and `Announcement.isPublic`.
+11. Any initialization failure stops the build rather than publishing a partial release.
 
 Before any future non-additive production schema change, take a verified backup and use a reviewed migration/recovery plan.
 
@@ -79,43 +87,26 @@ Requirements:
 
 ## System Admin Bootstrap
 
-Temporary bootstrap values exist only for initialization/recovery. The real production `/admin` login has already been verified by the product owner.
+Temporary bootstrap values exist only for initialization/recovery. The real production `/admin` login has previously been verified by the product owner.
 
-After a successful intended admin login and password change:
+After an intended production admin password/bootstrap change:
 
-1. remove all `BOOTSTRAP_ADMIN_*` runtime variables;
+1. remove all temporary `BOOTSTRAP_ADMIN_*` variables;
 2. restart/redeploy;
 3. verify `/api/health/ready` remains green;
 4. confirm normal `/admin` login without bootstrap variables.
 
-Previously exposed secrets must be rotated before final operational signoff. Do not record replacements in docs/chat/screenshots.
+Previously exposed secrets must be rotated before final operational signoff. Never record replacements in documentation or logs.
 
 ## SMTP / Welcome Email
 
-Supported variables:
+Supported variables include `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`/`SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`/`MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`, `MAIL_REPLY_TO`, and `SMTP_ENCRYPTION`.
 
-```text
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_USERNAME=        # accepted alias
-SMTP_PASSWORD=
-SMTP_FROM=
-MAIL_FROM_ADDRESS=    # accepted alias
-MAIL_FROM_NAME=
-MAIL_REPLY_TO=
-SMTP_ENCRYPTION=
-```
-
-**Current fact:** product owner reported on 2026-09-04 that `SMTP_PASSWORD` has been created/configured in Hostinger.
-
-This means SMTP password configuration is no longer the known missing setting. Email delivery is still **NOT VERIFIED** until a real member approval sends and delivers the Chairman welcome email with correct activation/login and PWA install links. Do not put the SMTP password in chat, GitHub or screenshots.
+SMTP configuration does not prove inbox delivery. Real welcome/activation and recovery-email rendering remains controlled external acceptance.
 
 ## PayMongo Platforms / Linked Accounts
 
-New member payments use PayMongo Platforms / Linked Accounts.
-
-Required platform environment:
+Required server-only platform environment:
 
 ```text
 PAYMONGO_PLATFORM_SECRET_KEY=<PSP parent/platform secret key>
@@ -126,86 +117,20 @@ PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS=<approved fixed centavos, optional when 
 PAYMONGO_LIVE_ENABLED=false
 ```
 
-Rules:
+r14 Chapter configuration behavior:
 
-- PSP is the parent/platform PayMongo account.
-- Each chapter is configured with its linked child `org_*` Account ID through Chapter Finance/Admin UI.
-- PSP does not store a chapter API secret key in linked-account mode.
-- Child `org_*` account ID and child webhook signing secret are encrypted at rest using `PAYMENT_CONFIG_ENCRYPTION_KEY`.
-- Chapter TEST/LIVE mode must match the PSP platform key mode.
-- New online payments fail closed until a platform convenience fee is explicitly configured.
-- No fee rate has been supplied by the product owner yet; do not invent one.
+1. Chapter Admin/Finance may save a disabled linked-account Draft without parent platform readiness.
+2. Draft save does not contact PayMongo or create a child webhook.
+3. Chapter remains non-payable while Draft/Blocked.
+4. Activation validates parent platform, fee, mode, unique child `org_*`, methods and real child webhook signing readiness.
+5. Failed activation preserves `isEnabled=false`.
+6. LIVE remains blocked unless `PAYMONGO_LIVE_ENABLED=true` after controlled TEST signoff.
 
-### Convenience fee
+Member must see Chapter amount, PSP platform convenience fee and total before confirmation. Chapter ledger and contribution totals include Chapter amount only.
 
-- `PLATFORM_CONVENIENCE_FEE_BPS`: `300` means 3.00%.
-- `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`: fixed centavo fee.
-- either or both may be used.
+### PayMongo TEST gate
 
-Member sees before confirmation:
-
-```text
-Chapter amount
-Platform convenience fee
-Total to pay
-```
-
-PayMongo split settlement sends the configured fee to the PSP parent/platform account and the remainder to the chapter linked child account. Chapter ledger/collection/contribution totals include chapter amount only.
-
-### Chapter child setup
-
-For each chapter:
-
-1. Ensure PayMongo Platforms/Linked Accounts capability is enabled on PSP account.
-2. Link/onboard the chapter as a child account in PayMongo TEST mode.
-3. Obtain the child Account ID (`org_*`).
-4. In PSP Admin → Finance, select chapter and save the linked `org_*` ID.
-5. Select enabled methods: QR Ph, GCash, Maya.
-6. PSP creates/maintains the child webhook using parent authentication + child `Account-Id` when a signing secret is not already available.
-7. PSP encrypts the returned child webhook signing secret.
-8. Enable online payments only after platform configuration is ready.
-
-Canonical child webhook pattern:
-
-```text
-https://psp.hoahub.tech/api/webhooks/paymongo/<CHAPTER_CODE>
-```
-
-### Linked payment TEST gate
-
-Before live activation prove all of the following in TEST mode:
-
-1. parent platform account + chapter child linkage active;
-2. approved convenience-fee value configured;
-3. DUES Payment Intent and settlement succeed;
-4. CONTRIBUTION payment succeeds;
-5. OTHER payment succeeds;
-6. QR Ph works and status is confirmed server-side;
-7. GCash works;
-8. Maya works;
-9. gross charged = chapter amount + platform fee;
-10. PSP platform receives configured fee;
-11. child chapter receives remainder;
-12. signed child `payment.paid` webhook posts exactly once;
-13. invalid signature rejected;
-14. duplicate event is idempotent;
-15. cross-chapter Payment Intent/webhook rejected;
-16. chapter ledger posts chapter amount only;
-17. contribution total excludes platform fee;
-18. digital receipt shows chapter amount + fee + total;
-19. admin reconciliation agrees with member receipt/history.
-
-Only after TEST signoff and explicit product-owner approval may:
-
-```text
-PAYMONGO_LIVE_ENABLED=true
-```
-
-be configured for one controlled low-value live validation.
-
-### Legacy PayMongo transition
-
-Legacy `PAYMONGO_SECRET_KEY` / `PAYMONGO_WEBHOOK_SECRET` may remain temporarily only to reconcile pre-linked-account transactions created before the member-mobile release. No new linked member payment should use the legacy global Hosted Checkout architecture.
+Before LIVE prove actual provider behavior for DUES, CONTRIBUTION and OTHER; QR Ph/GCash/Maya; exact gross/fee/child settlement; signed webhook; invalid signature rejection; idempotent duplicate handling; cross-Chapter rejection; Chapter-only ledger posting; and receipt/admin reconciliation.
 
 ## Production Health / Smoke
 
@@ -215,48 +140,66 @@ Legacy `PAYMONGO_SECRET_KEY` / `PAYMONGO_WEBHOOK_SECRET` may remain temporarily 
 GET https://psp.hoahub.tech/api/health
 ```
 
-### Datastore/auth readiness
+For r14 closure it must report:
+
+```text
+release = 2026-09-06-r14
+deploymentGeneration = 2026-09-06-platform-hardening-v1
+```
+
+### Readiness
 
 ```text
 GET https://psp.hoahub.tech/api/health/ready
 ```
 
-HTTP 200 is required with database/auth schema/baseline/auth config ready. Endpoints must never reveal secrets.
+HTTP 200 is required with at least:
 
-After PR #13 merge/deploy, production smoke must additionally prove the intended exact release/generation is serving so an older Hostinger build cannot satisfy the gate.
+- database `ok`;
+- auth schema `ok`;
+- baseline `ok`;
+- member-mobile schema `ok`;
+- custom-certificate schema `ok`;
+- public-announcement schema `ok`;
+- auth configuration `ok`.
 
-## Member-Mobile Live Smoke
+### Exact Production Smoke
 
-After merged deployment, test with real production UI:
+The GitHub `PSP Production Smoke` workflow must prove the exact release before it checks the rest. An older Hostinger build must never satisfy the release gate.
 
-1. public registration submits successfully;
-2. Chapter Admin can review only their chapter;
-3. approve a controlled member application;
-4. welcome email arrives with correct Chairman, login identity, activation/login link and `/install` link;
-5. activation/login succeeds;
-6. member dashboard shows chapter, officers, balance and contribution total;
-7. profile updates allowed fields but cannot alter chapter/member code;
-8. Digital ID opens and QR verifies from a second device/session;
-9. membership certificate generates with Chairman signatory and QR verifies;
-10. receipt archive opens;
-11. passkey enrollment/login works on real device;
-12. installed PWA launches standalone and core member journey fits mobile screen without horizontal overflow.
+After exact r14 appears, smoke also verifies:
+
+- public homepage and r14 public-feed marker;
+- manifest stable `id: "/"`;
+- registration mobile acknowledgement marker;
+- install page content and r14 deployment marker;
+- login/recovery/registration markers;
+- production security headers;
+- canonical-origin invalid login 401;
+- cross-site login 403;
+- public Digital Member ID/Certificate verification routes do not return application 500.
+
+## Member / Admin Live Acceptance
+
+Credential-dependent production validation still requires controlled records/accounts for:
+
+- Chapter/National member editing;
+- Chapter payment Draft/config readiness;
+- custom certificate issuance and member download;
+- real member dashboard/payment readiness;
+- approval/welcome email;
+- Digital ID and Certificate second-device QR validation;
+- passkey enrollment/login.
+
+Do not perform state-changing acceptance against real member/financial records without an agreed controlled record.
 
 ## PWA Device Gate
 
-Representative physical-device acceptance:
-
-- Android Chrome install + standalone launch;
-- iOS Safari Add to Home Screen + standalone launch;
-- safe-area navigation;
-- portrait/landscape;
-- small/normal mobile widths;
-- payment QR rendering;
-- no private/API/payment data cached as false offline truth.
+Representative physical-device acceptance remains required for Android Chrome and iOS/iPadOS Add to Home Screen, standalone launch, safe areas, portrait/landscape, payment QR rendering and no false offline financial state.
 
 ## Backup / Recovery Gate
 
-Before final operational release:
+Before final operational signoff:
 
 1. confirm current production MySQL backup;
 2. document restore procedure;
@@ -264,26 +207,22 @@ Before final operational release:
 4. retain last known-good Git release SHA;
 5. do not perform destructive rollback after member/financial data exists without reviewed recovery.
 
-## Current Release Checklist
+## Current r14 Release Checklist
 
-- [x] canonical domain / HTTPS
-- [x] production database connectivity/schema/baseline/auth readiness
-- [x] real System Admin `/admin` login verified
-- [x] `SMTP_PASSWORD` reported configured in Hostinger
-- [ ] PR #13 exact-head CI green
-- [ ] PR #13 merged
-- [ ] member-mobile release deployed and exact generation verified
-- [ ] secret rotation/bootstrap cleanup completed and re-smoked
-- [ ] Chairman approval/welcome email delivery proven
-- [ ] Android/iOS PWA physical-device smoke
+- [x] canonical domain / HTTPS previously proven
+- [x] PR #34 exact-head CI #572 green
+- [x] PR #34 exact passing head merged
+- [x] post-merge `main` PSP CI #573 green
+- [x] r14 code/schema/runtime/security contracts automated in CI
+- [ ] Hostinger serves exact r14 release/generation
+- [ ] r14 Production Smoke passes readiness/public/PWA/security checks
+- [ ] controlled production Admin/Member workflow acceptance where required
+- [ ] real recipient email delivery/rendering
+- [ ] Android/iOS physical PWA smoke
 - [ ] passkey physical-device smoke
-- [ ] Digital ID QR production verification
-- [ ] certificate QR production verification
-- [ ] PayMongo Platforms capability enabled/verified
-- [ ] parent + chapter child TEST linkage proven
-- [ ] actual platform convenience fee configured
-- [ ] DUES/CONTRIBUTION/OTHER split-payment TEST E2E
+- [ ] second-device Digital ID/Certificate QR acceptance
+- [ ] PayMongo Platforms real TEST split-payment/provider-webhook acceptance
 - [ ] MySQL backup/restore evidence
 - [ ] controlled low-value PayMongo LIVE validation after explicit approval
 
-See `STATUS.md`, `PAYMENTS.md`, and `MEMBER_MOBILE_P0.md` for authoritative details.
+See `STATUS.md`, `PSP_PLATFORM_HARDENING_2026-09-06.md`, `PAYMENTS.md`, and `MEMBER_MOBILE_P0.md` for authoritative details.
