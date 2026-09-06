@@ -60,6 +60,9 @@ assert(paymentAdminUi.includes("PSP PARENT SPLIT-PAYMENT PLATFORM"), "Finance Ad
 assert(paymentAdminUi.includes('<option value="TEST">TEST</option>') && paymentAdminUi.includes('<option value="LIVE">LIVE</option>'), "Disabled Chapter PayMongo mode must be editable as TEST/LIVE in the Admin UI.");
 assert(paymentAdminUi.includes("paymentEncryptionReady"), "Finance Admin UI must surface credential-encryption readiness before activation.");
 assert(paymentAdminUi.includes("Save Disabled Chapter Draft"), "Finance Admin UI must make the safe draft-save action explicit.");
+assert(paymentAdminUi.includes("draftMatchesSaved"), "Finance Admin UI must require the exact current draft to be persisted before activation.");
+assert(paymentAdminUi.includes("Valid ID · unsaved changes"), "Finance Admin UI must not label a merely typed org_* identifier as saved.");
+assert(paymentAdminUi.includes("Unsaved Chapter payment changes"), "Finance Admin UI must visibly warn when Chapter payment changes have not been persisted.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
