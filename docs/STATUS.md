@@ -4,134 +4,125 @@
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Active release program:** PR #34 — PSP Platform Hardening  
-**Target identity:** `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`
+**Current main SHA:** `3701313f371b473df8400ed7404359fb6a5ccf72`  
+**Target release identity:** `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`
 
-> Read with `../AGENTS.md`. Never claim provider-, credential-, device-, email-inbox-, payment-, backup-, or production state-changing behavior without direct evidence.
+> Read with `../AGENTS.md`. Never claim provider-, credential-, device-, inbox-, payment-, backup-, or production-state behavior without direct evidence.
 
 ## Executive Status
 
-PSP r14 hardening is **IMPLEMENTED ON PR #34 / NOT YET PRODUCTION-PROVEN**.
+PSP r14 platform hardening is **MERGED AND POST-MERGE CI PROVEN, BUT NOT YET PRODUCTION-PROVEN**.
 
-The latest code candidate before documentation reconciliation was exact head:
+Release evidence:
 
-`ca669579e367d97c9d5ff4b476f157ad71b19e4e`
+- PR #34 final exact head: `6a4fbe1552fdcd857363b12975f34c25f0c7b954`.
+- PSP CI #572 / run `34004473069`: **PASSED** on that exact PR head.
+- No unresolved review threads were present at merge time.
+- PR #34 merged only with the exact expected head.
+- Merge/main SHA: `3701313f371b473df8400ed7404359fb6a5ccf72`.
+- Post-merge PSP CI #573 / run `34005600398`: **PASSED every required gate**.
 
-PSP CI #562 / run `34004239570` **PASSED every application gate** on that exact code head:
+Production evidence is still open:
 
-- secret-pattern scan: PASSED;
-- security-header configuration: PASSED;
-- dependency installation/artifact: PASSED;
-- Prisma schema validation: PASSED;
-- Prisma client generation: PASSED;
-- CI MySQL schema apply: PASSED;
-- baseline seed: PASSED;
-- System Admin bootstrap validation: PASSED;
-- cross-Chapter fixtures: PASSED;
-- platform-hardening fixtures: PASSED;
-- ESLint: PASSED;
-- hardening source contracts + TypeScript: PASSED;
-- production build: PASSED;
-- runtime/security/PWA/isolation/hardening smoke: PASSED;
-- production dependency audit evidence + enforcement: PASSED.
+1. Production Smoke run #25 / run `34005600559`, attempt 1 reached `https://psp.hoahub.tech/api/health` on all 40 probes with HTTP 200, but the live service remained on `2026-09-05-r13 / 2026-09-05-release-keyed-pwa-install-v1` for the full deployment window. This proves the repository merge had not yet been published by Hostinger.
+2. Production Smoke attempt 2 against the same `main` SHA failed at the same exact-release gate because the GitHub runner timed out on all 40 health requests. DNS still resolved. This is reachability/hosting evidence, not an application assertion failure.
+3. A further exact-smoke retry has been triggered against the same merge SHA. Until exact r14 health identity is observed, the later readiness/public/PWA/security assertions are not allowed to count as passed.
 
-A final documentation-bearing head is being generated after this evidence and **must pass the same complete PSP CI gate before merge**. PR #34 has no unresolved review threads as of this status update.
+Therefore the last directly observed live application identity remains **r13**. Do not report r14 as deployed or production-complete until Production Smoke reaches and passes the r14 readiness/public/PWA/security gates.
 
 ## r14 Completed Implementation Scope
 
 ### Payment / Finance
 
-- Chapter PayMongo linked-account setup can be saved as a disabled `DRAFT` without requiring the PSP parent platform or creating a child webhook.
+- Chapter PayMongo linked-account setup can be saved as a disabled `DRAFT` without requiring PSP parent-platform readiness or creating a child webhook.
 - Draft configuration does not make a Chapter payable.
-- Activation remains fail-closed and requires parent platform, convenience fee, matching mode, valid linked child account, and real child webhook readiness.
+- Activation remains fail-closed and requires parent platform, convenience fee, matching mode, valid unique linked child account, real child webhook readiness, and LIVE gate where applicable.
 - Explicit setup states: `NOT_CONFIGURED`, `DRAFT`, `READY`, `ENABLED`, `BLOCKED`.
-- One linked PayMongo child account cannot be assigned to multiple PSP Chapters.
-- Member payment screen/dashboard does not start fee-preview/checkout while Chapter online payment is unavailable.
-- Finance collection summaries are no longer calculated from only the latest 200 payments.
-- Payments, member balances, rates, and assessments have server-side searchable/paginated registers.
-- National/Admin scope remains server-authorized; Chapter users remain exact-Chapter restricted.
+- Member payment UI blocks fee preview/checkout when Chapter online payment is unavailable.
+- Finance summaries use complete authorized payment history rather than the latest 200 records.
+- Payments, balances, rates and assessments use searchable/paginated responsive registers.
 
 ### Member / User / Chapter / Organization Administration
 
-- Member Directory/Members uses server search/filter/pagination instead of a 100-record cap.
-- National/Chapter Admin can edit allowed member profile/contact data within exact authorized scope.
-- Membership number, login identity, and Chapter transfer remain controlled separately.
-- User Management, Chapter Management, Organization histories, Finance registers, and Certificate register follow the responsive Table Standard.
-- Chapter rows provide direct workflow links to Chapter Members and Finance/Payment setup.
-
-### Custom Certificates
-
-- Added certificate type/title/citation/date/reference/batch metadata.
-- Supports Membership, Attendance, Appreciation, Recognition, Outstanding Member, and Custom types.
-- Admin can issue to one, multiple, or all eligible in-scope active members.
-- Batch+recipient uniqueness prevents duplicate issuance on retry.
-- Chairman signatory is snapshotted.
-- Members are notified and can download all valid assigned certificates.
-- PDF and public QR verification show the actual certificate type/title/date/reference/citation.
-- Standard Membership Certificate remains independently available.
+- Member Directory/Members no longer has a fixed 100-record cap.
+- National/Chapter Admin can edit approved member profile/contact fields only within authorized scope.
+- Membership number, login identity and Chapter transfer remain separately controlled.
+- Users, Chapters, Organization, Finance and Certificate registers follow the responsive PSP Table Standard.
 
 ### Public Website / Privacy
 
-- Published Chapter/National events appear in the public homepage feed.
-- Announcements require explicit `isPublic=true` to appear anonymously.
-- `Announcement.isPublic` defaults false, so existing/member-only announcements do not become public automatically.
-- Admin UI explicitly shows `PUBLIC WEBSITE` vs `MEMBERS ONLY`.
+- Public homepage can aggregate intentionally public Chapter/National announcements and published events.
+- `Announcement.isPublic` defaults false; anonymous homepage query requires `isPublic=true`.
+- Admin UI distinguishes `PUBLIC WEBSITE` from `MEMBERS ONLY`.
 - Protected announcement images remain authenticated/private.
-- Production schema initialization/readiness includes the public-announcement column.
+
+### Custom Certificates
+
+- Supports Membership, Attendance, Appreciation, Recognition, Outstanding Member and Custom certificate types.
+- Admin issuance supports one, multiple or all eligible in-scope active recipients.
+- Batch+member uniqueness prevents duplicate retry issuance.
+- Chairman signatory, certificate metadata and verification identity are snapshotted.
+- Members can see/download valid assigned certificates; public QR verification renders actual certificate metadata.
 
 ### Member UX / PWA
 
-- Member home is payment-first: balance, Pay/View Dues, receipts, payment readiness/methods, confirmed contributions, certificates, Digital ID, Chapter, and security are prioritized.
-- Existing stable PWA identity remains `id: "/"`.
-- r14 uses exact deployment generation `2026-09-06-platform-hardening-v1` while preserving one PSP app identity.
-- React 19 effect-state lint defects surfaced by the new ESLint gate were corrected without weakening PWA/payment/auth behavior.
+- Member dashboard is payment-first with balance, Pay/View Dues, receipts, online-payment readiness/methods, contributions, Digital ID, certificates, Chapter and security actions prioritized.
+- Stable PWA manifest identity remains `id: "/"`.
+- r14 changes deployment generation only; it does not create a second PWA identity.
 
-## Runtime Evidence Added in r14 CI
+## r14 Automated Evidence
 
-The runtime suite proves in CI:
+Both exact-head PR CI and post-merge `main` CI prove:
 
-- Chapter Admin cannot edit a foreign Chapter member;
-- Chapter Admin can edit its own Chapter member and audit evidence is written;
-- foreign Chapter PayMongo configuration is rejected;
-- own Chapter disabled PayMongo Draft saves while parent platform is absent;
-- Draft reports no real webhook secret;
-- activation without parent platform returns a blocked/409 result and persisted `isEnabled` remains false;
-- foreign Chapter certificate issuance is denied;
-- own custom Appreciation certificate issues successfully;
-- custom certificate PDF returns `application/pdf`;
-- public QR verification renders the actual certificate title;
-- authorized public announcement persists `isPublic=true`;
-- explicitly public seeded announcement/event appear on the homepage;
-- seeded private announcement does not appear on the public homepage;
-- existing cross-Chapter application/media/finance/invitation/delete protections remain green;
-- existing PWA install/auth/security contracts remain green.
+- Prisma validation/client generation/schema apply;
+- baseline seed and System Admin bootstrap;
+- cross-Chapter and platform-hardening fixtures;
+- ESLint;
+- hardening source contracts + TypeScript;
+- production build;
+- runtime security/PWA/isolation/hardening smoke;
+- production dependency audit.
 
-## Release State
+Runtime hardening specifically proves:
 
-PR #34 must not merge until the **final documentation-bearing exact head** passes the complete PSP CI gate. At merge time:
+- own-vs-foreign Chapter member editing and audit evidence;
+- own Draft PayMongo save while parent platform is unavailable;
+- blocked activation preserving `isEnabled=false`;
+- foreign Chapter payment config denial;
+- foreign Chapter certificate issuance denial;
+- successful custom certificate issue/PDF/public QR verification;
+- explicit public announcement persistence;
+- public announcement/event homepage visibility in CI;
+- private announcement non-leakage;
+- existing cross-Chapter application/media/finance/invitation/archive protections remain green.
 
-1. re-read exact PR head SHA;
-2. confirm no unresolved review threads;
-3. confirm exact-head required check success;
-4. merge with `expected_head_sha`;
-5. verify post-merge `main` PSP CI;
-6. verify exact r14 Production Smoke against `https://psp.hoahub.tech`;
-7. only then record r14 as production-proven.
+## Production Validation State
+
+Production release closure requires all of these on the exact intended r14 deployment:
+
+1. `/api/health` reports `2026-09-06-r14` and `2026-09-06-platform-hardening-v1`.
+2. `/api/health/ready` returns ready with database, auth schema, baseline, member-mobile schema, custom-certificate schema, public-announcement schema and auth configuration OK.
+3. Public homepage exposes the r14 public-feed marker.
+4. Registration/PWA/login release markers and stable manifest identity pass.
+5. Production security headers pass.
+6. Canonical-origin invalid login returns 401 and cross-site login is rejected 403.
+7. Public member/certificate verification routes do not return application 500.
+
+Until step 1 is true, steps 2–7 are not considered production-tested for r14.
 
 ## Pending — Controlled / External Acceptance
 
 These remain open even after automated r14 deployment unless directly evidenced:
 
-- real PayMongo Platforms/Linked Accounts TEST split-payment E2E for DUES;
-- real TEST CONTRIBUTION payment;
-- real TEST OTHER payment;
+- Hostinger publishes exact r14 and Production Smoke passes;
+- real PayMongo Platforms TEST DUES/CONTRIBUTION/OTHER split-payment E2E;
 - real child webhook delivery/signature and settlement observation;
 - invalid-signature/duplicate/cross-Chapter behavior against the actual PayMongo provider;
 - controlled LIVE payment only after TEST signoff and explicit product-owner approval;
 - physical Android installed-PWA acceptance;
 - physical iPhone/iPad Add-to-Home-Screen acceptance;
-- actual production recipient email receipt/rendering;
 - real passkey device acceptance;
+- actual production recipient email receipt/rendering;
 - second-device Digital Member ID / Certificate QR acceptance where required;
 - database backup/restore drill;
 - controlled production credential/state-changing workflow acceptance and bootstrap cleanup/rotation where required.
@@ -141,8 +132,9 @@ These remain open even after automated r14 deployment unless directly evidenced:
 ## Documentation
 
 Detailed r14 tracker: `PSP_PLATFORM_HARDENING_2026-09-06.md`  
+Deployment runbook: `DEPLOYMENT.md`  
 Payment architecture: `PAYMENTS.md`  
 UI/UX standard: `UI_UX.md`  
 Mandatory engineering rules: `../AGENTS.md`
 
-A requirement is `COMPLETE` only when the evidence required for that class of requirement exists. Automated CI evidence closes source/runtime contracts; it does not fabricate external provider, device, inbox, backup, or live production evidence.
+A requirement is `COMPLETE` only when the evidence required for that class of requirement exists. Automated CI closes source/runtime contracts; it does not fabricate deployment, provider, device, inbox, backup or live production evidence.
