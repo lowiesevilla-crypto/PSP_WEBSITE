@@ -45,6 +45,26 @@ function webhookUrl(chapterCode: string) {
   return `${appUrl}/api/webhooks/paymongo/${encodeURIComponent(chapterCode)}`;
 }
 
+function paymentEncryptionReady() {
+  return (process.env.PAYMENT_CONFIG_ENCRYPTION_KEY?.trim().length ?? 0) >= 32;
+}
+
+function platformSetupSummary() {
+  const secret = process.env.PAYMONGO_PLATFORM_SECRET_KEY?.trim() ?? "";
+  const account = process.env.PAYMONGO_PLATFORM_ACCOUNT_ID?.trim() ?? "";
+  const bps = Number(process.env.PLATFORM_CONVENIENCE_FEE_BPS?.trim() ?? "0");
+  const fixed = Number(process.env.PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS?.trim() ?? "0");
+  const detectedMode = secret.startsWith("sk_live_") ? "LIVE" : secret.startsWith("sk_test_") ? "TEST" : null;
+  return {
+    parentAccountConfigured: account.startsWith("org_"),
+    parentSecretConfigured: detectedMode !== null,
+    feeConfigured: (Number.isInteger(bps) && bps > 0) || (Number.isInteger(fixed) && fixed > 0),
+    encryptionReady: paymentEncryptionReady(),
+    detectedMode,
+    liveEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
+  };
+}
+
 function getPlatformStatus(): PlatformStatus {
   try {
     const platform = getPlatformPayMongoConfig();
@@ -58,23 +78,34 @@ function getPlatformStatus(): PlatformStatus {
   }
 }
 
-function decryptLinkedAccount(ciphertext: string | null | undefined) {
-  if (!ciphertext) return null;
+// PayMongo org_* account IDs are identifiers, not secret credentials. Existing
+// encrypted values remain readable for backward compatibility, while new draft
+// saves store the identifier directly so a disabled draft does not depend on a
+// server encryption key that is only required for actual signing secrets.
+function linkedAccountFromStorage(value: string | null | undefined) {
+  if (!value) return null;
+  const direct = value.trim();
+  if (direct.startsWith("org_")) return direct;
   try {
-    const value = decryptSecret(ciphertext);
-    return value.startsWith("org_") ? value : null;
+    const decrypted = decryptSecret(value);
+    return decrypted.startsWith("org_") ? decrypted : null;
   } catch {
     return null;
   }
 }
 
-function hasStoredWebhookSecret(ciphertext: string | null | undefined) {
-  if (!ciphertext) return false;
+function webhookSecretFromStorage(value: string | null | undefined) {
+  if (!value || value === PENDING_LINKED_WEBHOOK_SECRET) return null;
   try {
-    return !isPendingLinkedWebhookSecret(decryptSecret(ciphertext));
+    const decrypted = decryptSecret(value);
+    return isPendingLinkedWebhookSecret(decrypted) ? null : decrypted;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function hasStoredWebhookSecret(value: string | null | undefined) {
+  return Boolean(webhookSecretFromStorage(value));
 }
 
 function readinessFor(input: {
@@ -84,9 +115,13 @@ function readinessFor(input: {
   linkedAccountId: string | null;
   hasWebhookSecret: boolean;
   platform: PlatformStatus;
+  encryptionReady: boolean;
 }) {
   const activationBlockers: string[] = [];
   if (!input.linkedAccountId) activationBlockers.push("Save a valid PayMongo linked child Account ID (org_*).");
+  if (!input.encryptionReady) {
+    activationBlockers.push("Server payment credential encryption is not configured. Configure PAYMENT_CONFIG_ENCRYPTION_KEY with at least 32 characters before activation.");
+  }
   if (!input.platform.ready) {
     activationBlockers.push(input.platform.message ?? "Complete the PSP PayMongo parent platform and convenience-fee configuration.");
   } else if (input.mode && input.mode !== input.platform.mode) {
@@ -137,9 +172,10 @@ export async function GET(request: Request) {
   });
   if (!chapter) return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
 
-  const linkedAccountId = decryptLinkedAccount(chapter.paymentConfig?.secretKeyCiphertext);
+  const linkedAccountId = linkedAccountFromStorage(chapter.paymentConfig?.secretKeyCiphertext);
   const hasWebhookSecret = hasStoredWebhookSecret(chapter.paymentConfig?.webhookSecretCiphertext);
   const platform = getPlatformStatus();
+  const setup = platformSetupSummary();
   const readiness = readinessFor({
     hasConfig: Boolean(chapter.paymentConfig),
     isEnabled: Boolean(chapter.paymentConfig?.isEnabled),
@@ -147,6 +183,7 @@ export async function GET(request: Request) {
     linkedAccountId,
     hasWebhookSecret,
     platform,
+    encryptionReady: setup.encryptionReady,
   });
 
   return NextResponse.json(
@@ -164,9 +201,11 @@ export async function GET(request: Request) {
         : null,
       webhookUrl: webhookUrl(chapter.code),
       platformReady: platform.ready,
-      platformMode: platform.mode,
+      platformMode: platform.mode ?? setup.detectedMode,
       platformMessage: platform.message,
-      liveGloballyEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
+      paymentEncryptionReady: setup.encryptionReady,
+      platformConfiguration: setup,
+      liveGloballyEnabled: setup.liveEnabled,
       ...readiness,
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -193,6 +232,12 @@ export async function PUT(request: Request) {
 
   let platform = null;
   if (input.isEnabled) {
+    if (!paymentEncryptionReady()) {
+      return NextResponse.json(
+        { message: "Chapter setup can be saved as a disabled draft, but online payment cannot be enabled until PAYMENT_CONFIG_ENCRYPTION_KEY is configured with at least 32 characters." },
+        { status: 409 },
+      );
+    }
     try {
       platform = getPlatformPayMongoConfig();
     } catch (error) {
@@ -213,51 +258,46 @@ export async function PUT(request: Request) {
     }
   }
 
-  // Encryption is intentionally randomized, so ciphertext cannot be used as a
-  // meaningful database uniqueness key. Enforce one linked PayMongo child
-  // Account-Id per PSP chapter by comparing decrypted values server-side.
+  // The linked PayMongo child Account ID is non-secret. Compare the normalized
+  // identifier directly, while retaining compatibility with legacy encrypted
+  // values already in production.
   const otherChapterConfigs = await prisma.chapterPaymentConfig.findMany({
     where: { chapterId: { not: chapter.id } },
     select: { secretKeyCiphertext: true },
   });
   for (const otherConfig of otherChapterConfigs) {
-    try {
-      if (decryptSecret(otherConfig.secretKeyCiphertext) === input.linkedAccountId) {
-        return NextResponse.json(
-          { message: "This PayMongo linked account is already assigned to another PSP chapter." },
-          { status: 409 },
-        );
-      }
-    } catch {
-      // A legacy/corrupt encrypted value must not leak details here. That
-      // configuration will fail normal runtime validation until corrected by
-      // an authorized administrator.
+    if (linkedAccountFromStorage(otherConfig.secretKeyCiphertext) === input.linkedAccountId) {
+      return NextResponse.json(
+        { message: "This PayMongo linked account is already assigned to another PSP chapter." },
+        { status: 409 },
+      );
     }
   }
 
   const existing = await prisma.chapterPaymentConfig.findUnique({ where: { chapterId: chapter.id } });
-  const existingLinkedAccountId = decryptLinkedAccount(existing?.secretKeyCiphertext);
+  const existingLinkedAccountId = linkedAccountFromStorage(existing?.secretKeyCiphertext);
   const linkedAccountChanged = existingLinkedAccountId !== input.linkedAccountId;
-
-  let existingWebhookSecret: string | null = null;
-  if (existing?.webhookSecretCiphertext) {
-    try {
-      existingWebhookSecret = decryptSecret(existing.webhookSecretCiphertext);
-    } catch {
-      existingWebhookSecret = null;
-    }
-  }
+  const existingWebhookSecret = webhookSecretFromStorage(existing?.webhookSecretCiphertext);
 
   try {
     let webhookSecretCiphertext = existing?.webhookSecretCiphertext;
-    let hasWebhookSecret = !isPendingLinkedWebhookSecret(existingWebhookSecret);
+    let hasWebhookSecret = Boolean(existingWebhookSecret);
     let webhookCreated = false;
     let webhookId: string | null = null;
 
     if (input.webhookSecret) {
+      if (!paymentEncryptionReady()) {
+        return NextResponse.json({ message: "PAYMENT_CONFIG_ENCRYPTION_KEY must be configured before storing a webhook signing secret." }, { status: 409 });
+      }
       webhookSecretCiphertext = encryptSecret(input.webhookSecret);
       hasWebhookSecret = true;
     } else if (input.isEnabled && (!hasWebhookSecret || linkedAccountChanged)) {
+      // Encryption readiness is checked before the provider call so a missing
+      // server key can never create an orphan PayMongo child webhook whose
+      // signing secret cannot be persisted safely.
+      if (!paymentEncryptionReady()) {
+        return NextResponse.json({ message: "PAYMENT_CONFIG_ENCRYPTION_KEY must be configured before activating a Chapter PayMongo webhook." }, { status: 409 });
+      }
       if (!platform) {
         return NextResponse.json({ message: "PSP PayMongo platform configuration is unavailable." }, { status: 409 });
       }
@@ -270,12 +310,11 @@ export async function PUT(request: Request) {
       hasWebhookSecret = true;
       webhookCreated = true;
       webhookId = createdWebhook.id;
-    } else if (!input.isEnabled && (linkedAccountChanged || !webhookSecretCiphertext || !hasWebhookSecret)) {
-      // Keep the production-compatible non-null column while representing a
-      // deliberately staged configuration. Runtime payment code rejects this
-      // encrypted marker and activation replaces it with the actual child
-      // webhook signing secret.
-      webhookSecretCiphertext = encryptSecret(PENDING_LINKED_WEBHOOK_SECRET);
+    } else if (!input.isEnabled && (linkedAccountChanged || !webhookSecretCiphertext)) {
+      // A disabled draft has no signing secret yet. The plain marker is not a
+      // credential and keeps the existing non-null production column while
+      // allowing draft staging before server credential encryption is ready.
+      webhookSecretCiphertext = PENDING_LINKED_WEBHOOK_SECRET;
       hasWebhookSecret = false;
     }
 
@@ -286,7 +325,6 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: "Chapter webhook signing is not ready; online payment remains disabled." }, { status: 409 });
     }
 
-    const linkedAccountCiphertext = encryptSecret(input.linkedAccountId);
     const config = await prisma.$transaction(async (tx) => {
       const saved = await tx.chapterPaymentConfig.upsert({
         where: { chapterId: chapter.id },
@@ -294,14 +332,14 @@ export async function PUT(request: Request) {
           chapterId: chapter.id,
           gateway: "PAYMONGO",
           mode: input.mode,
-          secretKeyCiphertext: linkedAccountCiphertext,
+          secretKeyCiphertext: input.linkedAccountId,
           webhookSecretCiphertext,
           paymentMethods: input.paymentMethods,
           isEnabled: input.isEnabled,
         },
         update: {
           mode: input.mode,
-          secretKeyCiphertext: linkedAccountCiphertext,
+          secretKeyCiphertext: input.linkedAccountId,
           webhookSecretCiphertext,
           paymentMethods: input.paymentMethods,
           isEnabled: input.isEnabled,
@@ -329,6 +367,7 @@ export async function PUT(request: Request) {
     });
 
     const currentPlatform = getPlatformStatus();
+    const setup = platformSetupSummary();
     const readiness = readinessFor({
       hasConfig: true,
       isEnabled: config.isEnabled,
@@ -336,6 +375,7 @@ export async function PUT(request: Request) {
       linkedAccountId: input.linkedAccountId,
       hasWebhookSecret,
       platform: currentPlatform,
+      encryptionReady: setup.encryptionReady,
     });
 
     return NextResponse.json(
@@ -350,9 +390,11 @@ export async function PUT(request: Request) {
         webhookUrl: webhookUrl(chapter.code),
         webhookCreated,
         platformReady: currentPlatform.ready,
-        platformMode: currentPlatform.mode,
+        platformMode: currentPlatform.mode ?? setup.detectedMode,
         platformMessage: currentPlatform.message,
-        liveGloballyEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
+        paymentEncryptionReady: setup.encryptionReady,
+        platformConfiguration: setup,
+        liveGloballyEnabled: setup.liveEnabled,
         ...readiness,
       },
       { headers: { "Cache-Control": "no-store" } },
