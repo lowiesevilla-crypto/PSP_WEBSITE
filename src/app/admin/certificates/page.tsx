@@ -5,7 +5,7 @@ import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { CustomCertificateIssuer } from "@/components/admin/custom-certificate-issuer";
-import { RevokeCertificateButton } from "@/components/admin/certificate-manager";
+import { DeleteCertificateButton } from "@/components/admin/certificate-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +102,7 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
             <p>Official Documents</p>
             <h1>Certificate Management</h1>
             <p style={{ marginTop: 8, maxWidth: 760, color: "#746b5b", lineHeight: 1.55 }}>
-              Create Chapter certificates in bulk, assign them to authorized members, and manage the complete QR-verifiable certificate register. Certificate records and revocations preserve issuance history.
+              Create Chapter certificates in bulk, automatically email each issued certificate to the member, and manage the complete QR-verifiable certificate register. Delete / Invalidate preserves audit history while immediately invalidating the QR and active PDF.
             </p>
           </div>
           <Link href="/admin" className="btn" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Back to Admin</Link>
@@ -135,8 +135,8 @@ export default async function AdminCertificatesPage({ searchParams }: { searchPa
                     <td data-label="Member"><strong>{certificate.member.firstName} {certificate.member.lastName}</strong><small style={{ display: "block", color: "#746b5b", marginTop: 3 }}>{certificate.member.membershipNo}</small></td>
                     <td data-label="Chapter"><strong>{certificate.chapter.name}</strong><small style={{ display: "block", color: "#746b5b", marginTop: 3 }}>{certificate.chapter.code}</small></td>
                     <td data-label="Date">{certificate.certificateDate.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" })}<small style={{ display: "block", color: "#746b5b", marginTop: 3 }}>Issued {certificate.issuedAt.toLocaleDateString("en-PH")}</small></td>
-                    <td data-label="Status"><strong>{certificate.status}</strong></td>
-                    <td data-label="Actions"><div className="admin-table-actions"><a className="btn" href={`/api/member/certificates/${certificate.id}/pdf`} style={{ border: "1px solid #ddd5c1", background: "white" }}>Download PDF</a><Link className="btn" href={`/verify/${certificate.verificationToken}`} style={{ border: "1px solid #ddd5c1", background: "white" }}>Verify</Link>{certificate.status === "VALID" ? <RevokeCertificateButton certificateId={certificate.id} /> : null}</div></td>
+                    <td data-label="Status"><strong style={{ color: certificate.status === "VALID" ? "#245b2a" : "#8a2f2f" }}>{certificate.status}</strong></td>
+                    <td data-label="Actions"><div className="admin-table-actions">{certificate.status === "VALID" ? <a className="btn" href={`/api/member/certificates/${certificate.id}/pdf`} style={{ border: "1px solid #ddd5c1", background: "white" }}>Download PDF</a> : null}<Link className="btn" href={`/verify/${certificate.verificationToken}`} style={{ border: "1px solid #ddd5c1", background: "white" }}>Verify</Link>{certificate.status === "VALID" ? <DeleteCertificateButton certificateId={certificate.id} certificateNumber={certificate.certificateNumber} /> : null}</div></td>
                   </tr>
                 ))}</tbody>
               </table>
