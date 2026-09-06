@@ -106,6 +106,9 @@ jobs:
       - name: Prepare cross-chapter security fixtures
         run: node scripts/ci-prepare-isolation.mjs
 
+      - name: Validate production additive schema upgrade
+        run: node scripts/ci-test-production-additive-upgrade.mjs
+
       - name: Prepare platform hardening fixtures
         run: node scripts/ci-prepare-platform-hardening.mjs
 
