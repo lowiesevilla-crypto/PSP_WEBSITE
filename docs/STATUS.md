@@ -10,157 +10,135 @@
 
 ## Executive Status
 
-PSP r14 platform hardening is **IMPLEMENTED AND CI-PROVEN, WITH A PRODUCTION-BUILD HOTFIX IN PR #37**. Production remains on r13 until the hotfix is merged, Hostinger completes the production build, and exact r14 Production Smoke passes.
+PSP r14 is **DEPLOYED AND DATABASE/READINESS PROVEN**, but full production closure is still open because Production Smoke #28 found the public homepage serving stale pre-r14 HTML. PR #38 is the active cache/security hotfix.
 
-Application/repository evidence:
+## Proven Release Evidence
 
-- PR #34 final exact head `6a4fbe1552fdcd857363b12975f34c25f0c7b954` passed PSP CI #572 and merged.
+- Implementation PR #34 exact head `6a4fbe1552fdcd857363b12975f34c25f0c7b954` passed PSP CI #572 and merged.
 - Implementation merge SHA `3701313f371b473df8400ed7404359fb6a5ccf72` passed post-merge PSP CI #573.
-- Documentation reconciliation PRs #35 and #36 passed their exact-head CI gates and merged.
-- Current pre-hotfix `main` SHA is `b0eeb9ae8a1b6776a2fcd7858d458207d5e1de44`.
-- Production Smoke against r14 repeatedly proved production remained on r13.
+- Production-build hotfix PR #37 exact final head `c7b2e9f9a22cf36e107d94069f020f17214bf640` passed both push/PR CI, including production-only schema-upgrade regression and dependency security gates.
+- PR #37 merged only on that exact head; merge SHA `d2795c8d33f5e109fabd87bd8d1122b4e6586549`.
+- Post-merge PSP CI #601 passed every required gate on `d2795c8d...`.
 
-## Definitive Hostinger Root Cause
+## Production Build / Schema Incident — Closed
 
-Hostinger Git integration is **working**: its deployment history received the expected `main` commits, including `3701313f`, `38b9a2ed`, and `b0eeb9ae`. The r14-era deployments failed during the Hostinger build, so the previous successful r13 deployment remained current.
+Hostinger correctly received the r14 `main` commits but initially failed during `npm run build`. The exact cause was Prisma refusing the new `Certificate(batchId, memberId)` unique constraint unless `--accept-data-loss` was supplied.
 
-The Hostinger build log identified the exact failure:
+The platform deliberately does **not** use `--accept-data-loss`. PR #37 replaced the r14 certificate/public-announcement production upgrade with reviewed additive SQL:
 
-```text
-> node scripts/production-build-init.mjs && next build
-Checking PSP production database schema before build...
-Existing member-mobile PSP schema detected.
-Applying reviewed additive custom-certificate metadata columns.
-...
-A unique constraint covering [batchId,memberId] on Certificate will be added.
-Error: Use the --accept-data-loss flag to ignore the data loss warnings
-ERROR: Failed to build the application
-```
-
-The application intentionally refuses `--accept-data-loss`. The failure occurred because the r14 production initializer delegated the additive certificate upgrade to `prisma db push`, and Prisma correctly required explicit acknowledgement before adding the new uniqueness constraint.
-
-## PR #37 Production-Safe Fix
-
-PR #37 — `fix: make r14 Hostinger schema upgrade non-destructive` — replaces that r14 production path with an explicit reviewed additive upgrade:
-
-- no `--accept-data-loss`;
-- add certificate metadata columns only when absent;
-- backfill legacy `certificateDate` from immutable `issuedAt` before enforcing NOT NULL/default;
-- add nullable `batchId` without rewriting existing certificates;
-- audit duplicate non-null `(batchId, memberId)` pairs before creating the uniqueness constraint;
-- fail closed if duplicates exist rather than deleting/changing certificate records;
-- add certificate type/date indexes only when absent;
+- add only missing certificate metadata columns;
+- backfill legacy `certificateDate` from `issuedAt` before NOT NULL enforcement;
+- add nullable `batchId` without rewriting legacy certificates;
+- fail closed if duplicate non-null `(batchId, memberId)` rows exist;
+- create certificate indexes only when safe/absent;
 - add `Announcement.isPublic` as `NOT NULL DEFAULT 0`, preserving legacy announcements as private;
-- add the public-announcement index only when absent;
-- retain existing member-mobile baseline safety and production initialization/backfill logic.
+- retain the existing member-mobile/baseline fail-closed checks.
 
-A new CI regression deliberately removes the r14 columns/indexes from a current CI database, runs `production-build-init.mjs` with `APP_ENV=production`, and then requires Prisma to confirm the resulting database is fully synchronized without `--accept-data-loss`.
+CI now reproduces this production-only upgrade path with `APP_ENV=production` before merge.
 
-On hotfix code head `1556c01794ed47938b625de77e14141ff9efa651`, PSP CI #593 passed the production additive schema regression, Prisma validate/generate/db push, lint, typecheck, production build, runtime/security smoke, and dependency audits.
+## Dependency Security — 3 High Findings Closed
 
-## Dependency Security Remediation
-
-The Hostinger install output also reported **3 high-severity vulnerabilities**. A new complete dependency-audit CI gate reproduced and identified them as one transitive advisory chain:
+The Hostinger install warning was reproduced in CI and traced to one advisory chain:
 
 ```text
-prisma@6.19.3
-  -> @prisma/config
-     -> deepmerge-ts < 8.0.0
+prisma@6.19.3 -> @prisma/config -> deepmerge-ts < 8.0.0
 ```
 
-Advisory: `GHSA-ggr8-5vv4-36mx` — stack exhaustion when merging recursive object graphs.
+Advisory: `GHSA-ggr8-5vv4-36mx`.
 
-The npm suggested `npm audit fix --force`, which would downgrade Prisma to 6.12.0. That breaking automatic change was rejected. PR #37 instead pins the patched transitive dependency through npm overrides:
+`npm audit fix --force` was rejected because it proposed a breaking Prisma downgrade. The reviewed fix pins patched `deepmerge-ts` `8.0.1` via npm overrides.
+
+Permanent release gates now include:
+
+- complete `npm audit --audit-level=high` before build;
+- post-prune runtime-only dependency audit;
+- Prisma validate/generate/db push;
+- production-only additive schema regression;
+- lint/typecheck/build/runtime/security smoke.
+
+PR #37 exact-head and post-merge CI passed these gates.
+
+## Exact r14 Production Evidence
+
+Production Smoke #28 observed exact r14 at **2026-09-06T07:16:09Z**:
 
 ```json
-"overrides": {
-  "deepmerge-ts": "8.0.1"
-}
+{"status":"ok","service":"psi-sigma-phi-digital-platform","release":"2026-09-06-r14","deploymentGeneration":"2026-09-06-platform-hardening-v1"}
 ```
 
-CI #593 proves:
+Readiness then returned HTTP 200 / `status=ready` with:
 
-- complete `npm audit --audit-level=high`: **PASS**;
-- Prisma validate/generate/db push with the override: **PASS**;
-- production additive schema regression: **PASS**;
-- full application build/runtime suite: **PASS**;
-- post-prune production/runtime dependency audit: **PASS**.
+- database `ok`;
+- auth schema `ok`;
+- baseline `ok`;
+- member-mobile schema `ok`;
+- custom-certificate schema `ok`;
+- public-announcement schema `ok`;
+- auth configuration `ok`;
+- SMTP configured;
+- PayMongo platform not configured;
+- PayMongo LIVE disabled.
 
-The full high/critical audit remains a permanent CI gate so future high/critical findings block merge before Hostinger deployment.
+This proves the Hostinger build/schema fix succeeded and r14 backend/readiness is live.
 
-## r14 Completed Implementation Scope
+## Remaining Production Defect — Public Homepage Cache
 
-### Payment / Finance
+Production Smoke #28 then failed at `Verify PSP public pages and PWA assets` because normal `/` returned stale pre-r14 HTML even though `/api/health` and `/api/health/ready` were r14.
 
-- Per-Chapter PayMongo linked-account setup supports safe disabled `DRAFT` staging before PSP parent-platform readiness.
-- Draft save does not create a child webhook or make the Chapter payable.
-- Activation remains fail-closed with parent platform, convenience fee, matching mode, unique child account, real webhook readiness and LIVE gate validation.
-- Explicit states: `NOT_CONFIGURED`, `DRAFT`, `READY`, `ENABLED`, `BLOCKED`.
-- Member payment UI blocks fee preview/checkout when Chapter online payment is unavailable.
-- Finance summaries use complete authorized payment history rather than a latest-record cap.
-- Payments, balances, rates and assessments use searchable/paginated responsive registers.
-
-### Administration
-
-- Member Directory/Members no longer has a fixed 100-record cap.
-- National/Chapter Admin can edit approved member profile/contact fields only within authorized scope.
-- Membership number, login identity and Chapter transfer remain separately controlled.
-- Users, Chapters, Organization, Finance and Certificate registers follow the responsive PSP Table Standard.
-
-### Public Website / Privacy
-
-- Public homepage supports intentionally public Chapter/National announcements and published events.
-- `Announcement.isPublic` defaults false; anonymous listing requires `isPublic=true`.
-- Admin UI distinguishes `PUBLIC WEBSITE` from `MEMBERS ONLY`.
-- Protected announcement images remain authenticated/private.
-
-### Custom Certificates
-
-- Membership, Attendance, Appreciation, Recognition, Outstanding Member and Custom certificate types.
-- One/multiple/all eligible in-scope active recipient issuance.
-- Batch+member retry idempotency.
-- Chairman/certificate metadata snapshot.
-- Member download and public QR verification with actual certificate metadata.
-
-### Member UX / PWA
-
-- Payment-first dashboard with balance, Pay/View Dues, receipts, payment readiness/methods, contributions, Digital ID, certificates, Chapter and security.
-- Stable PWA manifest identity remains `id: "/"`; r14 changes deployment generation only.
-
-## Production State and Closure Gate
-
-The last directly proven production identity remains:
+The stale response lacked:
 
 ```text
-release = 2026-09-05-r13
-deploymentGeneration = 2026-09-05-release-keyed-pwa-install-v1
+data-public-chapter-feed-version="global-chapter-feed-v1"
 ```
 
-After PR #37 is merged and Hostinger builds latest `main`, Production Smoke must pass:
+Current source already contains that marker and uses `dynamic = "force-dynamic"`, so the failure is a response/cache freshness issue rather than missing homepage implementation.
 
-1. exact r14 `/api/health` release/generation;
-2. `/api/health/ready` database/auth/baseline/member-mobile/custom-certificate/public-announcement/auth-config checks;
-3. public homepage r14 global-feed marker;
-4. registration/PWA/login release markers and stable manifest identity;
-5. production security headers;
-6. canonical invalid login 401 and cross-site login rejection 403;
-7. public member/certificate verification routes without application 500.
+PR #38 adds:
 
-If Hostinger fails again, inspect the exact new build log. Do not use `--accept-data-loss` and do not weaken Production Smoke.
+- `revalidate = 0` for the public homepage;
+- explicit `/` response `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0`;
+- `Pragma: no-cache` / `Expires: 0`;
+- Production Smoke requirement that the real `/` response itself advertises `no-store` before the public-feed marker can pass.
+
+The smoke test is not cache-busted or weakened: normal `/` must be fresh for real users.
+
+## Next.js Security Patch
+
+PR #38 also upgrades `next` and `eslint-config-next` from `16.3.1` to `16.3.3`, the August 2026 Active-LTS security release. The existing `deepmerge-ts` override and both dependency-audit gates remain mandatory.
+
+## r14 Completed Application Scope
+
+Automated implementation remains complete for:
+
+- per-Chapter PayMongo Draft/activation fail-closed workflow;
+- complete authorized finance summaries and responsive registers;
+- scoped Admin member editing;
+- public Chapter/National announcement and published-event feed with private-announcement non-leakage;
+- custom certificate issuance/PDF/public QR verification;
+- searchable/paginated responsive Admin tables;
+- payment-first Member dashboard and PWA/security contracts.
+
+## Immediate Release Sequence
+
+1. PR #38 final documentation-bearing head must pass all CI gates.
+2. Merge only that exact passing head with no unresolved review threads.
+3. Verify post-merge `main` CI.
+4. Verify Hostinger deploys resulting `main`.
+5. Production Smoke must pass exact r14 health/readiness, fresh homepage/public-feed marker, PWA assets, security headers, canonical/cross-site auth behavior, and public verification routes.
+6. If normal `/` remains an old cached object after the code fix, purge the Hostinger server/CDN cache once and rerun Production Smoke unchanged.
 
 ## Controlled / External Pending
 
-- merge PR #37 only on an exact fully passing head;
-- Hostinger successful build/deploy of the resulting latest `main`;
-- full exact-r14 Production Smoke;
+Even after automated production closure, these remain external until directly evidenced:
+
 - real PayMongo Platforms TEST DUES/CONTRIBUTION/OTHER split-payment E2E;
 - real child webhook/signature and split settlement;
 - provider invalid/duplicate/cross-Chapter webhook acceptance;
-- controlled LIVE payment after TEST signoff + explicit owner approval;
-- real recipient email delivery/rendering;
-- physical Android/iOS PWA acceptance;
-- real passkey device acceptance;
-- second-device Digital ID/Certificate QR acceptance where required;
+- controlled LIVE payment after TEST signoff and explicit product-owner approval;
+- real recipient email receipt/rendering;
+- physical Android/iOS installed-PWA acceptance;
+- real passkey-device acceptance;
+- second-device Digital ID / Certificate QR acceptance where required;
 - database backup/restore drill;
 - controlled production credential/state-changing acceptance and bootstrap cleanup/rotation where required.
 
