@@ -18,7 +18,7 @@ export async function GET(
     const certificate = await prisma.certificate.findUnique({
       where: { id },
       include: {
-        chapter: { select: { name: true } },
+        chapter: { select: { name: true, logoUrl: true } },
         member: { select: { id: true, firstName: true, middleInitial: true, lastName: true, membershipNo: true } },
       },
     });
@@ -27,6 +27,12 @@ export async function GET(
     const owner = context.user.member?.id === certificate.memberId;
     const manager = hasPermission(context, "certificates.manage", certificate.chapterId);
     if (!owner && !manager) return NextResponse.json({ message: "Access denied." }, { status: 403 });
+    if (certificate.status !== "VALID") {
+      return NextResponse.json(
+        { message: `Certificate is ${certificate.status} and is no longer available as a valid PDF.` },
+        { status: 410, headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
 
     let signatoryName = certificate.signatoryName;
     let signatoryTitle = certificate.signatoryTitle;
@@ -49,6 +55,7 @@ export async function GET(
       memberName,
       membershipNo: certificate.member.membershipNo,
       chapterName: certificate.chapter.name,
+      chapterLogoUrl: certificate.chapter.logoUrl,
       certificateNumber: certificate.certificateNumber,
       issuedAt: certificate.issuedAt,
       verificationToken: certificate.verificationToken,

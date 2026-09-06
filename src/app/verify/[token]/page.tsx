@@ -8,7 +8,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
   const certificate = await prisma.certificate.findUnique({
     where: { verificationToken: token },
     include: {
-      chapter: { select: { name: true } },
+      chapter: { select: { id: true, name: true } },
       member: { select: { firstName: true, middleInitial: true, lastName: true, membershipNo: true } },
     },
   });
@@ -32,13 +32,13 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
   const valid = certificate.status === "VALID";
 
   return (
-    <main className="app-shell" data-certificate-verification-version="custom-metadata-v1">
+    <main className="app-shell" data-certificate-verification-version="custom-metadata-v2">
       <div className="container app-main">
         <section className="app-panel" style={{ maxWidth: 680, margin: "40px auto" }}>
           <div style={{ textAlign: "center" }}>
-            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" style={{ width: 92, height: 92, objectFit: "contain" }} />
+            <img src={`/api/public/chapters/${encodeURIComponent(certificate.chapter.id)}/logo`} alt={`${certificate.chapter.name} logo`} style={{ width: 92, height: 92, objectFit: "contain" }} />
             <p style={{ fontWeight: 900, letterSpacing: ".08em", color: valid ? "#267a3f" : "#9b2c2c" }}>
-              {valid ? "VERIFIED · VALID" : `VERIFIED · ${certificate.status}`}
+              {valid ? "VERIFIED · VALID" : `INVALID · ${certificate.status}`}
             </p>
             <small style={{ color: "#806500", fontWeight: 900 }}>{certificate.certificateType.replaceAll("_", " ")}</small>
             <h1 style={{ marginTop: 5 }}>{certificate.title}</h1>
@@ -60,9 +60,13 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
               <p style={{ margin: "6px 0 0" }}>{certificate.citationText}</p>
             </div>
           ) : null}
-          {!valid && certificate.revocationReason && (
-            <p style={{ marginTop: 18, padding: 14, background: "#fff4f4", borderRadius: 12 }}><strong>Status note:</strong> {certificate.revocationReason}</p>
-          )}
+          {!valid ? (
+            <div style={{ marginTop: 18, padding: 14, background: "#fff4f4", border: "1px solid #efc3c3", borderRadius: 12, color: "#7b2424" }}>
+              <strong>This certificate is invalid and must not be accepted as an active PSP document.</strong>
+              {certificate.revocationReason ? <p style={{ margin: "7px 0 0" }}>Reason: {certificate.revocationReason}</p> : null}
+              {certificate.revokedAt ? <p style={{ margin: "5px 0 0" }}>Invalidated: {certificate.revokedAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</p> : null}
+            </div>
+          ) : null}
           <p style={{ marginTop: 24, fontSize: ".82rem", color: "#746b5b" }}>This page intentionally exposes only the minimum information needed to verify the issued certificate.</p>
         </section>
       </div>

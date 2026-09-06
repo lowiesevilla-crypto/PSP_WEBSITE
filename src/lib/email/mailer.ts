@@ -14,6 +14,12 @@ export type EmailBrand = {
   chapterLogoUrl?: string | null;
 };
 
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 function smtpConfig() {
   const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT ?? "587");
@@ -138,6 +144,7 @@ export async function sendEmail(options: {
   replyTo?: string | null;
   brand?: EmailBrand;
   preheader?: string;
+  attachments?: EmailAttachment[];
 }) {
   const config = smtpConfig();
   const transporter = nodemailer.createTransport({
@@ -150,7 +157,7 @@ export async function sendEmail(options: {
     },
   });
 
-  await transporter.sendMail({
+  return transporter.sendMail({
     from: config.fromName
       ? { name: config.fromName, address: config.fromAddress }
       : config.fromAddress,
@@ -164,6 +171,11 @@ export async function sendEmail(options: {
       brand: options.brand,
       preheader: options.preheader,
     }),
+    attachments: options.attachments?.map((attachment) => ({
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType,
+    })),
   });
 }
 
