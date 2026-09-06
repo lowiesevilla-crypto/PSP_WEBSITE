@@ -88,7 +88,6 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
     if (!chapterId) return;
     const controller = new AbortController();
     let cancelled = false;
-    setBusy(true);
 
     void fetch(`/api/admin/finance/payment-config?chapterId=${encodeURIComponent(chapterId)}`, {
       headers: { Accept: "application/json" },
@@ -137,12 +136,20 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
   }, [chapterId, refreshNonce]);
 
   function changeChapter(nextChapterId: string) {
+    setBusy(true);
     setError(null);
     setMessage(null);
     setSavedLinkedAccountId("");
     setSavedMode(null);
     setSavedMethods([]);
     setChapterId(nextChapterId);
+  }
+
+  function recheckActivationReadiness() {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    setRefreshNonce((value) => value + 1);
   }
 
   function toggleMethod(method: Method) {
@@ -279,7 +286,7 @@ export function ChapterPaymentConfig({ chapters }: { chapters: Chapter[] }) {
             <p style={{ margin: "8px 0", fontSize: ".82rem" }}><strong>Security:</strong> do not paste this key into Chapter settings, chat, email, screenshots, source code or GitHub. Keep the same value for existing encrypted webhook secrets unless a controlled key-rotation migration is performed.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
               <a className="btn" href="https://hpanel.hostinger.com/" target="_blank" rel="noreferrer" style={{ border: "1px solid #d8b45c", background: "#fff" }}>Open Hostinger hPanel</a>
-              <button className="btn" type="button" onClick={() => setRefreshNonce((value) => value + 1)} disabled={busy} style={{ border: "1px solid #d8b45c", background: "#fff" }}>{busy ? "Checking…" : "Re-check activation readiness"}</button>
+              <button className="btn" type="button" onClick={recheckActivationReadiness} disabled={busy} style={{ border: "1px solid #d8b45c", background: "#fff" }}>{busy ? "Checking…" : "Re-check activation readiness"}</button>
             </div>
           </div>
         ) : (
