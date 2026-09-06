@@ -15,6 +15,7 @@ export async function GET() {
       deploymentGeneration: PSP_DEPLOYMENT_GENERATION,
       financePaymentConfigVersion: "chapter-draft-ux-v2",
       paymentActivationUxVersion: "national-admin-v2",
+      paymongoLiveApprovalVersion: "national-signoff-v1",
       certificateHotfixVersion: "chapter-logo-email-invalidation-v1",
       timestamp: new Date().toISOString(),
     },

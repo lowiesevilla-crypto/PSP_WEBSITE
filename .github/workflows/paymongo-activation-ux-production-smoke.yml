@@ -23,6 +23,7 @@ jobs:
       EXPECTED_RELEASE: 2026-09-06-r14
       EXPECTED_FINANCE_VERSION: chapter-draft-ux-v2
       EXPECTED_ACTIVATION_UX_VERSION: national-admin-v2
+      EXPECTED_LIVE_APPROVAL_VERSION: national-signoff-v1
       EXPECTED_CERTIFICATE_HOTFIX_VERSION: chapter-logo-email-invalidation-v1
 
     steps:
@@ -43,6 +44,7 @@ jobs:
               && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
               && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"paymentActivationUxVersion\":\"$EXPECTED_ACTIVATION_UX_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"paymongoLiveApprovalVersion\":\"$EXPECTED_LIVE_APPROVAL_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"certificateHotfixVersion\":\"$EXPECTED_CERTIFICATE_HOTFIX_VERSION\"" /tmp/psp-health.json; then
               deployed=true
               break
@@ -51,7 +53,7 @@ jobs:
           done
 
           if [ "$deployed" != "true" ]; then
-            echo "Expected PayMongo National Admin activation UX capability did not become visible within the deployment window." >&2
+            echo "Expected PayMongo National Admin activation/LIVE approval capability did not become visible within the deployment window." >&2
             cat /tmp/psp-health.json 2>/dev/null || true
             exit 1
           fi
@@ -75,4 +77,4 @@ jobs:
 
       - name: PayMongo activation UX production summary
         run: |
-          echo "PayMongo National Admin activation UX is deployed and PSP readiness remains green."
+          echo "PayMongo National Admin activation UX and LIVE approval workflow are deployed and PSP readiness remains green."

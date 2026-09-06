@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { assertPayMongoLiveApprovalForSecret } from "@/lib/paymongo/live-approval";
 
 const PAYMONGO_V1_API = "https://api.paymongo.com/v1";
 
@@ -33,6 +34,10 @@ async function readPayload<T>(response: Response) {
   return payload;
 }
 
+async function assertProviderActionAllowed(secretKey: string) {
+  await assertPayMongoLiveApprovalForSecret(secretKey);
+}
+
 export type LinkedPaymentMethod = "qrph" | "gcash" | "paymaya";
 
 export async function createLinkedSplitPaymentIntent(input: {
@@ -50,6 +55,7 @@ export async function createLinkedSplitPaymentIntent(input: {
   paymentMethod: LinkedPaymentMethod;
   idempotencyKey: string;
 }) {
+  await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/payment_intents`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId, input.idempotencyKey),
@@ -100,6 +106,7 @@ export async function createLinkedPaymentMethod(input: {
   method: LinkedPaymentMethod;
   billing?: { name?: string; email?: string; phone?: string | null };
 }) {
+  await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/payment_methods`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId),
@@ -133,6 +140,7 @@ export async function attachLinkedPaymentMethod(input: {
   clientKey: string;
   returnUrl: string;
 }) {
+  await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/payment_intents/${encodeURIComponent(input.paymentIntentId)}/attach`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId),
@@ -182,6 +190,7 @@ export async function createLinkedWebhook(input: {
   childAccountId: string;
   url: string;
 }) {
+  await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/webhooks`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId),

@@ -27,6 +27,12 @@ const [
   certificateDelivery,
   certificatePdfRoute,
   certificateManager,
+  liveApproval,
+  liveApprovalApi,
+  liveApprovalUi,
+  paymongoClient,
+  platformConfig,
+  adminLayout,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -46,6 +52,12 @@ const [
   source("src/lib/certificates/delivery.ts"),
   source("src/app/api/member/certificates/[id]/pdf/route.ts"),
   source("src/components/admin/certificate-manager.tsx"),
+  source("src/lib/paymongo/live-approval.ts"),
+  source("src/app/api/admin/finance/paymongo-live-approval/route.ts"),
+  source("src/components/admin/paymongo-live-approval-control.tsx"),
+  source("src/lib/paymongo/client.ts"),
+  source("src/lib/paymongo/platform-config.ts"),
+  source("src/app/admin/layout.tsx"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -76,6 +88,19 @@ assert(paymentAdminUi.includes("Open Hostinger hPanel") && paymentAdminUi.includ
 assert(paymentAdminUi.includes('data-payment-activation-ux-version="national-admin-v2"'), "PayMongo activation UX deployment marker is missing.");
 assert(paymentAdminUi.includes("requestOnlinePayment") && paymentAdminUi.includes("Clickable for visibility"), "Enable Online Payment must be actionable and explain blockers instead of appearing broken.");
 assert(!paymentAdminUi.includes("disabled={busy || (!enabled && !canRequestEnable)}"), "Blocked activation control must remain clickable for blocker visibility.");
+
+assert(liveApproval.includes("PAYMONGO_LIVE_APPROVAL_GRANTED") && liveApproval.includes("PAYMONGO_LIVE_APPROVAL_REVOKED"), "PayMongo LIVE approval must be append-only and auditable.");
+assert(liveApproval.includes("PAYMONGO_LIVE_ENABLED") && liveApproval.includes("serverLiveEnabled"), "PayMongo LIVE approval must remain separate from the server LIVE kill-switch.");
+assert(liveApproval.includes("chapterId === null") && liveApproval.includes('permissions.includes("finance.manage")'), "Only national-scoped Finance administration may approve PayMongo LIVE processing.");
+assert(liveApprovalApi.includes('z.literal("APPROVE")') && liveApprovalApi.includes('z.literal("REVOKE")'), "PayMongo LIVE approval API must support controlled approval and revocation.");
+assert(liveApprovalApi.includes("testDuesPaymentVerified") && liveApprovalApi.includes("testContributionPaymentVerified") && liveApprovalApi.includes("webhookAndReceiptVerified"), "LIVE approval must require all controlled TEST acceptance confirmations.");
+assert(liveApprovalUi.includes('data-paymongo-live-approval-version="national-signoff-v1"'), "National Admin LIVE approval UI deployment marker is missing.");
+assert(liveApprovalUi.includes("Approve LIVE after TEST signoff") && liveApprovalUi.includes("Revoke LIVE approval"), "National Admin LIVE approval UI must expose auditable approve/revoke actions.");
+assert(adminLayout.includes('/admin/finance/live-approval') && adminLayout.includes("Live Approval"), "National Admin navigation must expose the PayMongo LIVE approval workflow.");
+assert(platformConfig.includes('/admin/finance/live-approval') && platformConfig.includes("PAYMONGO_LIVE_ENABLED=true"), "LIVE server blocker must direct National Admin to the signoff page and Hostinger kill-switch.");
+assert(paymongoClient.includes("assertPayMongoLiveApprovalForSecret"), "PayMongo provider client must enforce audited LIVE approval.");
+const providerGuardCount = (paymongoClient.match(/await assertProviderActionAllowed\(input\.secretKey\);/g) ?? []).length;
+assert(providerGuardCount >= 4, "Every outbound linked PayMongo provider action must enforce the LIVE approval gate.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
