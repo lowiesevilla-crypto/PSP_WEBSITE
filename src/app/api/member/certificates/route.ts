@@ -27,10 +27,15 @@ export async function GET() {
     const { member } = await requireCurrentMember();
     const certificates = await prisma.certificate.findMany({
       where: { memberId: member.id },
-      orderBy: { issuedAt: "desc" },
+      orderBy: [{ certificateDate: "desc" }, { issuedAt: "desc" }],
       select: {
         id: true,
         certificateNumber: true,
+        certificateType: true,
+        title: true,
+        citationText: true,
+        certificateDate: true,
+        referenceLabel: true,
         status: true,
         issuedAt: true,
         revokedAt: true,
@@ -52,7 +57,7 @@ export async function POST() {
     const { context, member } = await requireCurrentMember();
 
     const existing = await prisma.certificate.findFirst({
-      where: { memberId: member.id, status: "VALID" },
+      where: { memberId: member.id, certificateType: "MEMBERSHIP", status: "VALID" },
       orderBy: { issuedAt: "desc" },
     });
     if (existing) return NextResponse.json({ certificate: existing, created: false });
@@ -70,12 +75,16 @@ export async function POST() {
       );
     }
 
+    const now = new Date();
     const created = await prisma.$transaction(async (tx) => {
       const certificate = await tx.certificate.create({
         data: {
           memberId: member.id,
           chapterId: member.chapterId,
           certificateNumber: certificateNumber(),
+          certificateType: "MEMBERSHIP",
+          title: "Certificate of Membership",
+          certificateDate: now,
           verificationToken: randomBytes(24).toString("base64url"),
           signatoryName: chairman.name,
           signatoryTitle: chairman.title,
@@ -91,6 +100,7 @@ export async function POST() {
           entityId: certificate.id,
           metadataJson: {
             certificateNumber: certificate.certificateNumber,
+            certificateType: certificate.certificateType,
             signatoryName: chairman.name,
             signatoryTitle: chairman.title,
             currentDuesRequired: process.env.CERTIFICATE_REQUIRE_CURRENT_DUES === "true",
