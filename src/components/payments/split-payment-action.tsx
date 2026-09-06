@@ -28,6 +28,9 @@ type StatusResponse = {
   message?: string;
 };
 
+type KeyedPreview = { key: string; value: Preview };
+type KeyedError = { key: string; message: string };
+
 export function SplitPaymentAction({
   category,
   chapterAmount,
@@ -44,7 +47,8 @@ export function SplitPaymentAction({
   disabledReason?: string;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("qrph");
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewState, setPreviewState] = useState<KeyedPreview | null>(null);
+  const [previewError, setPreviewError] = useState<KeyedError | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutResponse | null>(null);
@@ -55,29 +59,33 @@ export function SplitPaymentAction({
     const value = Number(chapterAmount);
     return Number.isFinite(value) && value > 0 ? value : null;
   }, [chapterAmount]);
+  const previewKey = validAmount && !disabled ? validAmount.toFixed(2) : null;
+  const preview = previewKey && previewState?.key === previewKey ? previewState.value : null;
+  const currentPreviewError = previewKey && previewError?.key === previewKey ? previewError.message : null;
 
   useEffect(() => {
-    setPreview(null);
-    setError(null);
-    if (!validAmount || disabled) return;
+    if (!previewKey) return;
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch(`/api/payments/fee-preview?amount=${encodeURIComponent(validAmount.toFixed(2))}`, {
+        const response = await fetch(`/api/payments/fee-preview?amount=${encodeURIComponent(previewKey)}`, {
           headers: { Accept: "application/json" },
           cache: "no-store",
           signal: controller.signal,
         });
         const payload = (await response.json().catch(() => null)) as (Preview & { message?: string }) | null;
         if (!response.ok || !payload?.totalAmount) throw new Error(payload?.message ?? "Unable to calculate payment total.");
-        setPreview(payload);
+        setPreviewState({ key: previewKey, value: payload });
+        setPreviewError((current) => current?.key === previewKey ? null : current);
       } catch (cause) {
-        if ((cause as Error).name !== "AbortError") setError(cause instanceof Error ? cause.message : "Unable to calculate payment total.");
+        if ((cause as Error).name !== "AbortError") {
+          setPreviewError({ key: previewKey, message: cause instanceof Error ? cause.message : "Unable to calculate payment total." });
+        }
       }
     };
     void load();
     return () => controller.abort();
-  }, [validAmount, disabled]);
+  }, [previewKey]);
 
   useEffect(() => {
     const ref = checkout?.internalReference;
@@ -199,7 +207,7 @@ export function SplitPaymentAction({
       </button>
 
       {disabledReason ? <div role="status" style={{ padding: 11, borderRadius: 11, background: "#fff6dd", color: "#684d00", border: "1px solid #ebd594", lineHeight: 1.45 }}>{disabledReason}</div> : null}
-      {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
+      {error || currentPreviewError ? <div role="alert" style={errorStyle}>{error ?? currentPreviewError}</div> : null}
 
       {checkout?.actionType === "qr" && checkout.qrImageUrl ? (
         <section style={{ border: "1px solid #ddd5c1", borderRadius: 16, padding: 16, textAlign: "center", background: "#fff" }} aria-live="polite">
