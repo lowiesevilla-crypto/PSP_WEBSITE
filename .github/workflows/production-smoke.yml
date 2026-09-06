@@ -21,7 +21,7 @@ jobs:
     env:
       PROD_URL: https://psp.hoahub.tech
       EXPECTED_RELEASE: 2026-09-06-r14
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-06-platform-hardening-v1
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-06-paymongo-finance-ux-v2
 
     steps:
       - name: Wait for exact deployed main release
