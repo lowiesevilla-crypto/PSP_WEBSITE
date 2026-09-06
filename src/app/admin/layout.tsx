@@ -33,6 +33,7 @@ const navigation = [
   { href: "/admin/announcements", label: "Announcements", permission: "content.manage" },
   { href: "/admin/events", label: "Events", permission: "events.manage" },
   { href: "/admin/finance", label: "Finance", permission: "finance.view" },
+  { href: "/admin/finance/live-approval", label: "Live Approval", permission: "finance.manage", nationalOnly: true },
   { href: "/admin/certificates", label: "Certificates", permission: "certificates.manage" },
   { href: "/admin/reports", label: "Reports", permission: "reports.view" },
   { href: "/admin/audit", label: "Audit", permission: "audit.view" },
@@ -71,7 +72,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         : "Chapter scope";
   const roleLabel = nationalScope ? "National Administration" : "Chapter Administration";
   const visibleNavigation = navigation.filter(
-    (item) => item.permission === null || permissionSet.has(item.permission),
+    (item) =>
+      (item.permission === null || permissionSet.has(item.permission)) &&
+      (!("nationalOnly" in item) || !item.nationalOnly || nationalScope),
   );
 
   return (
