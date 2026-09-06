@@ -8,10 +8,11 @@ async function source(path) {
   return readFile(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-const [financeManager, assessmentRoute, paymentsPage, chapterRuntime, checkoutRoute, webhookRoute, receiptGenerator, splitMetadata, paymongoClient] = await Promise.all([
+const [financeManager, assessmentRoute, paymentsPage, memberDashboard, chapterRuntime, checkoutRoute, webhookRoute, receiptGenerator, splitMetadata, paymongoClient] = await Promise.all([
   source("src/components/admin/finance-manager.tsx"),
   source("src/app/api/admin/finance/assessments/route.ts"),
   source("src/app/payments/page.tsx"),
+  source("src/app/member/page.tsx"),
   source("src/lib/paymongo/chapter-config.ts"),
   source("src/app/api/payments/checkout/route.ts"),
   source("src/app/api/webhooks/paymongo/[chapterCode]/route.ts"),
@@ -23,6 +24,7 @@ const [financeManager, assessmentRoute, paymentsPage, chapterRuntime, checkoutRo
 assert(financeManager.includes('view: "rates"') && financeManager.includes('notice: "rate"'), "Saved effective-dated rates must navigate to persisted Rates evidence.");
 assert(financeManager.includes('view: "assessments"') && financeManager.includes('chargedMembers'), "Posted assessments must navigate to persisted Assessments evidence with charged-member visibility.");
 assert(financeManager.includes('Saving rate…') && financeManager.includes('Posting to active members…'), "Finance mutations must expose in-progress UI feedback and prevent ambiguous double submission.");
+assert(financeManager.includes("Rate saved successfully") && financeManager.includes("Assessment saved and posted"), "Finance mutations must preserve explicit success confirmation while opening persisted evidence.");
 
 assert(assessmentRoute.includes('membershipStatus: "ACTIVE"'), "Assessment posting must remain limited to ACTIVE members in the selected Chapter.");
 assert(assessmentRoute.includes("tx.memberLedgerEntry.createMany"), "Assessment posting must persist member ledger charges transactionally.");
@@ -33,6 +35,11 @@ assert(paymentsPage.includes("getChapterPayMongoReadiness(member.chapterId)"), "
 assert(paymentsPage.includes("data-member-payment-readiness"), "Member Payments must expose a safe readiness state for support visibility.");
 assert(paymentsPage.includes("Exact member Chapter") && paymentsPage.includes("member.chapter.code"), "Member Payments must identify the exact Chapter/code used for ledger and payment configuration.");
 assert(!paymentsPage.includes('() => ({ ready: false as const, methods: [] as string[] })'), "Member Payments must not swallow every PayMongo readiness failure into a generic unavailable state.");
+
+assert(memberDashboard.includes("getChapterPayMongoReadiness(member.chapterId)"), "Member Dashboard must use the same exact-Chapter PayMongo readiness as Payments.");
+assert(memberDashboard.includes("data-member-payment-readiness"), "Member Dashboard must expose the safe payment readiness state.");
+assert(memberDashboard.includes("member.chapter.code") && memberDashboard.includes("Online Payment Action Required"), "Member Dashboard must show the exact Chapter code and actionable payment state.");
+assert(!memberDashboard.includes('() => ({ ready: false as const, methods: [] as string[] })'), "Member Dashboard must not hide every payment configuration failure behind a generic unavailable chip.");
 
 assert(chapterRuntime.includes("getChapterPayMongoReadiness"), "Structured Chapter PayMongo readiness helper is missing.");
 assert(chapterRuntime.includes('reasonCode: "CHAPTER_DISABLED"') && chapterRuntime.includes('reasonCode: "MODE_MISMATCH"'), "Chapter PayMongo readiness must distinguish safe Chapter configuration blockers.");
