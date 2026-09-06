@@ -12,6 +12,16 @@ export type ChapterPayMongoRuntimeConfig = {
   paymentMethods: string[];
 };
 
+export type ChapterPayMongoReadiness = {
+  ready: boolean;
+  chapterId: string;
+  chapterCode: string | null;
+  mode: "TEST" | "LIVE" | null;
+  methods: string[];
+  reasonCode: "READY" | "CHAPTER_NOT_FOUND" | "CHAPTER_DISABLED" | "LINKED_ACCOUNT_INVALID" | "WEBHOOK_NOT_READY" | "MODE_MISMATCH" | "PLATFORM_NOT_READY" | "UNKNOWN";
+  message: string | null;
+};
+
 function normalizeMethods(value: unknown) {
   if (!Array.isArray(value)) return ["qrph"];
   const allowed = new Set(["qrph", "gcash", "paymaya"]);
@@ -68,6 +78,81 @@ export async function getChapterPayMongoConfig(chapterId: string): Promise<Chapt
     webhookSecret,
     paymentMethods: normalizeMethods(config.paymentMethods),
   };
+}
+
+function safeReadinessFailure(error: unknown): Pick<ChapterPayMongoReadiness, "reasonCode" | "message"> {
+  const text = error instanceof Error ? error.message : "";
+  if (text.includes("Online payment is not configured")) {
+    return {
+      reasonCode: "CHAPTER_DISABLED",
+      message: "Online Payment is disabled or no enabled PayMongo configuration exists for this exact member Chapter.",
+    };
+  }
+  if (text.includes("linked account id is invalid")) {
+    return {
+      reasonCode: "LINKED_ACCOUNT_INVALID",
+      message: "This Chapter does not have a valid saved PayMongo linked child Account ID.",
+    };
+  }
+  if (text.includes("child webhook is not configured")) {
+    return {
+      reasonCode: "WEBHOOK_NOT_READY",
+      message: "This Chapter's PayMongo child webhook signing configuration is not ready.",
+    };
+  }
+  if (text.includes("does not match the PSP platform PayMongo mode")) {
+    return {
+      reasonCode: "MODE_MISMATCH",
+      message: "This Chapter's PayMongo mode does not match the PSP platform payment mode.",
+    };
+  }
+  if (text.includes("PayMongo") || text.includes("platform") || text.includes("convenience fee")) {
+    return {
+      reasonCode: "PLATFORM_NOT_READY",
+      message: "The PSP platform online-payment service is not ready for new provider actions. National Administration must review the LIVE/payment readiness controls.",
+    };
+  }
+  return {
+    reasonCode: "UNKNOWN",
+    message: "Online Payment readiness could not be confirmed for this exact member Chapter. Please contact the Chapter Administrator.",
+  };
+}
+
+export async function getChapterPayMongoReadiness(chapterId: string): Promise<ChapterPayMongoReadiness> {
+  const chapter = await prisma.chapters.findUnique({ where: { id: chapterId }, select: { code: true } });
+  if (!chapter) {
+    return {
+      ready: false,
+      chapterId,
+      chapterCode: null,
+      mode: null,
+      methods: [],
+      reasonCode: "CHAPTER_NOT_FOUND",
+      message: "The member Chapter record could not be found.",
+    };
+  }
+  try {
+    const config = await getChapterPayMongoConfig(chapterId);
+    return {
+      ready: true,
+      chapterId,
+      chapterCode: config.chapterCode,
+      mode: config.mode,
+      methods: config.paymentMethods,
+      reasonCode: "READY",
+      message: null,
+    };
+  } catch (error) {
+    const failure = safeReadinessFailure(error);
+    return {
+      ready: false,
+      chapterId,
+      chapterCode: chapter.code,
+      mode: null,
+      methods: [],
+      ...failure,
+    };
+  }
 }
 
 export async function getChapterPayMongoConfigByCode(chapterCode: string): Promise<ChapterPayMongoRuntimeConfig> {
