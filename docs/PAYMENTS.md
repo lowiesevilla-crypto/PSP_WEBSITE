@@ -11,34 +11,65 @@ Canonical online-payment model:
 - PSP authenticates server-side with the parent secret;
 - child operations use parent authentication plus child `Account-Id`;
 - PSP does not store a Chapter API secret key in linked-account mode;
-- Chapter Account ID and real child webhook signing secret are encrypted at rest;
+- Chapter `org_*` Account ID is a non-secret provider identifier and may be stored directly;
+- the real child webhook signing secret is encrypted at rest with the stable server payment-configuration encryption key;
 - one linked child account may belong to only one PSP Chapter.
+
+## Admin Configuration Layers
+
+The Finance Admin page must visibly distinguish two configuration layers.
+
+### 1. PSP parent split-payment platform
+
+This is National/System infrastructure, not a per-Chapter secret form. The UI exposes readiness only and never renders parent secret values.
+
+Server-side secure environment settings:
+
+- `PAYMONGO_PLATFORM_ACCOUNT_ID` — PSP parent PayMongo `org_*` account;
+- `PAYMONGO_PLATFORM_SECRET_KEY` — PSP parent TEST/LIVE secret;
+- `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS` — deliberate PSP split/convenience fee;
+- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable server-only value of at least 32 characters, required before storing real child webhook signing secrets;
+- `PAYMONGO_LIVE_ENABLED=false` until controlled TEST signoff.
+
+The parent secret and encryption key are never editable or displayed in a Chapter form.
+
+### 2. Chapter linked-account setup
+
+An authorized Chapter/National Admin can select the Chapter and edit while Online Payment is disabled:
+
+- linked child Account ID (`org_*`);
+- draft PayMongo mode (`TEST` or `LIVE`);
+- accepted methods (`qrph`, `gcash`, `paymaya`).
+
+The disabled draft mode remains editable before activation. Activation requires the Chapter mode to match the PSP parent platform mode.
 
 ## Chapter Payment Configuration States
 
 Chapter payment setup is intentionally separated from activation.
 
 1. **NOT_CONFIGURED** — no linked child Account ID saved.
-2. **DRAFT** — linked child account and selected methods are saved; Online Payment is disabled; PSP parent platform and/or child webhook may still be incomplete.
-3. **READY** — parent platform, convenience fee, mode, linked account, and webhook prerequisites are valid.
+2. **DRAFT** — linked child account, selected mode and methods are saved; Online Payment is disabled; PSP parent platform, encryption readiness and/or child webhook may still be incomplete.
+3. **READY** — parent platform, convenience fee, credential encryption, mode, linked account, and webhook prerequisites are valid.
 4. **ENABLED** — Online Payment is active for the Chapter in the allowed mode.
 5. **BLOCKED** — saved/enabled configuration fails current validation and must fail closed until remediated.
 
 ### Draft-save contract
 
-A Chapter Admin/National Admin with exact finance authority must be able to save a **disabled Draft even while the PSP parent PayMongo platform is not configured**.
+A Chapter Admin/National Admin with exact finance authority must be able to save a **disabled Draft even while the PSP parent PayMongo platform or `PAYMENT_CONFIG_ENCRYPTION_KEY` is not configured**.
 
 Draft save:
 
 - validates Chapter authority and `org_*` format;
-- persists linked child Account ID encrypted;
-- persists selected payment methods and mode;
+- persists the linked child Account ID as a non-secret provider identifier;
+- persists selected payment methods and the chosen disabled-draft mode;
 - keeps `isEnabled=false`;
 - does not call PayMongo;
 - does not create a child webhook;
-- may store an internal encrypted pending-webhook marker only to retain additive production-schema compatibility;
-- must never report that marker as a real webhook signing secret;
-- must never make the Chapter payable.
+- stores a non-secret pending-webhook marker only to retain compatibility with the existing non-null production column;
+- never reports that marker as a real webhook signing secret;
+- never makes the Chapter payable.
+
+Existing production records that contain a legacy encrypted `org_*` Account ID remain readable for backward compatibility. A later authorized save normalizes the non-secret identifier without requiring a schema migration.
 
 Runtime member payment configuration rejects staged/pending webhook state.
 
@@ -48,11 +79,14 @@ Enabling Online Payment requires all of the following before `isEnabled=true` is
 
 - PSP parent platform secret/account configuration is valid;
 - platform convenience fee is explicitly configured;
+- stable `PAYMENT_CONFIG_ENCRYPTION_KEY` is present before any provider webhook-creation call;
 - Chapter mode matches parent TEST/LIVE mode;
 - linked child `org_*` account is valid and unique to that Chapter;
 - selected method list is valid;
 - real child webhook signing secret exists, creating the child webhook when required;
 - LIVE is explicitly allowed by the global live gate.
+
+Encryption readiness is checked **before** PSP creates a PayMongo child webhook. A missing encryption key therefore cannot create an orphan provider webhook whose signing secret PSP is unable to persist safely.
 
 If activation fails, the previously saved Draft remains disabled. A failed activation must not leave `isEnabled=true`.
 
@@ -163,11 +197,11 @@ Canonical child webhook:
 
 ## Server Environment
 
-Required for activated linked-account split payment:
+Required for **activated** linked-account split payment:
 
 - `PAYMONGO_PLATFORM_SECRET_KEY`
 - `PAYMONGO_PLATFORM_ACCOUNT_ID`
-- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable server-only value, minimum 32 characters
+- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable server-only value, minimum 32 characters, required before activation/webhook-secret persistence but not for a disabled Chapter draft
 - `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`
 - `PAYMONGO_LIVE_ENABLED=false` until controlled TEST signoff
 - `NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech`
@@ -186,6 +220,15 @@ PR #34 runtime CI proves without contacting the real PayMongo provider:
 - failed activation does not change persisted `isEnabled=false`;
 - payment/runtime source contracts reject pending webhook state;
 - Finance summary/register hardening compiles/builds with cross-Chapter isolation suite green.
+
+The 2026-09-06 Chapter payment UX correction additionally requires CI/source contracts to prove:
+
+- the non-secret linked `org_*` identifier is not passed through `encryptSecret` merely to save a disabled draft;
+- the pending webhook marker can be staged without credential encryption;
+- credential encryption is checked before child-webhook creation;
+- runtime remains backward compatible with previously encrypted linked Account IDs;
+- Finance Admin visibly separates PSP parent split-payment setup from Chapter linked-account setup;
+- disabled Chapter mode is selectable as TEST/LIVE.
 
 These automated tests prove PSP application behavior, not actual external PayMongo settlement.
 
