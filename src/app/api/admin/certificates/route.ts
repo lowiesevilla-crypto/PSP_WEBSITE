@@ -6,6 +6,7 @@ import { getCurrentChapterChairman } from "@/lib/chapter/chairman";
 import { prisma } from "@/lib/prisma";
 import { notifyUser } from "@/lib/notifications/service";
 import { checkCertificateEligibility } from "@/lib/certificates/eligibility";
+import { sendCertificateIssuedEmail, type CertificateDeliveryInput } from "@/lib/certificates/delivery";
 
 const certificateTypes = ["MEMBERSHIP", "ATTENDANCE", "APPRECIATION", "RECOGNITION", "OUTSTANDING_MEMBER", "CUSTOM"] as const;
 const issueSchema = z.object({
@@ -23,6 +24,7 @@ const issueSchema = z.object({
   message: "Select at least one certificate recipient.",
 });
 const revokeSchema = z.object({ certificateId: z.string().min(1), reason: z.string().trim().min(3).max(1000) });
+const deleteSchema = z.object({ certificateId: z.string().min(1), reason: z.string().trim().min(3).max(1000).optional() });
 
 const titleByType: Record<(typeof certificateTypes)[number], string> = {
   MEMBERSHIP: "Certificate of Membership",
@@ -76,8 +78,10 @@ export async function POST(request: Request) {
       membershipNo: true,
       membershipStatus: true,
       firstName: true,
+      middleInitial: true,
       lastName: true,
-      chapter: { select: { name: true } },
+      user: { select: { email: true } },
+      chapter: { select: { id: true, name: true, logoUrl: true, email: true } },
     },
   });
   if (members.length !== requestedMemberIds.length) {
@@ -96,7 +100,7 @@ export async function POST(request: Request) {
   const batchId = input.batchId ?? `cert-batch-${randomBytes(12).toString("hex")}`;
   const chairmen = new Map<string, Awaited<ReturnType<typeof getCurrentChapterChairman>>>();
   const results: Array<{ memberId: string; certificateId?: string; created: boolean; message: string }> = [];
-  const createdCertificates: Array<{ id: string; userId: string; certificateNumber: string; title: string }> = [];
+  const createdCertificates: CertificateDeliveryInput[] = [];
 
   for (const member of members) {
     if (member.membershipStatus !== "ACTIVE") {
@@ -175,13 +179,33 @@ export async function POST(request: Request) {
       return created;
     });
 
-    createdCertificates.push({ id: certificate.id, userId: member.userId, certificateNumber: certificate.certificateNumber, title: certificate.title });
+    const memberName = [member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ");
+    createdCertificates.push({
+      certificateId: certificate.id,
+      certificateNumber: certificate.certificateNumber,
+      certificateType: certificate.certificateType,
+      title: certificate.title,
+      citationText: certificate.citationText,
+      certificateDate: certificate.certificateDate,
+      referenceLabel: certificate.referenceLabel,
+      issuedAt: certificate.issuedAt,
+      verificationToken: certificate.verificationToken,
+      memberName,
+      membershipNo: member.membershipNo,
+      memberEmail: member.user.email,
+      chapterId: member.chapterId,
+      chapterName: member.chapter.name,
+      chapterLogoUrl: member.chapter.logoUrl,
+      chapterEmail: member.chapter.email,
+      signatoryName: chairman.name,
+      signatoryTitle: chairman.title,
+    });
     results.push({ memberId: member.id, certificateId: certificate.id, created: true, message: "Certificate issued." });
   }
 
   for (const certificate of createdCertificates) {
     await notifyUser({
-      userId: certificate.userId,
+      userId: members.find((member) => member.user.email === certificate.memberEmail && member.membershipNo === certificate.membershipNo)?.userId ?? "",
       type: "CERTIFICATE",
       title: `${certificate.title} issued`,
       body: `${certificate.title} (${certificate.certificateNumber}) is now available for download.`,
@@ -189,12 +213,60 @@ export async function POST(request: Request) {
     });
   }
 
+  let emailSentCount = 0;
+  let emailFailedCount = 0;
+  const emailDeliveryByCertificate = new Map<string, "sent" | "failed">();
+  for (let offset = 0; offset < createdCertificates.length; offset += 5) {
+    const group = createdCertificates.slice(offset, offset + 5);
+    const deliveryResults = await Promise.all(group.map(async (certificate) => {
+      try {
+        await sendCertificateIssuedEmail(certificate);
+        await prisma.auditLog.create({
+          data: {
+            actorUserId: context.user.id,
+            chapterId: certificate.chapterId,
+            action: "CERTIFICATE_EMAIL_SENT",
+            entityType: "Certificate",
+            entityId: certificate.certificateId,
+            metadataJson: { certificateNumber: certificate.certificateNumber },
+          },
+        });
+        return { certificateId: certificate.certificateId, delivered: true as const };
+      } catch (error) {
+        console.error("Certificate email delivery failed", error);
+        await prisma.auditLog.create({
+          data: {
+            actorUserId: context.user.id,
+            chapterId: certificate.chapterId,
+            action: "CERTIFICATE_EMAIL_FAILED",
+            entityType: "Certificate",
+            entityId: certificate.certificateId,
+            metadataJson: {
+              certificateNumber: certificate.certificateNumber,
+              errorName: error instanceof Error ? error.name : "UnknownError",
+            },
+          },
+        });
+        return { certificateId: certificate.certificateId, delivered: false as const };
+      }
+    }));
+    for (const delivery of deliveryResults) {
+      emailDeliveryByCertificate.set(delivery.certificateId, delivery.delivered ? "sent" : "failed");
+      if (delivery.delivered) emailSentCount += 1;
+      else emailFailedCount += 1;
+    }
+  }
+
   if (input.memberId && !input.memberIds && !input.selectAll && certificateType === "MEMBERSHIP") {
     const result = results[0];
     if (!result) return NextResponse.json({ message: "Unable to process certificate." }, { status: 500 });
     const certificate = result.certificateId ? await prisma.certificate.findUnique({ where: { id: result.certificateId } }) : null;
     if (!certificate) return NextResponse.json({ message: result.message }, { status: 409 });
-    return NextResponse.json({ certificate, created: result.created }, { status: result.created ? 201 : 200 });
+    return NextResponse.json({
+      certificate,
+      created: result.created,
+      emailDelivery: result.created ? emailDeliveryByCertificate.get(certificate.id) ?? "failed" : "not_sent",
+    }, { status: result.created ? 201 : 200 });
   }
 
   return NextResponse.json(
@@ -205,6 +277,8 @@ export async function POST(request: Request) {
       requestedCount: requestedMemberIds.length,
       createdCount: createdCertificates.length,
       skippedCount: results.length - createdCertificates.length,
+      emailSentCount,
+      emailFailedCount,
       results,
     },
     { status: createdCertificates.length ? 201 : 200, headers: { "Cache-Control": "no-store" } },
@@ -230,4 +304,58 @@ export async function PATCH(request: Request) {
   });
   await notifyUser({ userId: certificate.member.userId, type: "CERTIFICATE", title: "Certificate status updated", body: `${certificate.title} (${certificate.certificateNumber}) has been revoked.`, href: "/certificate" });
   return NextResponse.json({ certificate: updated });
+}
+
+export async function DELETE(request: Request) {
+  const context = await getAuthContext();
+  if (!context) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+  const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ message: "Certificate ID is required." }, { status: 400 });
+
+  const certificate = await prisma.certificate.findUnique({
+    where: { id: parsed.data.certificateId },
+    include: { member: { select: { userId: true } } },
+  });
+  if (!certificate) return NextResponse.json({ message: "Certificate not found." }, { status: 404 });
+  if (!hasPermission(context, "certificates.manage", certificate.chapterId)) {
+    return NextResponse.json({ message: "Certificate management permission required." }, { status: 403 });
+  }
+  if (certificate.status !== "VALID") {
+    return NextResponse.json({ message: `Certificate is already ${certificate.status}.` }, { status: 409 });
+  }
+
+  const reason = parsed.data.reason?.trim() || "Deleted and invalidated by an authorized administrator.";
+  const revokedAt = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.certificate.update({
+      where: { id: certificate.id },
+      data: { status: "REVOKED", revokedAt, revocationReason: reason },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: context.user.id,
+        chapterId: certificate.chapterId,
+        action: "CERTIFICATE_DELETED_INVALIDATED",
+        entityType: "Certificate",
+        entityId: certificate.id,
+        metadataJson: {
+          certificateNumber: certificate.certificateNumber,
+          certificateType: certificate.certificateType,
+          title: certificate.title,
+          reason,
+        },
+      },
+    });
+    return result;
+  });
+
+  await notifyUser({
+    userId: certificate.member.userId,
+    type: "CERTIFICATE",
+    title: "Certificate invalidated",
+    body: `${certificate.title} (${certificate.certificateNumber}) has been deleted from active certificates and marked invalid.`,
+    href: "/certificate",
+  });
+
+  return NextResponse.json({ certificate: updated, invalidated: true }, { headers: { "Cache-Control": "no-store" } });
 }
