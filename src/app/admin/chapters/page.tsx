@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChapterStatus, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import {
   authorizedChapterIds,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/auth/context";
 import { chapterLogoPublicPath } from "@/lib/chapter/logo";
 import { prisma } from "@/lib/prisma";
+import { AdminPagination } from "@/components/admin/admin-pagination";
 import { ChapterCreateForm } from "@/components/admin/chapter-create-form";
 import { ChapterAdminAssignmentForm } from "@/components/admin/chapter-admin-assignment-form";
 import { ChapterLogoControl } from "@/components/admin/chapter-logo-control";
@@ -14,7 +16,25 @@ import { ChapterStatusControl } from "@/components/admin/chapter-status-control"
 
 export const dynamic = "force-dynamic";
 
-export default async function ChaptersPage() {
+const PAGE_SIZE = 20;
+const CHAPTER_STATUSES: ChapterStatus[] = ["ACTIVE", "INACTIVE", "SUSPENDED", "ARCHIVED"];
+
+type SearchParams = Promise<{
+  q?: string | string[];
+  status?: string | string[];
+  page?: string | string[];
+}>;
+
+function single(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePage(value: string | undefined) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export default async function ChaptersPage({ searchParams }: { searchParams: SearchParams }) {
   const context = await getAuthContext();
   if (!context) redirect("/login");
 
@@ -22,9 +42,34 @@ export default async function ChaptersPage() {
   if (scope !== null && scope.length === 0) redirect("/admin");
   const canManage = hasPermission(context, "chapters.manage", null);
 
+  const params = await searchParams;
+  const q = (single(params.q) ?? "").trim().slice(0, 120);
+  const requestedStatus = (single(params.status) ?? "").trim().toUpperCase();
+  const requestedPage = parsePage(single(params.page));
+  const statusFilter = CHAPTER_STATUSES.includes(requestedStatus as ChapterStatus) ? requestedStatus as ChapterStatus : null;
+
+  const where: Prisma.ChaptersWhereInput = {
+    ...(scope === null ? {} : { id: { in: scope } }),
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(q ? {
+      OR: [
+        { name: { contains: q } },
+        { code: { contains: q } },
+        { email: { contains: q } },
+        { address: { contains: q } },
+        { roleAssignments: { some: { endsAt: null, role: { code: "CHAPTER_ADMIN" }, user: { displayName: { contains: q } } } } },
+      ],
+    } : {}),
+  };
+
+  const totalItems = await prisma.chapters.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
   const chapters = await prisma.chapters.findMany({
-    where: scope === null ? undefined : { id: { in: scope } },
-    orderBy: { name: "asc" },
+    where,
+    orderBy: [{ name: "asc" }, { code: "asc" }, { id: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     include: {
       _count: { select: { members: true, applications: true } },
       roleAssignments: {
@@ -46,66 +91,57 @@ export default async function ChaptersPage() {
           <div className="app-greeting">
             <p>Organization</p>
             <h1>Chapter Management</h1>
+            <p style={{ marginTop: 8, maxWidth: 780, color: "#746b5b", lineHeight: 1.55 }}>
+              Manage Chapter lifecycle, branding and administrators in one searchable register. Chapter financial/payment setup remains independently validated in Finance so an administrative edit cannot accidentally activate online payments.
+            </p>
           </div>
           <Link href="/admin" className="btn" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Back to Admin</Link>
         </div>
 
         {canManage ? <div style={{ marginBottom: 20 }}><ChapterCreateForm /></div> : null}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
-          {chapters.map((chapter) => (
-            <article className="app-panel" key={chapter.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                <div>
-                  <small style={{ color: "#746b5b", fontWeight: 800 }}>{chapter.code}</small>
-                  <h2 style={{ margin: "4px 0 0" }}>{chapter.name}</h2>
-                </div>
-                <span style={{ padding: "6px 9px", borderRadius: 999, background: chapter.status === "ACTIVE" ? "#fff4c8" : "#f2efe8", fontSize: ".75rem", fontWeight: 900 }}>{chapter.status}</span>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
-                <Metric label="Members" value={chapter._count.members} />
-                <Metric label="Applications" value={chapter._count.applications} />
-              </div>
-              <div style={{ marginTop: 16 }}>
-                <strong>Chapter Administrator{chapter.roleAssignments.length === 1 ? "" : "s"}</strong>
-                {chapter.roleAssignments.length > 0 ? (
-                  <ul style={{ paddingLeft: 20, color: "#665b47" }}>
-                    {chapter.roleAssignments.map((assignment) => (
-                      <li key={assignment.user.id}>
-                        {assignment.user.displayName} · {assignment.user.email} · {assignment.user.status}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p style={{ color: "#746b5b" }}>No Chapter Administrator assigned yet.</p>
-                )}
-              </div>
-              {hasPermission(context, "content.manage", chapter.id) ? (
-                <ChapterLogoControl
-                  chapterId={chapter.id}
-                  chapterName={chapter.name}
-                  logoUrl={chapterLogoPublicPath(chapter.id, chapter.logoUrl)}
-                />
-              ) : null}
-              {canManage ? (
-                <>
-                  <ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} />
-                  <ChapterAdminAssignmentForm chapterId={chapter.id} chapterStatus={chapter.status} />
-                </>
-              ) : null}
-            </article>
-          ))}
-        </div>
+        <form className="admin-list-toolbar" method="get" action="/admin/chapters">
+          <label className="admin-search-field">Search Chapters<input name="q" defaultValue={q} placeholder="Chapter name, code, admin, email or address…" /></label>
+          <label>Status<select name="status" defaultValue={statusFilter ?? ""}><option value="">All statuses</option>{CHAPTER_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
+          <button className="btn btn-primary" type="submit">Search / Filter</button>
+          <Link className="btn" href="/admin/chapters" style={{ border: "1px solid #ddd5c1", background: "#fff", minHeight: 44 }}>Clear</Link>
+        </form>
+
+        {chapters.length ? (
+          <div className="admin-table-wrap">
+            <table className="admin-responsive-table">
+              <thead><tr><th>Chapter</th><th>Status</th><th>Members</th><th>Applications</th><th>Chapter Admin</th><th>Management</th></tr></thead>
+              <tbody>
+                {chapters.map((chapter) => (
+                  <tr key={chapter.id}>
+                    <td data-label="Chapter">
+                      <strong>{chapter.name}</strong>
+                      <small style={{ display: "block", color: "#746b5b", marginTop: 3 }}>{chapter.code}</small>
+                      {chapter.email ? <small style={{ display: "block", color: "#746b5b", marginTop: 3, overflowWrap: "anywhere" }}>{chapter.email}</small> : null}
+                    </td>
+                    <td data-label="Status"><strong>{chapter.status}</strong></td>
+                    <td data-label="Members"><strong>{chapter._count.members.toLocaleString("en-PH")}</strong></td>
+                    <td data-label="Applications"><strong>{chapter._count.applications.toLocaleString("en-PH")}</strong></td>
+                    <td data-label="Chapter Admin">
+                      {chapter.roleAssignments.length ? <div style={{ display: "grid", gap: 6 }}>{chapter.roleAssignments.map((assignment) => <span key={assignment.user.id}><strong>{assignment.user.displayName}</strong><small style={{ display: "block", color: "#746b5b", overflowWrap: "anywhere" }}>{assignment.user.email} · {assignment.user.status}</small></span>)}</div> : <span style={{ color: "#746b5b" }}>No Chapter Administrator assigned</span>}
+                    </td>
+                    <td data-label="Management">
+                      <div className="admin-table-actions">
+                        {hasPermission(context, "content.manage", chapter.id) ? <ChapterLogoControl chapterId={chapter.id} chapterName={chapter.name} logoUrl={chapterLogoPublicPath(chapter.id, chapter.logoUrl)} /> : null}
+                        {canManage ? <><ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} /><ChapterAdminAssignmentForm chapterId={chapter.id} chapterStatus={chapter.status} /></> : <span style={{ color: "#746b5b" }}>View only</span>}
+                        {hasPermission(context, "finance.manage", chapter.id) ? <Link className="btn" href="/admin/finance" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Finance & Payment Setup</Link> : null}
+                        {hasPermission(context, "members.manage", chapter.id) ? <Link className="btn" href={`/admin/members?chapter=${encodeURIComponent(chapter.id)}`} style={{ border: "1px solid #ddd5c1", background: "#fff" }}>View Members</Link> : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <div className="app-panel"><p style={{ margin: 0 }}>No Chapters match the current search and filters in your authorized scope.</p></div>}
+
+        <AdminPagination pathname="/admin/chapters" page={page} totalPages={totalPages} totalItems={totalItems} query={{ q: q || undefined, status: statusFilter ?? undefined }} />
       </div>
     </main>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div style={{ padding: 12, borderRadius: 12, background: "#f7f4ec" }}>
-      <small style={{ color: "#746b5b" }}>{label}</small>
-      <strong style={{ display: "block", fontSize: "1.25rem" }}>{value}</strong>
-    </div>
   );
 }

@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-05-r13
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-05-release-keyed-pwa-install-v1
+      EXPECTED_RELEASE: 2026-09-06-r14
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-06-platform-hardening-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -84,6 +84,8 @@ jobs:
           grep -q '"authSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"baseline":"ok"' /tmp/psp-readiness.json
           grep -q '"memberMobileSchema":"ok"' /tmp/psp-readiness.json
+          grep -q '"customCertificateSchema":"ok"' /tmp/psp-readiness.json
+          grep -q '"publicAnnouncementSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"authConfig":"ok"' /tmp/psp-readiness.json
 
       - name: Verify PSP public pages and PWA assets
@@ -136,6 +138,7 @@ jobs:
           fetch_200 chapter-logo-fallback "$PROD_URL/api/public/chapters/prod-smoke-invalid/logo" /tmp/psp-brand-logo yes
 
           assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
+          assert_contains public-feed-marker 'data-public-chapter-feed-version="global-chapter-feed-v1"' /tmp/psp-home.html
           assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
           assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
           assert_contains registration-mobile-checkbox 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html

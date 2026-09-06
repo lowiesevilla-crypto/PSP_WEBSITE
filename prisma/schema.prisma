@@ -456,6 +456,7 @@ model Announcement {
   startsAt  DateTime?
   expiresAt DateTime?
   isPinned  Boolean       @default(false)
+  isPublic  Boolean       @default(false)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
@@ -463,6 +464,7 @@ model Announcement {
 
   @@index([chapterId, startsAt])
   @@index([audience, startsAt])
+  @@index([isPublic, startsAt])
 }
 
 model Event {
@@ -648,6 +650,12 @@ model Certificate {
   chapterId         String
   memberId          String
   certificateNumber String            @unique
+  certificateType   String            @default("MEMBERSHIP")
+  title             String            @default("Certificate of Membership")
+  citationText      String?           @db.Text
+  certificateDate   DateTime          @default(now())
+  referenceLabel    String?
+  batchId           String?
   status            CertificateStatus @default(VALID)
   issuedAt          DateTime           @default(now())
   revokedAt         DateTime?
@@ -662,8 +670,10 @@ model Certificate {
   chapter Chapters @relation(fields: [chapterId], references: [id], onDelete: Restrict)
   member  Member   @relation(fields: [memberId], references: [id], onDelete: Restrict)
 
+  @@unique([batchId, memberId])
   @@index([chapterId, status])
   @@index([memberId, issuedAt])
+  @@index([certificateType, certificateDate])
 }
 
 model AuditLog {

@@ -30,11 +30,14 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const supported = typeof window !== "undefined" && "PublicKeyCredential" in window;
-    setPasskeySupported(supported);
-    if (supported && window.localStorage.getItem("psp-passkey-enabled") === "1") {
-      setAuthMethod("passkey");
-    }
+    const timer = window.setTimeout(() => {
+      const supported = "PublicKeyCredential" in window;
+      setPasskeySupported(supported);
+      if (supported && window.localStorage.getItem("psp-passkey-enabled") === "1") {
+        setAuthMethod("passkey");
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function routeAfterLogin() {

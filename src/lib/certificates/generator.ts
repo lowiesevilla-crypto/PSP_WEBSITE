@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 
 function appOrigin() {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "https://psp.hoahub.tech").replace(/\/$/, "");
@@ -15,6 +15,30 @@ function fitText(text: string, max: number) {
   return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1))}…`;
 }
 
+function wrapText(text: string, font: PDFFont, size: number, maxWidth: number, maxLines = 4) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length >= maxLines) break;
+  }
+  if (current && lines.length < maxLines) lines.push(current);
+  if (words.length && lines.length === maxLines) {
+    const joined = lines.join(" ");
+    if (joined.length < text.trim().length) {
+      lines[maxLines - 1] = fitText(lines[maxLines - 1], Math.max(12, lines[maxLines - 1].length - 1));
+    }
+  }
+  return lines;
+}
+
 export async function generateMembershipCertificatePdf(input: {
   memberName: string;
   membershipNo: string;
@@ -24,6 +48,11 @@ export async function generateMembershipCertificatePdf(input: {
   verificationToken: string;
   signatoryName: string;
   signatoryTitle: string;
+  certificateType?: string;
+  title?: string;
+  citationText?: string | null;
+  certificateDate?: Date;
+  referenceLabel?: string | null;
 }) {
   const document = await PDFDocument.create();
   const page = document.addPage([841.89, 595.28]);
@@ -42,34 +71,58 @@ export async function generateMembershipCertificatePdf(input: {
   try {
     const logoBytes = await readFile(path.join(process.cwd(), "public", "brand", "psp-logo.jpg"));
     const logo = await document.embedJpg(logoBytes);
-    page.drawImage(logo, { x: width / 2 - 44, y: height - 132, width: 88, height: 88 });
+    page.drawImage(logo, { x: width / 2 - 42, y: height - 126, width: 84, height: 84 });
   } catch {
     // Certificate remains valid if the optional embedded logo asset is temporarily unavailable.
   }
 
   const centerText = (text: string, y: number, size: number, font = serif, color = black) => {
     const textWidth = font.widthOfTextAtSize(text, size);
-    page.drawText(text, { x: (width - textWidth) / 2, y, size, font, color });
+    page.drawText(text, { x: Math.max(38, (width - textWidth) / 2), y, size, font, color });
   };
 
-  centerText("PSI SIGMA PHI PHILIPPINES INC.", height - 160, 18, serifBold);
-  centerText("CERTIFICATE OF MEMBERSHIP", height - 198, 28, serifBold, black);
-  centerText("This is to certify that", height - 238, 13, serif, muted);
-  centerText(fitText(input.memberName.toUpperCase(), 58), height - 286, 30, serifBold, black);
-  centerText(`Membership No. ${input.membershipNo}`, height - 316, 12, sans, muted);
-  centerText("is recorded as an active member of", height - 350, 13, serif, muted);
-  centerText(fitText(input.chapterName, 70), height - 383, 20, serifBold, black);
-  centerText("Psi Sigma Phi Philippines Inc.", height - 411, 13, serif, muted);
+  const certificateType = (input.certificateType ?? "MEMBERSHIP").trim().toUpperCase();
+  const title = fitText((input.title ?? "Certificate of Membership").trim(), 62);
+  const isMembership = certificateType === "MEMBERSHIP";
 
-  const issueDate = new Intl.DateTimeFormat("en-PH", {
+  centerText("PSI SIGMA PHI PHILIPPINES INC.", height - 154, 18, serifBold);
+  centerText(title.toUpperCase(), height - 192, title.length > 42 ? 23 : 28, serifBold, black);
+  centerText(isMembership ? "This is to certify that" : "Presented to", height - 228, 13, serif, muted);
+  centerText(fitText(input.memberName.toUpperCase(), 58), height - 272, 29, serifBold, black);
+  centerText(`Membership No. ${input.membershipNo}`, height - 300, 11.5, sans, muted);
+
+  if (isMembership) {
+    centerText("is recorded as an active member of", height - 334, 13, serif, muted);
+    centerText(fitText(input.chapterName, 70), height - 366, 19, serifBold, black);
+    centerText("Psi Sigma Phi Philippines Inc.", height - 392, 12.5, serif, muted);
+  } else {
+    const citation = input.citationText?.trim() || `In recognition of meaningful service, participation and contribution to ${input.chapterName} and Psi Sigma Phi Philippines Inc.`;
+    const lines = wrapText(citation, serif, 12.5, width - 190, 4);
+    lines.forEach((line, index) => centerText(line, height - 334 - index * 20, 12.5, serif, muted));
+    const chapterY = height - 334 - lines.length * 20 - 8;
+    centerText(fitText(input.chapterName, 70), chapterY, 14, serifBold, black);
+  }
+
+  const certificateDate = input.certificateDate ?? input.issuedAt;
+  const displayDate = new Intl.DateTimeFormat("en-PH", {
     year: "numeric",
     month: "long",
     day: "numeric",
     timeZone: "Asia/Manila",
+  }).format(certificateDate);
+  const issuedDate = new Intl.DateTimeFormat("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "Asia/Manila",
   }).format(input.issuedAt);
 
-  page.drawText(`Certificate No.: ${input.certificateNumber}`, { x: 56, y: 76, size: 10, font: sans, color: muted });
-  page.drawText(`Issued: ${issueDate}`, { x: 56, y: 58, size: 10, font: sans, color: muted });
+  page.drawText(`Certificate No.: ${input.certificateNumber}`, { x: 56, y: 78, size: 9.5, font: sans, color: muted });
+  page.drawText(`Certificate Date: ${displayDate}`, { x: 56, y: 61, size: 9.5, font: sans, color: muted });
+  page.drawText(`Issued: ${issuedDate}`, { x: 56, y: 44, size: 8.5, font: sans, color: muted });
+  if (input.referenceLabel) {
+    page.drawText(`Reference: ${fitText(input.referenceLabel, 45)}`, { x: 56, y: 30, size: 8, font: sans, color: muted });
+  }
 
   const signatoryName = fitText(input.signatoryName, 44);
   const signatoryTitle = fitText(input.signatoryTitle, 42);

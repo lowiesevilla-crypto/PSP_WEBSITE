@@ -27,7 +27,7 @@ export function AnnouncementManager({ chapters, canPublishNational }: { chapters
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message ?? "Unable to publish announcement.");
       formElement.reset();
-      setMessage("Announcement published.");
+      setMessage(payload.announcement?.isPublic ? "Announcement published to members and the public PSP website." : "Announcement published to members only.");
       router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to publish announcement.");
@@ -62,6 +62,10 @@ export function AnnouncementManager({ chapters, canPublishNational }: { chapters
         <label>Expires<input type="datetime-local" name="expiresAt" disabled={busy} /></label>
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" name="isPinned" style={{ width: "auto" }} disabled={busy} /> Pin announcement</label>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: 12, border: "1px solid #ddd5c1", borderRadius: 12, background: "#fffaf0" }}>
+        <input type="checkbox" name="isPublic" style={{ width: "auto", marginTop: 3 }} disabled={busy} />
+        <span><strong>Show on the public PSP website</strong><small style={{ display: "block", marginTop: 3, color: "#746b5b", lineHeight: 1.45 }}>Only the announcement text, Chapter attribution and dates are shown publicly. Uploaded images remain protected for authenticated members.</small></span>
+      </label>
       <button className="btn btn-primary" disabled={busy}>{busy ? "Publishing…" : "Publish"}</button>
       {message && <p role="status" style={{ margin: 0, color: "#6b665c" }}>{message}</p>}
     </form>

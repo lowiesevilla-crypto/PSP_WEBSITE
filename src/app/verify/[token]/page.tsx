@@ -32,7 +32,7 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
   const valid = certificate.status === "VALID";
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-certificate-verification-version="custom-metadata-v1">
       <div className="container app-main">
         <section className="app-panel" style={{ maxWidth: 680, margin: "40px auto" }}>
           <div style={{ textAlign: "center" }}>
@@ -40,21 +40,30 @@ export default async function VerifyCertificatePage({ params }: { params: Promis
             <p style={{ fontWeight: 900, letterSpacing: ".08em", color: valid ? "#267a3f" : "#9b2c2c" }}>
               {valid ? "VERIFIED · VALID" : `VERIFIED · ${certificate.status}`}
             </p>
-            <h1>Certificate of Membership</h1>
+            <small style={{ color: "#806500", fontWeight: 900 }}>{certificate.certificateType.replaceAll("_", " ")}</small>
+            <h1 style={{ marginTop: 5 }}>{certificate.title}</h1>
           </div>
           <dl style={{ display: "grid", gridTemplateColumns: "minmax(130px, .5fr) 1fr", gap: "12px 18px", marginTop: 24 }}>
             <dt>Member</dt><dd style={{ margin: 0, fontWeight: 800 }}>{name}</dd>
             <dt>Membership No.</dt><dd style={{ margin: 0 }}>{certificate.member.membershipNo}</dd>
             <dt>Chapter</dt><dd style={{ margin: 0 }}>{certificate.chapter.name}</dd>
             <dt>Certificate No.</dt><dd style={{ margin: 0 }}>{certificate.certificateNumber}</dd>
-            <dt>Issued</dt><dd style={{ margin: 0 }}>{certificate.issuedAt.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })}</dd>
+            <dt>Certificate Date</dt><dd style={{ margin: 0 }}>{certificate.certificateDate.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" })}</dd>
+            {certificate.referenceLabel ? <><dt>Reference</dt><dd style={{ margin: 0 }}>{certificate.referenceLabel}</dd></> : null}
+            <dt>Issued</dt><dd style={{ margin: 0 }}>{certificate.issuedAt.toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Manila" })}</dd>
             <dt>Signatory</dt><dd style={{ margin: 0 }}>{certificate.signatoryName ? `${certificate.signatoryName}${certificate.signatoryTitle ? ` · ${certificate.signatoryTitle}` : ""}` : "Chapter Chairman"}</dd>
             <dt>Status</dt><dd style={{ margin: 0, fontWeight: 900 }}>{certificate.status}</dd>
           </dl>
+          {certificate.citationText ? (
+            <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: "#f7f4ec", color: "#665b47", lineHeight: 1.55 }}>
+              <strong>Citation</strong>
+              <p style={{ margin: "6px 0 0" }}>{certificate.citationText}</p>
+            </div>
+          ) : null}
           {!valid && certificate.revocationReason && (
             <p style={{ marginTop: 18, padding: 14, background: "#fff4f4", borderRadius: 12 }}><strong>Status note:</strong> {certificate.revocationReason}</p>
           )}
-          <p style={{ marginTop: 24, fontSize: ".82rem", color: "#746b5b" }}>This page intentionally exposes only the minimum information needed to verify the certificate.</p>
+          <p style={{ marginTop: 24, fontSize: ".82rem", color: "#746b5b" }}>This page intentionally exposes only the minimum information needed to verify the issued certificate.</p>
         </section>
       </div>
     </main>

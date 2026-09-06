@@ -1,6 +1,7 @@
 import { decryptSecret } from "@/lib/security/encryption";
 import { prisma } from "@/lib/prisma";
 import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
+import { isPendingLinkedWebhookSecret } from "@/lib/paymongo/chapter-config-state";
 
 export type ChapterPayMongoRuntimeConfig = {
   chapterId: string;
@@ -36,6 +37,9 @@ export async function getChapterPayMongoConfig(chapterId: string): Promise<Chapt
   const webhookSecret = decryptSecret(config.webhookSecretCiphertext);
   if (!accountId.startsWith("org_")) {
     throw new Error("Chapter PayMongo linked account id is invalid.");
+  }
+  if (isPendingLinkedWebhookSecret(webhookSecret)) {
+    throw new Error("Chapter PayMongo child webhook is not configured yet.");
   }
 
   const mode = config.mode === "LIVE" ? "LIVE" : "TEST";

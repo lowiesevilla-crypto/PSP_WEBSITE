@@ -49,15 +49,6 @@ export function PwaInstallCard() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const currentPlatform = detectPlatform();
-    setPlatform(currentPlatform);
-    setIosSafari(currentPlatform === "ios" && isIosSafari());
-    setInAppBrowser(isInAppBrowser());
-    setInstalled(isStandalone());
-
-    const captured = getCapturedPspInstallPrompt();
-    if (captured) setPrompt(captured);
-
     const syncPrompt = () => {
       const nextPrompt = getCapturedPspInstallPrompt();
       if (nextPrompt) {
@@ -85,7 +76,18 @@ export function PwaInstallCard() {
     window.addEventListener(PSP_APP_INSTALLED, markInstalled);
     window.addEventListener("appinstalled", markInstalled);
 
+    const hydrateTimer = window.setTimeout(() => {
+      const currentPlatform = detectPlatform();
+      setPlatform(currentPlatform);
+      setIosSafari(currentPlatform === "ios" && isIosSafari());
+      setInAppBrowser(isInAppBrowser());
+      setInstalled(isStandalone());
+      const captured = getCapturedPspInstallPrompt();
+      if (captured) setPrompt(captured);
+    }, 0);
+
     return () => {
+      window.clearTimeout(hydrateTimer);
       window.removeEventListener(PSP_INSTALL_PROMPT_READY, syncPrompt);
       window.removeEventListener("beforeinstallprompt", directPrompt);
       window.removeEventListener(PSP_APP_INSTALLED, markInstalled);

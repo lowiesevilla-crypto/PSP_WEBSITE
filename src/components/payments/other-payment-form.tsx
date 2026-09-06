@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { SplitPaymentAction } from "@/components/payments/split-payment-action";
 
-export function OtherPaymentForm() {
+export function OtherPaymentForm({ disabledReason }: { disabledReason?: string }) {
   const [category, setCategory] = useState<"CONTRIBUTION" | "OTHER">("CONTRIBUTION");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const validAmount = Number.isFinite(Number(amount)) && Number(amount) > 0;
   const validDescription = description.trim().length >= 3;
+  const formDisabled = !validAmount || !validDescription || Boolean(disabledReason);
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -18,6 +19,7 @@ export function OtherPaymentForm() {
           value={category}
           onChange={(event) => setCategory(event.target.value as "CONTRIBUTION" | "OTHER")}
           style={fieldStyle}
+          disabled={Boolean(disabledReason)}
         >
           <option value="CONTRIBUTION">Contribution</option>
           <option value="OTHER">Other Payment</option>
@@ -35,6 +37,7 @@ export function OtherPaymentForm() {
           onChange={(event) => setAmount(event.target.value)}
           required
           style={fieldStyle}
+          disabled={Boolean(disabledReason)}
         />
       </label>
       <label style={{ display: "grid", gap: 6 }}>
@@ -47,6 +50,7 @@ export function OtherPaymentForm() {
           required
           placeholder={category === "CONTRIBUTION" ? "e.g. Chapter anniversary contribution" : "e.g. Merchandise / other approved payment"}
           style={fieldStyle}
+          disabled={Boolean(disabledReason)}
         />
       </label>
       <p style={{ margin: 0, color: "#6b665c", fontSize: ".84rem", lineHeight: 1.5 }}>
@@ -56,7 +60,8 @@ export function OtherPaymentForm() {
         category={category}
         chapterAmount={validAmount ? Number(amount).toFixed(2) : "0.00"}
         description={description.trim()}
-        disabled={!validAmount || !validDescription}
+        disabled={formDisabled}
+        disabledReason={disabledReason}
       />
     </div>
   );

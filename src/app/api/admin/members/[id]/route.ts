@@ -1,10 +1,133 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
   AuthenticationRequiredError,
   AuthorizationDeniedError,
   requirePermission,
 } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
+
+const textField = (max: number) => z.string().trim().max(max).nullable().optional().transform((value) => value === "" ? null : value);
+const requiredName = z.string().trim().min(1).max(100).optional();
+const dateField = z.string().trim().nullable().optional().transform((value, context) => {
+  if (!value) return value === undefined ? undefined : null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    context.addIssue({ code: "custom", message: "Invalid date." });
+    return z.NEVER;
+  }
+  return date;
+});
+
+const editSchema = z.object({
+  firstName: requiredName,
+  lastName: requiredName,
+  middleInitial: textField(5),
+  address: textField(500),
+  mobile: textField(30),
+  dateSurvive: dateField,
+  surviveLocation: textField(500),
+  pspBirthdayCode: textField(100),
+  birthDate: dateField,
+}).strict().refine((value) => Object.values(value).some((item) => item !== undefined), {
+  message: "At least one editable member field is required.",
+});
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const member = await prisma.member.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      userId: true,
+      chapterId: true,
+      membershipNo: true,
+      membershipStatus: true,
+      firstName: true,
+      lastName: true,
+      middleInitial: true,
+    },
+  });
+  if (!member) return NextResponse.json({ message: "Member not found." }, { status: 404 });
+  if (member.membershipStatus === "ARCHIVED") {
+    return NextResponse.json({ message: "Archived member records cannot be edited from the active Member Directory." }, { status: 409 });
+  }
+
+  try {
+    const context = await requirePermission("members.manage", member.chapterId);
+    const parsed = editSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: "Please review the member information.", fields: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
+    }
+
+    const changes = Object.fromEntries(Object.entries(parsed.data).filter(([, value]) => value !== undefined));
+    const firstName = typeof changes.firstName === "string" ? changes.firstName : member.firstName;
+    const lastName = typeof changes.lastName === "string" ? changes.lastName : member.lastName;
+    const middleInitial = Object.prototype.hasOwnProperty.call(changes, "middleInitial")
+      ? (changes.middleInitial as string | null)
+      : member.middleInitial;
+    const displayName = [firstName, middleInitial, lastName].filter(Boolean).join(" ");
+    const changedFields = Object.keys(changes);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.member.update({
+        where: { id: member.id },
+        data: changes,
+        select: {
+          id: true,
+          membershipNo: true,
+          firstName: true,
+          lastName: true,
+          middleInitial: true,
+          address: true,
+          mobile: true,
+          dateSurvive: true,
+          surviveLocation: true,
+          pspBirthdayCode: true,
+          birthDate: true,
+          updatedAt: true,
+        },
+      });
+      if (changedFields.some((field) => ["firstName", "lastName", "middleInitial"].includes(field))) {
+        await tx.user.update({ where: { id: member.userId }, data: { displayName } });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorUserId: context.user.id,
+          chapterId: member.chapterId,
+          action: "MEMBER_PROFILE_UPDATED_ADMIN",
+          entityType: "Member",
+          entityId: member.id,
+          metadataJson: {
+            membershipNo: member.membershipNo,
+            changedFields,
+            protectedFieldsUnchanged: ["chapterId", "membershipNo", "loginEmail"],
+          },
+        },
+      });
+      return result;
+    });
+
+    return NextResponse.json(
+      { member: updated, message: "Member information updated." },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) {
+      return NextResponse.json({ message: error.message }, { status: 401 });
+    }
+    if (error instanceof AuthorizationDeniedError) {
+      return NextResponse.json({ message: error.message }, { status: 403 });
+    }
+    throw error;
+  }
+}
 
 export async function DELETE(
   _request: Request,

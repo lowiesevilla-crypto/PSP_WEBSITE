@@ -3,34 +3,27 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 
 const PRODUCTION_ENV = "production";
-const REQUIRED_PSP_TABLES = [
-  "Organization",
-  "Chapters",
-  "Role",
-  "User",
-  "AuditLog",
-];
-const MEMBER_MOBILE_TABLES = [
-  "PasskeyCredential",
-  "DigitalMemberId",
-  "ChapterPaymentConfig",
-];
+const REQUIRED_PSP_TABLES = ["Organization", "Chapters", "Role", "User", "AuditLog"];
+const MEMBER_MOBILE_TABLES = ["PasskeyCredential", "DigitalMemberId", "ChapterPaymentConfig"];
 const MEMBER_MOBILE_COLUMNS = [
   ["Payment", "category"],
   ["Payment", "description"],
   ["Certificate", "signatoryName"],
   ["Certificate", "signatoryTitle"],
 ];
+const CUSTOM_CERTIFICATE_COLUMNS = [
+  ["Certificate", "certificateType"],
+  ["Certificate", "title"],
+  ["Certificate", "citationText"],
+  ["Certificate", "certificateDate"],
+  ["Certificate", "referenceLabel"],
+  ["Certificate", "batchId"],
+];
+const PUBLIC_ANNOUNCEMENT_COLUMNS = [["Announcement", "isPublic"]];
 
 function runNode(scriptPath, args = []) {
-  const result = spawnSync(process.execPath, [scriptPath, ...args], {
-    stdio: "inherit",
-    env: process.env,
-  });
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
+  const result = spawnSync(process.execPath, [scriptPath, ...args], { stdio: "inherit", env: process.env });
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 function runPrismaPush() {
@@ -56,68 +49,75 @@ let columnKeys;
 
 try {
   const [tables, columns] = await Promise.all([
-    prisma.$queryRawUnsafe(
-      "SELECT TABLE_NAME AS tableName FROM information_schema.tables WHERE table_schema = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
-    ),
-    prisma.$queryRawUnsafe(
-      "SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.columns WHERE table_schema = DATABASE()",
-    ),
+    prisma.$queryRawUnsafe("SELECT TABLE_NAME AS tableName FROM information_schema.tables WHERE table_schema = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"),
+    prisma.$queryRawUnsafe("SELECT TABLE_NAME AS tableName, COLUMN_NAME AS columnName FROM information_schema.columns WHERE table_schema = DATABASE()"),
   ]);
 
-  tableNames = new Set(
-    tables
-      .map((row) => row?.tableName ?? row?.TABLE_NAME)
-      .filter((value) => typeof value === "string"),
-  );
-  columnKeys = new Set(
-    columns
-      .map((row) => {
-        const tableName = row?.tableName ?? row?.TABLE_NAME;
-        const columnName = row?.columnName ?? row?.COLUMN_NAME;
-        return typeof tableName === "string" && typeof columnName === "string"
-          ? `${tableName}.${columnName}`
-          : null;
-      })
-      .filter(Boolean),
-  );
+  tableNames = new Set(tables.map((row) => row?.tableName ?? row?.TABLE_NAME).filter((value) => typeof value === "string"));
+  columnKeys = new Set(columns.map((row) => {
+    const tableName = row?.tableName ?? row?.TABLE_NAME;
+    const columnName = row?.columnName ?? row?.COLUMN_NAME;
+    return typeof tableName === "string" && typeof columnName === "string" ? `${tableName}.${columnName}` : null;
+  }).filter(Boolean));
 } finally {
   await prisma.$disconnect();
 }
 
 const presentRequired = REQUIRED_PSP_TABLES.filter((name) => tableNames.has(name));
 const presentFeatureTables = MEMBER_MOBILE_TABLES.filter((name) => tableNames.has(name));
-const presentFeatureColumns = MEMBER_MOBILE_COLUMNS.filter(([table, column]) =>
-  columnKeys.has(`${table}.${column}`),
-);
+const presentFeatureColumns = MEMBER_MOBILE_COLUMNS.filter(([table, column]) => columnKeys.has(`${table}.${column}`));
 const featureItemCount = MEMBER_MOBILE_TABLES.length + MEMBER_MOBILE_COLUMNS.length;
 const presentFeatureItemCount = presentFeatureTables.length + presentFeatureColumns.length;
+const presentCustomCertificateColumns = CUSTOM_CERTIFICATE_COLUMNS.filter(([table, column]) => columnKeys.has(`${table}.${column}`));
+const presentPublicAnnouncementColumns = PUBLIC_ANNOUNCEMENT_COLUMNS.filter(([table, column]) => columnKeys.has(`${table}.${column}`));
+
+let schemaPushPerformed = false;
 
 if (tableNames.size === 0) {
   console.log("Empty dedicated PSP database detected; applying the initial greenfield Prisma schema.");
   runPrismaPush();
+  schemaPushPerformed = true;
 } else if (presentRequired.length !== REQUIRED_PSP_TABLES.length) {
-  console.error(
-    `Production database is not empty but does not contain the complete PSP baseline tables (${presentRequired.length}/${REQUIRED_PSP_TABLES.length}). Refusing automatic schema push.`,
-  );
-  console.error(
-    "Verify that DATABASE_URL points to the dedicated PSP database and use a reviewed migration/recovery procedure for any partial or existing schema.",
-  );
+  console.error(`Production database is not empty but does not contain the complete PSP baseline tables (${presentRequired.length}/${REQUIRED_PSP_TABLES.length}). Refusing automatic schema push.`);
+  console.error("Verify that DATABASE_URL points to the dedicated PSP database and use a reviewed migration/recovery procedure for any partial or existing schema.");
   process.exit(1);
 } else if (presentFeatureItemCount === 0) {
-  console.log(
-    "Recognized pre-member-mobile PSP schema detected; applying the reviewed additive member-mobile schema sync.",
-  );
+  console.log("Recognized pre-member-mobile PSP schema detected; applying the reviewed additive member-mobile schema sync.");
   runPrismaPush();
+  schemaPushPerformed = true;
 } else if (presentFeatureItemCount !== featureItemCount) {
-  console.error(
-    `Partial member-mobile schema detected (${presentFeatureItemCount}/${featureItemCount}). Refusing automatic schema sync.`,
-  );
-  console.error(
-    "Use the reviewed recovery procedure before continuing so production cannot drift into a partially upgraded state.",
-  );
+  console.error(`Partial member-mobile schema detected (${presentFeatureItemCount}/${featureItemCount}). Refusing automatic schema sync.`);
+  console.error("Use the reviewed recovery procedure before continuing so production cannot drift into a partially upgraded state.");
   process.exit(1);
 } else {
-  console.log("Existing current PSP schema detected; automatic schema push skipped.");
+  console.log("Existing member-mobile PSP schema detected.");
+}
+
+if (!schemaPushPerformed) {
+  if (presentCustomCertificateColumns.length === 0) {
+    console.log("Applying reviewed additive custom-certificate metadata columns.");
+    runPrismaPush();
+    schemaPushPerformed = true;
+  } else if (presentCustomCertificateColumns.length !== CUSTOM_CERTIFICATE_COLUMNS.length) {
+    console.error(`Partial custom-certificate schema detected (${presentCustomCertificateColumns.length}/${CUSTOM_CERTIFICATE_COLUMNS.length}). Refusing automatic schema sync.`);
+    console.error("Use the reviewed recovery procedure before continuing so certificate issuance cannot run against a partially upgraded schema.");
+    process.exit(1);
+  } else {
+    console.log("Existing current PSP custom-certificate schema detected.");
+  }
+}
+
+if (!schemaPushPerformed) {
+  if (presentPublicAnnouncementColumns.length === 0) {
+    console.log("Applying reviewed additive public-announcement visibility column.");
+    runPrismaPush();
+    schemaPushPerformed = true;
+  } else if (presentPublicAnnouncementColumns.length !== PUBLIC_ANNOUNCEMENT_COLUMNS.length) {
+    console.error(`Partial public-announcement schema detected (${presentPublicAnnouncementColumns.length}/${PUBLIC_ANNOUNCEMENT_COLUMNS.length}). Refusing automatic schema sync.`);
+    process.exit(1);
+  } else {
+    console.log("Existing current PSP public-announcement visibility schema detected; automatic schema push skipped.");
+  }
 }
 
 console.log("Running idempotent PSP production baseline and member-mobile synchronization...");
