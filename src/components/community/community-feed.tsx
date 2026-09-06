@@ -38,7 +38,35 @@ export function CommunityFeed({ currentUserId, canPostNational }: { currentUserI
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void fetch("/api/community/posts", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as { posts?: FeedPost[]; message?: string };
+        if (!response.ok) throw new Error(payload.message ?? "Unable to load community feed.");
+        return payload.posts ?? [];
+      })
+      .then((nextPosts) => {
+        if (controller.signal.aborted) return;
+        setPosts(nextPosts);
+        setError(null);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted && (cause as Error).name !== "AbortError") {
+          setError(cause instanceof Error ? cause.message : "Unable to load community feed.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, []);
 
   async function createPost(event: FormEvent) {
     event.preventDefault();
