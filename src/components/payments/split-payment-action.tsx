@@ -34,12 +34,14 @@ export function SplitPaymentAction({
   assessmentId,
   description,
   disabled = false,
+  disabledReason,
 }: {
   category: "DUES" | "CONTRIBUTION" | "OTHER";
   chapterAmount: string;
   assessmentId?: string;
   description?: string;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   const [method, setMethod] = useState<PaymentMethod>("qrph");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -57,7 +59,7 @@ export function SplitPaymentAction({
   useEffect(() => {
     setPreview(null);
     setError(null);
-    if (!validAmount) return;
+    if (!validAmount || disabled) return;
     const controller = new AbortController();
     const load = async () => {
       try {
@@ -75,7 +77,7 @@ export function SplitPaymentAction({
     };
     void load();
     return () => controller.abort();
-  }, [validAmount]);
+  }, [validAmount, disabled]);
 
   useEffect(() => {
     const ref = checkout?.internalReference;
@@ -151,6 +153,14 @@ export function SplitPaymentAction({
     }
   }
 
+  const actionLabel = busy
+    ? "Preparing secure payment…"
+    : disabled
+      ? (disabledReason ? "Online payment unavailable" : "Complete payment details")
+      : preview
+        ? `Pay ₱${money(preview.totalAmount)}`
+        : "Calculating total…";
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }} aria-label="Payment method">
@@ -159,7 +169,7 @@ export function SplitPaymentAction({
             type="button"
             key={item}
             onClick={() => setMethod(item)}
-            disabled={busy}
+            disabled={busy || disabled}
             aria-pressed={method === item}
             style={{
               minHeight: 46,
@@ -167,7 +177,8 @@ export function SplitPaymentAction({
               border: method === item ? "2px solid #151515" : "1px solid #ddd5c1",
               background: method === item ? "#fec009" : "#fff",
               fontWeight: 900,
-              cursor: "pointer",
+              cursor: disabled ? "not-allowed" : "pointer",
+              opacity: disabled ? 0.6 : 1,
             }}
           >
             {item === "qrph" ? "QR Ph" : item === "paymaya" ? "Maya" : "GCash"}
@@ -184,9 +195,10 @@ export function SplitPaymentAction({
       </div>
 
       <button className="btn btn-primary" type="button" disabled={disabled || busy || !preview} onClick={() => void startPayment()} style={{ width: "100%", minHeight: 50 }}>
-        {busy ? "Preparing secure payment…" : preview ? `Pay ₱${money(preview.totalAmount)}` : "Calculating total…"}
+        {actionLabel}
       </button>
 
+      {disabledReason ? <div role="status" style={{ padding: 11, borderRadius: 11, background: "#fff6dd", color: "#684d00", border: "1px solid #ebd594", lineHeight: 1.45 }}>{disabledReason}</div> : null}
       {error ? <div role="alert" style={errorStyle}>{error}</div> : null}
 
       {checkout?.actionType === "qr" && checkout.qrImageUrl ? (
