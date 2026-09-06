@@ -17,6 +17,7 @@ const announcementSchema = z.object({
   startsAt: z.string().datetime().optional().nullable(),
   expiresAt: z.string().datetime().optional().nullable(),
   isPinned: z.boolean().optional().default(false),
+  isPublic: z.boolean().optional().default(false),
 });
 
 export async function GET() {
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
         startsAt: startsAt ? new Date(startsAt).toISOString() : null,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         isPinned: form.get("isPinned") === "on" || form.get("isPinned") === "true",
+        isPublic: form.get("isPublic") === "on" || form.get("isPublic") === "true",
       };
       const candidate = form.get("image");
       imageFile = candidate instanceof File && candidate.size > 0 ? candidate : null;
@@ -106,13 +108,26 @@ export async function POST(request: Request) {
         startsAt,
         expiresAt,
         isPinned: input.isPinned,
+        isPublic: input.isPublic,
         imageUrl: savedKey ? privateMediaReference(savedKey) : null,
       },
     });
     created = true;
 
     await prisma.auditLog.create({
-      data: { actorUserId: context.user.id, chapterId, action: "ANNOUNCEMENT_CREATED", entityType: "Announcement", entityId: announcement.id, metadataJson: { audience: input.audience, title: input.title, hasImage: Boolean(savedKey) } },
+      data: {
+        actorUserId: context.user.id,
+        chapterId,
+        action: "ANNOUNCEMENT_CREATED",
+        entityType: "Announcement",
+        entityId: announcement.id,
+        metadataJson: {
+          audience: input.audience,
+          title: input.title,
+          hasImage: Boolean(savedKey),
+          isPublic: input.isPublic,
+        },
+      },
     });
 
     if (!startsAt || startsAt <= new Date()) {
