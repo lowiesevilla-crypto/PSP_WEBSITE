@@ -10,26 +10,19 @@ const CANONICAL_PRODUCTION_ORIGIN = "https://psp.hoahub.tech";
 function authConfigReady() {
   const secretReady = (process.env.AUTH_SECRET?.length ?? 0) >= 32;
   let appOriginReady = false;
-
   try {
     const origin = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "").origin;
-    appOriginReady =
-      process.env.APP_ENV === "production"
-        ? origin === CANONICAL_PRODUCTION_ORIGIN
-        : origin.startsWith("http://") || origin.startsWith("https://");
+    appOriginReady = process.env.APP_ENV === "production" ? origin === CANONICAL_PRODUCTION_ORIGIN : origin.startsWith("http://") || origin.startsWith("https://");
   } catch {
     appOriginReady = false;
   }
-
   return secretReady && appOriginReady;
 }
 
 function smtpConfigStatus() {
   const user = process.env.SMTP_USER?.trim() || process.env.SMTP_USERNAME?.trim();
   const from = process.env.SMTP_FROM?.trim() || process.env.MAIL_FROM_ADDRESS?.trim();
-  return process.env.SMTP_HOST?.trim() && user && process.env.SMTP_PASSWORD?.trim() && from
-    ? "configured"
-    : "not_configured";
+  return process.env.SMTP_HOST?.trim() && user && process.env.SMTP_PASSWORD?.trim() && from ? "configured" : "not_configured";
 }
 
 function payMongoPlatformConfigStatus() {
@@ -38,13 +31,8 @@ function payMongoPlatformConfigStatus() {
   const encryptionKey = process.env.PAYMENT_CONFIG_ENCRYPTION_KEY?.trim();
   const bps = Number(process.env.PLATFORM_CONVENIENCE_FEE_BPS ?? 0);
   const fixedCentavos = Number(process.env.PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS ?? 0);
-  const feeConfigured =
-    (Number.isFinite(bps) && bps > 0) ||
-    (Number.isFinite(fixedCentavos) && fixedCentavos > 0);
-
-  return secret && accountId?.startsWith("org_") && (encryptionKey?.length ?? 0) >= 32 && feeConfigured
-    ? "configured"
-    : "not_configured";
+  const feeConfigured = (Number.isFinite(bps) && bps > 0) || (Number.isFinite(fixedCentavos) && fixedCentavos > 0);
+  return secret && accountId?.startsWith("org_") && (encryptionKey?.length ?? 0) >= 32 && feeConfigured ? "configured" : "not_configured";
 }
 
 export async function GET() {
@@ -53,6 +41,7 @@ export async function GET() {
   let baselineReady = false;
   let memberMobileSchemaReady = false;
   let customCertificateSchemaReady = false;
+  let publicAnnouncementSchemaReady = false;
 
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -61,12 +50,8 @@ export async function GET() {
     const [userRow, auditRow, systemAdminRole] = await Promise.all([
       prisma.user.findFirst({ select: { id: true } }),
       prisma.auditLog.findFirst({ select: { id: true } }),
-      prisma.role.findUnique({
-        where: { code: "SYSTEM_ADMIN" },
-        select: { id: true },
-      }),
+      prisma.role.findUnique({ where: { code: "SYSTEM_ADMIN" }, select: { id: true } }),
     ]);
-
     void userRow;
     void auditRow;
     authSchemaReady = true;
@@ -83,33 +68,20 @@ export async function GET() {
     memberMobileSchemaReady = true;
 
     const certificateRow = await prisma.certificate.findFirst({
-      select: {
-        id: true,
-        certificateType: true,
-        title: true,
-        citationText: true,
-        certificateDate: true,
-        referenceLabel: true,
-        batchId: true,
-      },
+      select: { id: true, certificateType: true, title: true, citationText: true, certificateDate: true, referenceLabel: true, batchId: true },
     });
     void certificateRow;
     customCertificateSchemaReady = true;
+
+    const announcementRow = await prisma.announcement.findFirst({ select: { id: true, isPublic: true } });
+    void announcementRow;
+    publicAnnouncementSchemaReady = true;
   } catch (error) {
-    console.error(
-      "PSP_READINESS_DATASTORE_ERROR",
-      error instanceof Error ? error.name : "UnknownError",
-    );
+    console.error("PSP_READINESS_DATASTORE_ERROR", error instanceof Error ? error.name : "UnknownError");
   }
 
   const authReady = authConfigReady();
-  const ready =
-    databaseReady &&
-    authSchemaReady &&
-    baselineReady &&
-    memberMobileSchemaReady &&
-    customCertificateSchemaReady &&
-    authReady;
+  const ready = databaseReady && authSchemaReady && baselineReady && memberMobileSchemaReady && customCertificateSchemaReady && publicAnnouncementSchemaReady && authReady;
 
   return NextResponse.json(
     {
@@ -122,6 +94,7 @@ export async function GET() {
         baseline: baselineReady ? "ok" : "error",
         memberMobileSchema: memberMobileSchemaReady ? "ok" : "error",
         customCertificateSchema: customCertificateSchemaReady ? "ok" : "error",
+        publicAnnouncementSchema: publicAnnouncementSchemaReady ? "ok" : "error",
         authConfig: authReady ? "ok" : "error",
         smtpConfig: smtpConfigStatus(),
         payMongoPlatformConfig: payMongoPlatformConfigStatus(),
@@ -129,11 +102,6 @@ export async function GET() {
       },
       timestamp: new Date().toISOString(),
     },
-    {
-      status: ready ? 200 : 503,
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    },
+    { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }
