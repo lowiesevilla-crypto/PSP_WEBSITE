@@ -52,6 +52,7 @@ export async function GET() {
   let authSchemaReady = false;
   let baselineReady = false;
   let memberMobileSchemaReady = false;
+  let customCertificateSchemaReady = false;
 
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -80,6 +81,20 @@ export async function GET() {
     void digitalIdRow;
     void paymentConfigRow;
     memberMobileSchemaReady = true;
+
+    const certificateRow = await prisma.certificate.findFirst({
+      select: {
+        id: true,
+        certificateType: true,
+        title: true,
+        citationText: true,
+        certificateDate: true,
+        referenceLabel: true,
+        batchId: true,
+      },
+    });
+    void certificateRow;
+    customCertificateSchemaReady = true;
   } catch (error) {
     console.error(
       "PSP_READINESS_DATASTORE_ERROR",
@@ -93,6 +108,7 @@ export async function GET() {
     authSchemaReady &&
     baselineReady &&
     memberMobileSchemaReady &&
+    customCertificateSchemaReady &&
     authReady;
 
   return NextResponse.json(
@@ -105,6 +121,7 @@ export async function GET() {
         authSchema: authSchemaReady ? "ok" : "error",
         baseline: baselineReady ? "ok" : "error",
         memberMobileSchema: memberMobileSchemaReady ? "ok" : "error",
+        customCertificateSchema: customCertificateSchemaReady ? "ok" : "error",
         authConfig: authReady ? "ok" : "error",
         smtpConfig: smtpConfigStatus(),
         payMongoPlatformConfig: payMongoPlatformConfigStatus(),
