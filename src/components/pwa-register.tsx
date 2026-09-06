@@ -53,8 +53,6 @@ export function PwaRegister() {
   const [onInstallPage, setOnInstallPage] = useState(false);
 
   useEffect(() => {
-    setOnInstallPage(window.location.pathname === "/install");
-
     let registration: ServiceWorkerRegistration | null = null;
 
     const register = async () => {
@@ -95,15 +93,19 @@ export function PwaRegister() {
     window.addEventListener("appinstalled", appInstalled);
     void register();
 
-    const captured = getCapturedPspInstallPrompt();
-    if (captured) setInstallPrompt(captured);
+    const hydrateTimer = window.setTimeout(() => {
+      setOnInstallPage(window.location.pathname === "/install");
+      const captured = getCapturedPspInstallPrompt();
+      if (captured) setInstallPrompt(captured);
 
-    if (!isStandalone() && isIos()) {
-      const dismissed = sessionStorage.getItem("psp-ios-install-dismissed");
-      setShowIosHelp(!dismissed);
-    }
+      if (!isStandalone() && isIos()) {
+        const dismissed = sessionStorage.getItem("psp-ios-install-dismissed");
+        setShowIosHelp(!dismissed);
+      }
+    }, 0);
 
     return () => {
+      window.clearTimeout(hydrateTimer);
       window.removeEventListener("beforeinstallprompt", beforeInstall);
       window.removeEventListener("appinstalled", appInstalled);
     };
