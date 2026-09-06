@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { encryptSecret, decryptSecret } from "@/lib/security/encryption";
 import { createLinkedWebhook } from "@/lib/paymongo/client";
 import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
+import {
+  isPendingLinkedWebhookSecret,
+  PENDING_LINKED_WEBHOOK_SECRET,
+  type ChapterPaymentConfigurationState,
+} from "@/lib/paymongo/chapter-config-state";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +18,18 @@ const schema = z.object({
   chapterId: z.string().min(1),
   mode: z.enum(["TEST", "LIVE"]),
   linkedAccountId: z.string().trim().regex(/^org_[A-Za-z0-9]+$/, "Linked PayMongo account must be an org_* id."),
+  // Retained for controlled migration/testing compatibility. The normal Admin UI
+  // never handles a plaintext child webhook signing secret.
   webhookSecret: z.string().trim().min(1).max(500).optional(),
   paymentMethods: z.array(z.enum(paymentMethods)).min(1).max(paymentMethods.length),
   isEnabled: z.boolean(),
 });
+
+type PlatformStatus = {
+  ready: boolean;
+  mode: "TEST" | "LIVE" | null;
+  message: string | null;
+};
 
 function canManage(context: Awaited<ReturnType<typeof getAuthContext>>, chapterId: string) {
   if (!context) return false;
@@ -30,6 +43,70 @@ function canManage(context: Awaited<ReturnType<typeof getAuthContext>>, chapterI
 function webhookUrl(chapterCode: string) {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://psp.hoahub.tech").replace(/\/$/, "");
   return `${appUrl}/api/webhooks/paymongo/${encodeURIComponent(chapterCode)}`;
+}
+
+function getPlatformStatus(): PlatformStatus {
+  try {
+    const platform = getPlatformPayMongoConfig();
+    return { ready: true, mode: platform.mode, message: null };
+  } catch (error) {
+    return {
+      ready: false,
+      mode: null,
+      message: error instanceof Error ? error.message : "PSP PayMongo platform configuration is unavailable.",
+    };
+  }
+}
+
+function decryptLinkedAccount(ciphertext: string | null | undefined) {
+  if (!ciphertext) return null;
+  try {
+    const value = decryptSecret(ciphertext);
+    return value.startsWith("org_") ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasStoredWebhookSecret(ciphertext: string | null | undefined) {
+  if (!ciphertext) return false;
+  try {
+    return !isPendingLinkedWebhookSecret(decryptSecret(ciphertext));
+  } catch {
+    return false;
+  }
+}
+
+function readinessFor(input: {
+  hasConfig: boolean;
+  isEnabled: boolean;
+  mode: string | null | undefined;
+  linkedAccountId: string | null;
+  hasWebhookSecret: boolean;
+  platform: PlatformStatus;
+}) {
+  const activationBlockers: string[] = [];
+  if (!input.linkedAccountId) activationBlockers.push("Save a valid PayMongo linked child Account ID (org_*).");
+  if (!input.platform.ready) {
+    activationBlockers.push(input.platform.message ?? "Complete the PSP PayMongo parent platform and convenience-fee configuration.");
+  } else if (input.mode && input.mode !== input.platform.mode) {
+    activationBlockers.push(`Chapter mode ${input.mode} must match PSP platform mode ${input.platform.mode}.`);
+  }
+
+  let configurationState: ChapterPaymentConfigurationState = "NOT_CONFIGURED";
+  if (input.hasConfig) {
+    if (input.isEnabled) {
+      configurationState = activationBlockers.length === 0 && input.hasWebhookSecret ? "ENABLED" : "BLOCKED";
+    } else {
+      configurationState = activationBlockers.length === 0 ? "READY" : "DRAFT";
+    }
+  }
+
+  return {
+    configurationState,
+    activationReady: activationBlockers.length === 0,
+    activationBlockers,
+  };
 }
 
 export async function GET(request: Request) {
@@ -60,25 +137,17 @@ export async function GET(request: Request) {
   });
   if (!chapter) return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
 
-  let linkedAccountId: string | null = null;
-  if (chapter.paymentConfig?.secretKeyCiphertext) {
-    try {
-      const value = decryptSecret(chapter.paymentConfig.secretKeyCiphertext);
-      linkedAccountId = value.startsWith("org_") ? value : null;
-    } catch {
-      linkedAccountId = null;
-    }
-  }
-
-  let platformReady = false;
-  let platformMode: "TEST" | "LIVE" | null = null;
-  try {
-    const platform = getPlatformPayMongoConfig();
-    platformReady = true;
-    platformMode = platform.mode;
-  } catch {
-    platformReady = false;
-  }
+  const linkedAccountId = decryptLinkedAccount(chapter.paymentConfig?.secretKeyCiphertext);
+  const hasWebhookSecret = hasStoredWebhookSecret(chapter.paymentConfig?.webhookSecretCiphertext);
+  const platform = getPlatformStatus();
+  const readiness = readinessFor({
+    hasConfig: Boolean(chapter.paymentConfig),
+    isEnabled: Boolean(chapter.paymentConfig?.isEnabled),
+    mode: chapter.paymentConfig?.mode,
+    linkedAccountId,
+    hasWebhookSecret,
+    platform,
+  });
 
   return NextResponse.json(
     {
@@ -89,14 +158,16 @@ export async function GET(request: Request) {
             linkedAccountId,
             paymentMethods: chapter.paymentConfig.paymentMethods,
             isEnabled: chapter.paymentConfig.isEnabled,
-            hasWebhookSecret: Boolean(chapter.paymentConfig.webhookSecretCiphertext),
+            hasWebhookSecret,
             updatedAt: chapter.paymentConfig.updatedAt,
           }
         : null,
       webhookUrl: webhookUrl(chapter.code),
-      platformReady,
-      platformMode,
+      platformReady: platform.ready,
+      platformMode: platform.mode,
+      platformMessage: platform.message,
       liveGloballyEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
+      ...readiness,
     },
     { headers: { "Cache-Control": "no-store" } },
   );
@@ -120,20 +191,26 @@ export async function PUT(request: Request) {
   });
   if (!chapter) return NextResponse.json({ message: "Chapter not found." }, { status: 404 });
 
-  let platform;
-  try {
-    platform = getPlatformPayMongoConfig();
-  } catch (error) {
-    return NextResponse.json(
-      { message: error instanceof Error ? error.message : "PSP PayMongo platform configuration is unavailable." },
-      { status: 409 },
-    );
-  }
-  if (platform.mode !== input.mode) {
-    return NextResponse.json(
-      { message: `Chapter mode ${input.mode} must match PSP PayMongo platform mode ${platform.mode}.` },
-      { status: 409 },
-    );
+  let platform = null;
+  if (input.isEnabled) {
+    try {
+      platform = getPlatformPayMongoConfig();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          message: error instanceof Error
+            ? `Chapter setup can be saved as a disabled draft, but online payment cannot be enabled yet: ${error.message}`
+            : "Chapter setup can be saved as a disabled draft, but PSP PayMongo platform configuration is unavailable.",
+        },
+        { status: 409 },
+      );
+    }
+    if (platform.mode !== input.mode) {
+      return NextResponse.json(
+        { message: `Chapter mode ${input.mode} must match PSP PayMongo platform mode ${platform.mode}.` },
+        { status: 409 },
+      );
+    }
   }
 
   // Encryption is intentionally randomized, so ciphertext cannot be used as a
@@ -159,36 +236,54 @@ export async function PUT(request: Request) {
   }
 
   const existing = await prisma.chapterPaymentConfig.findUnique({ where: { chapterId: chapter.id } });
-  let existingLinkedAccountId: string | null = null;
-  if (existing?.secretKeyCiphertext) {
+  const existingLinkedAccountId = decryptLinkedAccount(existing?.secretKeyCiphertext);
+  const linkedAccountChanged = existingLinkedAccountId !== input.linkedAccountId;
+
+  let existingWebhookSecret: string | null = null;
+  if (existing?.webhookSecretCiphertext) {
     try {
-      existingLinkedAccountId = decryptSecret(existing.secretKeyCiphertext);
+      existingWebhookSecret = decryptSecret(existing.webhookSecretCiphertext);
     } catch {
-      existingLinkedAccountId = null;
+      existingWebhookSecret = null;
     }
   }
-  const linkedAccountChanged = existingLinkedAccountId !== input.linkedAccountId;
 
   try {
     let webhookSecretCiphertext = existing?.webhookSecretCiphertext;
+    let hasWebhookSecret = !isPendingLinkedWebhookSecret(existingWebhookSecret);
     let webhookCreated = false;
     let webhookId: string | null = null;
 
     if (input.webhookSecret) {
       webhookSecretCiphertext = encryptSecret(input.webhookSecret);
-    } else if (!webhookSecretCiphertext || linkedAccountChanged) {
+      hasWebhookSecret = true;
+    } else if (input.isEnabled && (!hasWebhookSecret || linkedAccountChanged)) {
+      if (!platform) {
+        return NextResponse.json({ message: "PSP PayMongo platform configuration is unavailable." }, { status: 409 });
+      }
       const createdWebhook = await createLinkedWebhook({
         secretKey: platform.secretKey,
         childAccountId: input.linkedAccountId,
         url: webhookUrl(chapter.code),
       });
       webhookSecretCiphertext = encryptSecret(createdWebhook.secret);
+      hasWebhookSecret = true;
       webhookCreated = true;
       webhookId = createdWebhook.id;
+    } else if (!input.isEnabled && (linkedAccountChanged || !webhookSecretCiphertext || !hasWebhookSecret)) {
+      // Keep the production-compatible non-null column while representing a
+      // deliberately staged configuration. Runtime payment code rejects this
+      // encrypted marker and activation replaces it with the actual child
+      // webhook signing secret.
+      webhookSecretCiphertext = encryptSecret(PENDING_LINKED_WEBHOOK_SECRET);
+      hasWebhookSecret = false;
     }
 
     if (!webhookSecretCiphertext) {
-      return NextResponse.json({ message: "Chapter webhook signing secret is unavailable." }, { status: 400 });
+      return NextResponse.json({ message: "Unable to stage the chapter payment configuration safely." }, { status: 400 });
+    }
+    if (input.isEnabled && !hasWebhookSecret) {
+      return NextResponse.json({ message: "Chapter webhook signing is not ready; online payment remains disabled." }, { status: 409 });
     }
 
     const linkedAccountCiphertext = encryptSecret(input.linkedAccountId);
@@ -226,10 +321,21 @@ export async function PUT(request: Request) {
             linkedAccountChanged,
             webhookCreated,
             webhookId,
+            configurationState: input.isEnabled ? "ENABLED" : "DRAFT",
           },
         },
       });
       return saved;
+    });
+
+    const currentPlatform = getPlatformStatus();
+    const readiness = readinessFor({
+      hasConfig: true,
+      isEnabled: config.isEnabled,
+      mode: config.mode,
+      linkedAccountId: input.linkedAccountId,
+      hasWebhookSecret,
+      platform: currentPlatform,
     });
 
     return NextResponse.json(
@@ -239,10 +345,15 @@ export async function PUT(request: Request) {
           linkedAccountId: input.linkedAccountId,
           isEnabled: config.isEnabled,
           paymentMethods: config.paymentMethods,
-          hasWebhookSecret: true,
+          hasWebhookSecret,
         },
         webhookUrl: webhookUrl(chapter.code),
         webhookCreated,
+        platformReady: currentPlatform.ready,
+        platformMode: currentPlatform.mode,
+        platformMessage: currentPlatform.message,
+        liveGloballyEnabled: process.env.PAYMONGO_LIVE_ENABLED?.trim().toLowerCase() === "true",
+        ...readiness,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
