@@ -71,6 +71,11 @@ assert(paymentAdminUi.includes("Save Disabled Chapter Draft"), "Finance Admin UI
 assert(paymentAdminUi.includes("draftMatchesSaved"), "Finance Admin UI must require the exact current draft to be persisted before activation.");
 assert(paymentAdminUi.includes("Valid ID · unsaved changes"), "Finance Admin UI must not label a merely typed org_* identifier as saved.");
 assert(paymentAdminUi.includes("Unsaved Chapter payment changes"), "Finance Admin UI must visibly warn when Chapter payment changes have not been persisted.");
+assert(paymentAdminUi.includes('data-payment-encryption-setup="national-admin-v1"'), "National Admin must see a dedicated credential-encryption setup panel when activation is blocked.");
+assert(paymentAdminUi.includes("Open Hostinger hPanel") && paymentAdminUi.includes("Re-check activation readiness"), "Credential-encryption setup must show where to configure the server key and allow readiness re-check.");
+assert(paymentAdminUi.includes('data-payment-activation-ux-version="national-admin-v2"'), "PayMongo activation UX deployment marker is missing.");
+assert(paymentAdminUi.includes("requestOnlinePayment") && paymentAdminUi.includes("Clickable for visibility"), "Enable Online Payment must be actionable and explain blockers instead of appearing broken.");
+assert(!paymentAdminUi.includes("disabled={busy || (!enabled && !canRequestEnable)}"), "Blocked activation control must remain clickable for blocker visibility.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");

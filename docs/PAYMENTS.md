@@ -33,6 +33,19 @@ Server-side secure environment settings:
 
 The parent secret and encryption key are never editable or displayed in a Chapter form.
 
+### National Admin credential-encryption setup
+
+When `PAYMENT_CONFIG_ENCRYPTION_KEY` is missing, the Finance Admin page must show a dedicated **Credential Encryption Setup** panel for National Admin. The panel must:
+
+- identify `PAYMENT_CONFIG_ENCRYPTION_KEY` as the blocking server setting;
+- explain that it protects Chapter child-webhook signing secrets;
+- direct the National Admin to the production app's secure environment-variable settings in Hostinger hPanel for `psp.hoahub.tech`;
+- require a stable random value of at least 32 characters;
+- instruct the Admin to save/redeploy or restart the production app, then re-check activation readiness;
+- never provide a browser form that stores or displays the master encryption key.
+
+The key must never be pasted into Chapter settings, chat, email, screenshots, source code or GitHub. Existing encrypted webhook secrets depend on the stable key; rotation requires a controlled migration.
+
 ### 2. Chapter linked-account setup
 
 An authorized Chapter/National Admin can select the Chapter and edit while Online Payment is disabled:
@@ -49,7 +62,7 @@ Chapter payment setup is intentionally separated from activation.
 
 1. **NOT_CONFIGURED** — no linked child Account ID saved.
 2. **DRAFT** — linked child account, selected mode and methods are saved; Online Payment is disabled; PSP parent platform, encryption readiness and/or child webhook may still be incomplete.
-3. **READY** — parent platform, convenience fee, credential encryption, mode, linked account, and webhook prerequisites are valid.
+3. **READY** — parent platform, convenience fee, credential encryption, mode and linked-account prerequisites are valid; the child webhook is created during activation when needed.
 4. **ENABLED** — Online Payment is active for the Chapter in the allowed mode.
 5. **BLOCKED** — saved/enabled configuration fails current validation and must fail closed until remediated.
 
@@ -87,6 +100,8 @@ Enabling Online Payment requires all of the following before `isEnabled=true` is
 - LIVE is explicitly allowed by the global live gate.
 
 Encryption readiness is checked **before** PSP creates a PayMongo child webhook. A missing encryption key therefore cannot create an orphan provider webhook whose signing secret PSP is unable to persist safely.
+
+The Finance UI activation control remains clickable for visibility even when activation is blocked. Clicking it while blocked must keep `isEnabled=false` and display the exact current blockers. Once the saved draft, parent platform, credential encryption and mode match are ready, selecting the control prepares activation and the Admin must explicitly submit **Save & Activate Online Payment**.
 
 If activation fails, the previously saved Draft remains disabled. A failed activation must not leave `isEnabled=true`.
 
@@ -217,42 +232,11 @@ PR #34 runtime CI proves without contacting the real PayMongo provider:
 - Draft returns linked Account ID but reports no real webhook secret;
 - Draft state remains `DRAFT` and `isEnabled=false`;
 - attempted activation without parent platform fails with 409;
-- failed activation does not change persisted `isEnabled=false`;
-- payment/runtime source contracts reject pending webhook state;
-- Finance summary/register hardening compiles/builds with cross-Chapter isolation suite green.
+- failed activation does not change persisted `isEnabled=false`.
 
-The 2026-09-06 Chapter payment UX correction additionally requires CI/source contracts to prove:
+Later r14 Finance hotfix CI additionally requires:
 
-- the non-secret linked `org_*` identifier is not passed through `encryptSecret` merely to save a disabled draft;
-- the pending webhook marker can be staged without credential encryption;
-- credential encryption is checked before child-webhook creation;
-- runtime remains backward compatible with previously encrypted linked Account IDs;
-- Finance Admin visibly separates PSP parent split-payment setup from Chapter linked-account setup;
-- disabled Chapter mode is selectable as TEST/LIVE.
-
-These automated tests prove PSP application behavior, not actual external PayMongo settlement.
-
-## Controlled TEST-to-LIVE Gate
-
-LIVE remains fail-closed until real PayMongo TEST evidence proves:
-
-1. Platforms/Linked Accounts is enabled for PSP.
-2. PSP parent and at least one Chapter child are active/linked.
-3. Deliberate convenience fee is configured.
-4. Child Payment Intent works using parent auth + Account-Id.
-5. DUES succeeds.
-6. CONTRIBUTION succeeds.
-7. OTHER succeeds.
-8. Fee preview equals encoded split amounts.
-9. Gross charge equals Chapter amount + fee.
-10. Parent receives configured fee; Chapter child receives remainder.
-11. Valid signed child webhook posts exactly once.
-12. Invalid signature is rejected.
-13. Duplicate webhook is idempotent.
-14. Cross-Chapter webhook/reference is rejected.
-15. Chapter ledger posts Chapter amount only.
-16. Contribution/collection totals exclude platform fee.
-17. Receipt shows Chapter amount, fee, and gross total correctly.
-18. Member/Admin reconciliation totals agree.
-
-Only after TEST signoff and explicit product-owner approval may `PAYMONGO_LIVE_ENABLED=true` be used for a controlled low-value LIVE validation.
+- National Admin credential-encryption setup instructions are visible when the server key is absent;
+- the blocked activation control remains actionable for blocker visibility while still fail-closed;
+- the exact saved Chapter draft is still required before activation;
+- the complete high/critical dependency audit and runtime-only audit remain green.
