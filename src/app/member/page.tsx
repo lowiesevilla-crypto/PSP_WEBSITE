@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { getAuthContext } from "@/lib/auth/context";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
+import { getChapterPayMongoConfig } from "@/lib/paymongo/chapter-config";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -10,13 +11,13 @@ export const metadata = { title: "Member Dashboard" };
 export const dynamic = "force-dynamic";
 
 const actions = [
-  ["₱", "Pay Now", "/payments"],
-  ["ID", "Digital ID", "/member/id"],
-  ["QR", "Certificate", "/certificate"],
+  ["₱", "Payments", "/payments"],
   ["RC", "Receipts", "/payments/receipts"],
+  ["ID", "Digital ID", "/member/id"],
+  ["QR", "Certificates", "/certificate"],
   ["CH", "My Chapter", "/chapter"],
+  ["EV", "Events", "/events"],
   ["PF", "Profile", "/profile"],
-  ["PW", "Passkey", "/profile#passkeys"],
   ["APP", "Install App", "/install"],
 ] as const;
 
@@ -32,7 +33,7 @@ export default async function MemberDashboardPage() {
   });
   if (!member) redirect("/login");
 
-  const [announcement, event, certificate, digitalId, unreadNotifications, ledger, contributions, officers] = await Promise.all([
+  const [announcement, event, certificateCount, digitalId, unreadNotifications, ledger, contributions, officers, paymentRuntime] = await Promise.all([
     prisma.announcement.findFirst({
       where: {
         OR: [{ audience: "NATIONAL" }, { audience: "CHAPTER", chapterId: member.chapterId }],
@@ -54,11 +55,7 @@ export default async function MemberDashboardPage() {
       orderBy: { startsAt: "asc" },
       select: { id: true, title: true, startsAt: true, venue: true },
     }),
-    prisma.certificate.findFirst({
-      where: { memberId: member.id, status: "VALID" },
-      orderBy: { issuedAt: "desc" },
-      select: { id: true, certificateNumber: true },
-    }),
+    prisma.certificate.count({ where: { memberId: member.id, status: "VALID" } }),
     prisma.digitalMemberId.findUnique({ where: { memberId: member.id }, select: { id: true, status: true } }),
     prisma.notification.count({ where: { userId: context.user.id, readAt: null } }),
     prisma.memberLedgerEntry.findMany({ where: { memberId: member.id }, select: { type: true, amount: true } }),
@@ -78,6 +75,10 @@ export default async function MemberDashboardPage() {
         },
       },
     }),
+    getChapterPayMongoConfig(member.chapterId).then(
+      (config) => ({ ready: true as const, methods: config.paymentMethods }),
+      () => ({ ready: false as const, methods: [] as string[] }),
+    ),
   ]);
 
   const balance = ledger.reduce(
@@ -86,9 +87,12 @@ export default async function MemberDashboardPage() {
   );
   const totalContributions = contributions._sum.amount ?? new Prisma.Decimal(0);
   const initials = [member.firstName[0], member.lastName[0]].filter(Boolean).join("").toUpperCase();
+  const paymentMethods = paymentRuntime.ready
+    ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(" · ")
+    : "Chapter setup required";
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-member-dashboard-version="payment-first-v1">
       <header className="app-topbar">
         <div className="container app-nav">
           <Link className="app-brand" href="/member">
@@ -109,9 +113,35 @@ export default async function MemberDashboardPage() {
         <div className="app-greeting">
           <p>Member Portal</p>
           <h1>Welcome, {member.firstName}.</h1>
+          <p style={{ marginTop: 7, color: "#746b5b" }}>{member.chapter.name} · {member.membershipNo}</p>
         </div>
 
-        <section className="member-card" style={{ marginBottom: 14 }}>
+        <section className="app-panel" style={{ marginBottom: 16, padding: 18, border: balance.gt(0) ? "1px solid #e5cd77" : "1px solid #c9dfcc", background: balance.gt(0) ? "linear-gradient(135deg,#fff9e9,#fff)" : "linear-gradient(135deg,#f4fbf5,#fff)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(220px,.8fr)", gap: 18, alignItems: "center" }} className="member-payment-hero">
+            <div>
+              <small style={{ color: "#746b5b", fontWeight: 900 }}>OUTSTANDING BALANCE</small>
+              <strong style={{ display: "block", marginTop: 4, fontSize: "clamp(2rem,7vw,3.1rem)", lineHeight: 1, letterSpacing: "-.04em", color: balance.gt(0) ? "#8a6500" : "#245b2a" }}>{php(balance)}</strong>
+              <p style={{ color: "#665b47", lineHeight: 1.5, margin: "10px 0 0" }}>
+                {balance.gt(0) ? "Review your dues and assessments, then pay securely when your Chapter online-payment setup is enabled." : "Your current PSP ledger has no outstanding balance."}
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 11, color: "#6b665c", fontSize: ".82rem" }}>
+                <span style={chipStyle}>{paymentRuntime.ready ? "Online Payment Ready" : "Online Payment Unavailable"}</span>
+                <span style={chipStyle}>{paymentMethods}</span>
+              </div>
+            </div>
+            <div style={{ display: "grid", gap: 9 }}>
+              <Link className="btn btn-primary" href="/payments" style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{balance.gt(0) ? "Pay Now / View Dues" : "View Payments"}</Link>
+              <Link className="btn" href="/payments/receipts" style={{ minHeight: 46, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #ddd5c1", background: "#fff" }}>Receipts & History</Link>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, marginBottom: 16 }}>
+          <SummaryCard label="Total Confirmed Contributions" value={php(totalContributions)} href="/payments" />
+          <SummaryCard label="Available Certificates" value={certificateCount.toLocaleString("en-PH")} href="/certificate" />
+        </section>
+
+        <section className="member-card" style={{ marginBottom: 16 }}>
           <div className="member-card-top">
             <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
             <span className="member-card-status">{member.membershipStatus} MEMBER</span>
@@ -121,11 +151,6 @@ export default async function MemberDashboardPage() {
             <div><small>Membership No.</small><strong>{member.membershipNo}</strong></div>
             <div><small>Chapter</small><strong>{member.chapter.name}</strong></div>
           </div>
-        </section>
-
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, marginBottom: 16 }}>
-          <SummaryCard label="Outstanding Balance" value={php(balance)} highlight={balance.gt(0)} href="/payments" />
-          <SummaryCard label="Total Contributions" value={php(totalContributions)} href="/payments" />
         </section>
 
         <section className="quick-actions" aria-label="Member quick actions" style={{ marginBottom: 18 }}>
@@ -151,7 +176,7 @@ export default async function MemberDashboardPage() {
                   <strong>{assignment.member.firstName} {assignment.member.lastName}</strong>
                 </div>
               )))}
-              {officers.every((position) => position.assignments.length === 0) ? <p style={{ color: "#6b665c", marginBottom: 0 }}>Officer assignments are available from the chapter page when published.</p> : null}
+              {officers.every((position) => position.assignments.length === 0) ? <p style={{ color: "#6b665c", marginBottom: 0 }}>Officer assignments are available from the Chapter page when published.</p> : null}
             </div>
           </section>
 
@@ -159,7 +184,7 @@ export default async function MemberDashboardPage() {
             <h2>Digital Membership</h2>
             <div style={{ display: "grid", gap: 11 }}>
               <StatusRow label="Digital Member ID" value={digitalId?.status ?? "READY"} href="/member/id" action="Open ID" />
-              <StatusRow label="Membership Certificate" value={certificate ? "AVAILABLE" : "READY TO ISSUE"} href="/certificate" action={certificate ? "Open" : "Generate"} />
+              <StatusRow label="Certificates" value={certificateCount ? `${certificateCount} AVAILABLE` : "READY"} href="/certificate" action="Open" />
               <StatusRow label="PWA Mobile App" value="INSTALLABLE" href="/install" action="Install" />
               <StatusRow label="Account Security" value="PASSKEY READY" href="/profile#passkeys" action="Manage" />
             </div>
@@ -199,11 +224,11 @@ export default async function MemberDashboardPage() {
   );
 }
 
-function SummaryCard({ label, value, highlight = false, href }: { label: string; value: string; highlight?: boolean; href: string }) {
+function SummaryCard({ label, value, href }: { label: string; value: string; href: string }) {
   return (
     <Link href={href} className="app-panel" style={{ padding: 14, textDecoration: "none", color: "inherit" }}>
       <small style={{ color: "#746b5b", fontWeight: 800 }}>{label}</small>
-      <strong style={{ display: "block", marginTop: 7, fontSize: "1.25rem", color: highlight ? "#8a6500" : "#151515" }}>{value}</strong>
+      <strong style={{ display: "block", marginTop: 7, fontSize: "1.25rem", color: "#151515" }}>{value}</strong>
     </Link>
   );
 }
@@ -216,3 +241,5 @@ function StatusRow({ label, value, href, action }: { label: string; value: strin
     </div>
   );
 }
+
+const chipStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: 30, padding: "5px 8px", borderRadius: 999, border: "1px solid #ddd5c1", background: "#fff", fontWeight: 800 };
