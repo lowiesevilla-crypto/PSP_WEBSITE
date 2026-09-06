@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "feature/**"
+      - "feat/**"
       - "fix/**"
       - "chore/**"
       - "docs/**"
@@ -41,6 +42,7 @@ jobs:
       APP_ENV: test
       AUTH_SECRET: ci-only-placeholder-secret-not-for-production
       PAYMONGO_WEBHOOK_SECRET: ci-only-paymongo-webhook-secret
+      PAYMENT_CONFIG_ENCRYPTION_KEY: ci-only-payment-config-encryption-key-2026
 
     steps:
       - name: Checkout
@@ -104,6 +106,12 @@ jobs:
       - name: Prepare cross-chapter security fixtures
         run: node scripts/ci-prepare-isolation.mjs
 
+      - name: Prepare platform hardening fixtures
+        run: node scripts/ci-prepare-platform-hardening.mjs
+
+      - name: Lint
+        run: npm run lint
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -142,7 +150,18 @@ jobs:
           printf '%s' "$READINESS" | grep -q '"authSchema":"ok"'
           printf '%s' "$READINESS" | grep -q '"baseline":"ok"'
           printf '%s' "$READINESS" | grep -q '"memberMobileSchema":"ok"'
+          printf '%s' "$READINESS" | grep -q '"customCertificateSchema":"ok"'
+          printf '%s' "$READINESS" | grep -q '"publicAnnouncementSchema":"ok"'
           printf '%s' "$READINESS" | grep -q '"authConfig":"ok"'
+
+          curl --fail --silent http://127.0.0.1:3000/ > /tmp/psp-home.html
+          grep -q 'data-public-chapter-feed-version="global-chapter-feed-v1"' /tmp/psp-home.html
+          grep -q 'CI Alpha Public Update' /tmp/psp-home.html
+          if grep -q 'CI Alpha Private Update' /tmp/psp-home.html; then
+            echo 'Private Chapter announcement leaked into the public homepage.' >&2
+            exit 1
+          fi
+          grep -q 'CI Alpha Published Event' /tmp/psp-home.html
 
           curl --fail --silent http://127.0.0.1:3000/manifest.webmanifest > /tmp/psp-manifest.json
           grep -q '"id":"/"' /tmp/psp-manifest.json
