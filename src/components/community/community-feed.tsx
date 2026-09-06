@@ -25,12 +25,12 @@ export function CommunityFeed({ currentUserId, canPostNational }: { currentUserI
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setLoading(true);
     try {
       const response = await fetch("/api/community/posts", { headers: { Accept: "application/json" }, cache: "no-store" });
       const payload = (await response.json()) as { posts?: FeedPost[]; message?: string };
       if (!response.ok) throw new Error(payload.message ?? "Unable to load community feed.");
       setPosts(payload.posts ?? []);
+      setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load community feed.");
     } finally {
