@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { getAuthContext } from "@/lib/auth/context";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
-import { getChapterPayMongoConfig } from "@/lib/paymongo/chapter-config";
+import { getChapterPayMongoReadiness } from "@/lib/paymongo/chapter-config";
 import { prisma } from "@/lib/prisma";
 import { LogoutButton } from "@/components/auth/logout-button";
 
@@ -75,10 +75,7 @@ export default async function MemberDashboardPage() {
         },
       },
     }),
-    getChapterPayMongoConfig(member.chapterId).then(
-      (config) => ({ ready: true as const, methods: config.paymentMethods }),
-      () => ({ ready: false as const, methods: [] as string[] }),
-    ),
+    getChapterPayMongoReadiness(member.chapterId),
   ]);
 
   const balance = ledger.reduce(
@@ -87,12 +84,13 @@ export default async function MemberDashboardPage() {
   );
   const totalContributions = contributions._sum.amount ?? new Prisma.Decimal(0);
   const initials = [member.firstName[0], member.lastName[0]].filter(Boolean).join("").toUpperCase();
+  const exactChapterLabel = `${member.chapter.name} (${member.chapter.code})`;
   const paymentMethods = paymentRuntime.ready
     ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(" · ")
-    : "Chapter setup required";
+    : paymentRuntime.reasonCode.replaceAll("_", " ");
 
   return (
-    <main className="app-shell" data-member-dashboard-version="payment-first-v1">
+    <main className="app-shell" data-member-dashboard-version="payment-first-v1" data-member-payment-readiness={paymentRuntime.reasonCode}>
       <header className="app-topbar">
         <div className="container app-nav">
           <Link className="app-brand" href="/member">
@@ -113,7 +111,7 @@ export default async function MemberDashboardPage() {
         <div className="app-greeting">
           <p>Member Portal</p>
           <h1>Welcome, {member.firstName}.</h1>
-          <p style={{ marginTop: 7, color: "#746b5b" }}>{member.chapter.name} · {member.membershipNo}</p>
+          <p style={{ marginTop: 7, color: "#746b5b" }}>{exactChapterLabel} · {member.membershipNo}</p>
         </div>
 
         <section className="app-panel" style={{ marginBottom: 16, padding: 18, border: balance.gt(0) ? "1px solid #e5cd77" : "1px solid #c9dfcc", background: balance.gt(0) ? "linear-gradient(135deg,#fff9e9,#fff)" : "linear-gradient(135deg,#f4fbf5,#fff)" }}>
@@ -122,12 +120,13 @@ export default async function MemberDashboardPage() {
               <small style={{ color: "#746b5b", fontWeight: 900 }}>OUTSTANDING BALANCE</small>
               <strong style={{ display: "block", marginTop: 4, fontSize: "clamp(2rem,7vw,3.1rem)", lineHeight: 1, letterSpacing: "-.04em", color: balance.gt(0) ? "#8a6500" : "#245b2a" }}>{php(balance)}</strong>
               <p style={{ color: "#665b47", lineHeight: 1.5, margin: "10px 0 0" }}>
-                {balance.gt(0) ? "Review your dues and assessments, then pay securely when your Chapter online-payment setup is enabled." : "Your current PSP ledger has no outstanding balance."}
+                {balance.gt(0) ? "Review your dues and assessments, then pay securely when your exact Chapter online-payment setup is ready." : "Your current PSP ledger has no outstanding balance."}
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 11, color: "#6b665c", fontSize: ".82rem" }}>
-                <span style={chipStyle}>{paymentRuntime.ready ? "Online Payment Ready" : "Online Payment Unavailable"}</span>
+                <span style={chipStyle}>{paymentRuntime.ready ? `Online Payment Ready · ${paymentRuntime.mode}` : "Online Payment Action Required"}</span>
                 <span style={chipStyle}>{paymentMethods}</span>
               </div>
+              {!paymentRuntime.ready ? <p role="alert" style={{ margin: "10px 0 0", color: "#684d00", fontSize: ".84rem", lineHeight: 1.5 }}><strong>{exactChapterLabel}:</strong> {paymentRuntime.message}</p> : null}
             </div>
             <div style={{ display: "grid", gap: 9 }}>
               <Link className="btn btn-primary" href="/payments" style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{balance.gt(0) ? "Pay Now / View Dues" : "View Payments"}</Link>
@@ -149,7 +148,7 @@ export default async function MemberDashboardPage() {
           <div className="member-card-name">{[member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ")}</div>
           <div className="member-card-meta">
             <div><small>Membership No.</small><strong>{member.membershipNo}</strong></div>
-            <div><small>Chapter</small><strong>{member.chapter.name}</strong></div>
+            <div><small>Chapter</small><strong>{exactChapterLabel}</strong></div>
           </div>
         </section>
 
@@ -167,7 +166,7 @@ export default async function MemberDashboardPage() {
               <h2 style={{ margin: 0 }}>My Chapter</h2>
               <Link href="/chapter" style={{ fontWeight: 800 }}>View all</Link>
             </div>
-            <h3 style={{ marginBottom: 5 }}>{member.chapter.name}</h3>
+            <h3 style={{ marginBottom: 5 }}>{exactChapterLabel}</h3>
             {member.chapter.description ? <p style={{ color: "#6b665c", lineHeight: 1.55 }}>{member.chapter.description}</p> : null}
             <div style={{ display: "grid", gap: 9, marginTop: 12 }}>
               {officers.flatMap((position) => position.assignments.map((assignment) => (
