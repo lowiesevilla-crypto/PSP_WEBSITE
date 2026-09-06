@@ -5,6 +5,7 @@ import { OtherPaymentForm } from "@/components/payments/other-payment-form";
 import { PayButton } from "@/components/payments/pay-button";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
 import { requireCurrentMember } from "@/lib/member/current-member";
+import { getChapterPayMongoConfig } from "@/lib/paymongo/chapter-config";
 import { getPersistedSplitAmounts } from "@/lib/paymongo/split-metadata";
 import { prisma } from "@/lib/prisma";
 
@@ -27,7 +28,7 @@ export default async function PaymentsPage() {
     redirect("/login");
   }
 
-  const [entries, payments] = await Promise.all([
+  const [entries, payments, paymentRuntime] = await Promise.all([
     prisma.memberLedgerEntry.findMany({
       where: { memberId: member.id },
       orderBy: { occurredAt: "desc" },
@@ -39,6 +40,10 @@ export default async function PaymentsPage() {
       take: 75,
       include: { assessment: { select: { title: true } }, receipt: true },
     }),
+    getChapterPayMongoConfig(member.chapterId).then(
+      (config) => ({ ready: true as const, methods: config.paymentMethods }),
+      () => ({ ready: false as const, methods: [] as string[] }),
+    ),
   ]);
 
   let balance = new Prisma.Decimal(0);
@@ -78,6 +83,12 @@ export default async function PaymentsPage() {
       split: await getPersistedSplitAmounts(payment.id, payment.amount),
     })),
   );
+  const paymentUnavailableReason = paymentRuntime.ready
+    ? undefined
+    : "Online payment is not currently enabled for your Chapter. Your balance and payment history remain available; please contact your Chapter Administrator for payment setup assistance.";
+  const methodLabel = paymentRuntime.ready
+    ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(", ")
+    : "Not available";
 
   return (
     <main className="app-shell">
@@ -95,6 +106,9 @@ export default async function PaymentsPage() {
         <div className="app-greeting">
           <p>Member Finance</p>
           <h1>Dues, Contributions & Payments</h1>
+          <p style={{ marginTop: 8, maxWidth: 760, color: "#746b5b", lineHeight: 1.55 }}>
+            View your exact Chapter balance, choose a payable assessment, review the PSP convenience fee before confirmation, and access digital receipts after PayMongo webhook confirmation.
+          </p>
         </div>
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", gap: 12, marginBottom: 18 }}>
@@ -103,13 +117,15 @@ export default async function PaymentsPage() {
           <Metric label="Chapter Payments" value={php(totalChapterPaid)} />
         </section>
 
-        <section className="app-panel" style={{ marginBottom: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <section className="app-panel" style={{ marginBottom: 18, border: paymentRuntime.ready ? "1px solid #bcdcbc" : "1px solid #ebd594", background: paymentRuntime.ready ? "#f7fcf7" : "#fffaf0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div>
-              <h2 style={{ margin: 0 }}>Secure Online Payment</h2>
-              <p style={{ color: "#6b665c", margin: "7px 0 0", lineHeight: 1.55 }}>
-                Chapter: <strong>{member.chapter.name}</strong>. QR Ph, GCash and Maya are processed through PayMongo. A platform convenience fee is shown separately before final confirmation.
+              <small style={{ fontWeight: 900, color: paymentRuntime.ready ? "#245b2a" : "#684d00" }}>{paymentRuntime.ready ? "ONLINE PAYMENT READY" : "ONLINE PAYMENT UNAVAILABLE"}</small>
+              <h2 style={{ margin: "5px 0 5px" }}>Secure Chapter Payment</h2>
+              <p style={{ color: "#6b665c", margin: 0, lineHeight: 1.55 }}>
+                Chapter: <strong>{member.chapter.name}</strong>. Available methods: <strong>{methodLabel}</strong>. A PSP platform convenience fee is shown separately before final confirmation and is not credited as Chapter dues.
               </p>
+              {paymentUnavailableReason ? <p style={{ margin: "10px 0 0", color: "#684d00", lineHeight: 1.5 }}>{paymentUnavailableReason}</p> : null}
             </div>
             <Link href="/payments/receipts" className="btn" style={{ background: "#fff", border: "1px solid #ddd5c1" }}>My Receipts</Link>
           </div>
@@ -136,7 +152,7 @@ export default async function PaymentsPage() {
                       Due {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(assessment.dueAt)}
                     </small>
                   ) : null}
-                  <PayButton assessmentId={assessment.id} outstanding={amount.toFixed(2)} category={category} />
+                  <PayButton assessmentId={assessment.id} outstanding={amount.toFixed(2)} category={category} disabledReason={paymentUnavailableReason} />
                 </article>
               );
             })}
@@ -149,9 +165,9 @@ export default async function PaymentsPage() {
         <section className="app-panel" style={{ marginBottom: 22 }}>
           <h2>Contribution or Other Payment</h2>
           <p style={{ color: "#6b665c", lineHeight: 1.55 }}>
-            Enter the chapter amount and purpose. The platform convenience fee is calculated and displayed separately before payment.
+            Enter the Chapter amount and purpose. The platform convenience fee is calculated and displayed separately before payment.
           </p>
-          <OtherPaymentForm />
+          <OtherPaymentForm disabledReason={paymentUnavailableReason} />
         </section>
 
         <section>
