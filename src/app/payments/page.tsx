@@ -5,7 +5,7 @@ import { OtherPaymentForm } from "@/components/payments/other-payment-form";
 import { PayButton } from "@/components/payments/pay-button";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
 import { requireCurrentMember } from "@/lib/member/current-member";
-import { getChapterPayMongoConfig } from "@/lib/paymongo/chapter-config";
+import { getChapterPayMongoReadiness } from "@/lib/paymongo/chapter-config";
 import { getPersistedSplitAmounts } from "@/lib/paymongo/split-metadata";
 import { prisma } from "@/lib/prisma";
 
@@ -40,10 +40,7 @@ export default async function PaymentsPage() {
       take: 75,
       include: { assessment: { select: { title: true } }, receipt: true },
     }),
-    getChapterPayMongoConfig(member.chapterId).then(
-      (config) => ({ ready: true as const, methods: config.paymentMethods }),
-      () => ({ ready: false as const, methods: [] as string[] }),
-    ),
+    getChapterPayMongoReadiness(member.chapterId),
   ]);
 
   let balance = new Prisma.Decimal(0);
@@ -83,9 +80,10 @@ export default async function PaymentsPage() {
       split: await getPersistedSplitAmounts(payment.id, payment.amount),
     })),
   );
+  const exactChapterLabel = `${member.chapter.name} (${member.chapter.code})`;
   const paymentUnavailableReason = paymentRuntime.ready
     ? undefined
-    : "Online payment is not currently enabled for your Chapter. Your balance and payment history remain available; please contact your Chapter Administrator for payment setup assistance.";
+    : `Online Payment is not ready for your exact member Chapter ${exactChapterLabel}. ${paymentRuntime.message ?? "Please contact your Chapter Administrator."}`;
   const methodLabel = paymentRuntime.ready
     ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(", ")
     : "Not available";
@@ -117,15 +115,15 @@ export default async function PaymentsPage() {
           <Metric label="Chapter Payments" value={php(totalChapterPaid)} />
         </section>
 
-        <section className="app-panel" style={{ marginBottom: 18, border: paymentRuntime.ready ? "1px solid #bcdcbc" : "1px solid #ebd594", background: paymentRuntime.ready ? "#f7fcf7" : "#fffaf0" }}>
+        <section className="app-panel" data-member-payment-readiness={paymentRuntime.reasonCode} style={{ marginBottom: 18, border: paymentRuntime.ready ? "1px solid #bcdcbc" : "1px solid #ebd594", background: paymentRuntime.ready ? "#f7fcf7" : "#fffaf0" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div>
-              <small style={{ fontWeight: 900, color: paymentRuntime.ready ? "#245b2a" : "#684d00" }}>{paymentRuntime.ready ? "ONLINE PAYMENT READY" : "ONLINE PAYMENT UNAVAILABLE"}</small>
+              <small style={{ fontWeight: 900, color: paymentRuntime.ready ? "#245b2a" : "#684d00" }}>{paymentRuntime.ready ? `ONLINE PAYMENT READY · ${paymentRuntime.mode}` : `ONLINE PAYMENT ACTION REQUIRED · ${paymentRuntime.reasonCode}`}</small>
               <h2 style={{ margin: "5px 0 5px" }}>Secure Chapter Payment</h2>
               <p style={{ color: "#6b665c", margin: 0, lineHeight: 1.55 }}>
-                Chapter: <strong>{member.chapter.name}</strong>. Available methods: <strong>{methodLabel}</strong>. A PSP platform convenience fee is shown separately before final confirmation and is not credited as Chapter dues.
+                Exact member Chapter: <strong>{exactChapterLabel}</strong>. Available methods: <strong>{methodLabel}</strong>. A PSP platform convenience fee is shown separately before final confirmation and is not credited as Chapter dues.
               </p>
-              {paymentUnavailableReason ? <p style={{ margin: "10px 0 0", color: "#684d00", lineHeight: 1.5 }}>{paymentUnavailableReason}</p> : null}
+              {paymentUnavailableReason ? <p role="alert" style={{ margin: "10px 0 0", color: "#684d00", lineHeight: 1.5 }}>{paymentUnavailableReason}</p> : null}
             </div>
             <Link href="/payments/receipts" className="btn" style={{ background: "#fff", border: "1px solid #ddd5c1" }}>My Receipts</Link>
           </div>
@@ -133,6 +131,7 @@ export default async function PaymentsPage() {
 
         <section style={{ marginBottom: 22 }}>
           <h2>Outstanding Dues & Assessments</h2>
+          <p style={{ margin: "-4px 0 12px", color: "#746b5b", fontSize: ".84rem", lineHeight: 1.5 }}>Only ACTIVE assessments posted to your exact member Chapter and ledger account appear here. If an Admin posted to a different Chapter record, it will not be mixed into your ledger.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>
             {assessments.map((assessment) => {
               const amount = outstanding.get(assessment.id) ?? new Prisma.Decimal(0);
@@ -157,7 +156,7 @@ export default async function PaymentsPage() {
               );
             })}
             {assessments.length === 0 ? (
-              <div className="app-panel"><p style={{ margin: 0, color: "#6b665c" }}>No outstanding payable assessment.</p></div>
+              <div className="app-panel"><p style={{ margin: 0, color: "#6b665c" }}>No outstanding payable assessment exists for member <strong>{member.membershipNo}</strong> in <strong>{exactChapterLabel}</strong>.</p></div>
             ) : null}
           </div>
         </section>
