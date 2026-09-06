@@ -1,0 +1,78 @@
+name: PSP PayMongo Activation UX Production Smoke
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: psp-paymongo-activation-ux-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify-paymongo-activation-ux:
+    name: Verify PayMongo activation UX deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROD_URL: https://psp.hoahub.tech
+      EXPECTED_RELEASE: 2026-09-06-r14
+      EXPECTED_FINANCE_VERSION: chapter-draft-ux-v2
+      EXPECTED_ACTIVATION_UX_VERSION: national-admin-v2
+      EXPECTED_CERTIFICATE_HOTFIX_VERSION: chapter-logo-email-invalidation-v1
+
+    steps:
+      - name: Wait for PayMongo activation UX capability
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          deployed=false
+          : > /tmp/psp-health.json
+
+          for attempt in {1..40}; do
+            status="$(curl --silent --show-error --max-time 10 \
+              --output /tmp/psp-health.json \
+              --write-out '%{http_code}' \
+              "$PROD_URL/api/health" || true)"
+            echo "Health attempt $attempt: HTTP ${status:-000}"
+            if [ "$status" = "200" ] \
+              && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
+              && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"paymentActivationUxVersion\":\"$EXPECTED_ACTIVATION_UX_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"certificateHotfixVersion\":\"$EXPECTED_CERTIFICATE_HOTFIX_VERSION\"" /tmp/psp-health.json; then
+              deployed=true
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$deployed" != "true" ]; then
+            echo "Expected PayMongo National Admin activation UX capability did not become visible within the deployment window." >&2
+            cat /tmp/psp-health.json 2>/dev/null || true
+            exit 1
+          fi
+
+          cat /tmp/psp-health.json
+
+      - name: Verify production readiness remains green
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          status="$(curl --silent --show-error --max-time 15 \
+            --output /tmp/psp-readiness.json \
+            --write-out '%{http_code}' \
+            "$PROD_URL/api/health/ready")"
+          cat /tmp/psp-readiness.json
+          test "$status" = "200"
+          grep -q '"status":"ready"' /tmp/psp-readiness.json
+          grep -q '"database":"ok"' /tmp/psp-readiness.json
+          grep -q '"authSchema":"ok"' /tmp/psp-readiness.json
+          grep -q '"customCertificateSchema":"ok"' /tmp/psp-readiness.json
+
+      - name: PayMongo activation UX production summary
+        run: |
+          echo "PayMongo National Admin activation UX is deployed and PSP readiness remains green."
