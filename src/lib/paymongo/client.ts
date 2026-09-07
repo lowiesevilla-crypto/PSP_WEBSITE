@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { assertPayMongoLiveApprovalForSecret } from "@/lib/paymongo/live-approval";
 
-const PAYMONGO_V1_API = "https://api.paymongo.com/v1";
+const PAYMONGO_V1_API = process.env.PAYMONGO_API_BASE_URL?.trim().replace(/\/$/, "") || "https://api.paymongo.com/v1";
 
 export function amountToCentavos(amount: Prisma.Decimal) {
   if (amount.lte(0)) throw new Error("Payment amount must be greater than zero.");
