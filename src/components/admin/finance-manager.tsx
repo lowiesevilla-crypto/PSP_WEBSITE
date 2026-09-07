@@ -7,6 +7,22 @@ interface Option { id: string; name: string }
 interface AssessmentTypeOption { code: string; name: string }
 type BillingScope = "CHAPTER" | "NATIONAL";
 
+const PSP_TIMEZONE_OFFSET = "+08:00";
+
+function phtDateBoundaryIso(value: string, endOfDay = false) {
+  if (!value) return null;
+  const localTime = endOfDay ? "23:59:59.999" : "00:00:00.000";
+  const date = new Date(`${value}T${localTime}${PSP_TIMEZONE_OFFSET}`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function phtDateTimeIso(value: string) {
+  if (!value) return null;
+  const normalized = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? `${value}:00` : value;
+  const date = new Date(`${normalized}${PSP_TIMEZONE_OFFSET}`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option[]; assessmentTypes: AssessmentTypeOption[] }) {
   const router = useRouter();
   const [billingScope, setBillingScope] = useState<BillingScope>("CHAPTER");
@@ -15,102 +31,122 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
   const [assessmentMessage, setAssessmentMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const defaultChapterId = chapters[0]?.id ?? "";
+  // A Chapter-scoped Admin normally has one authorized Chapter, so preselection is safe.
+  // National/multi-Chapter users must deliberately choose the target Chapter.
+  const defaultChapterId = chapters.length === 1 ? chapters[0].id : "";
 
   async function submitDues(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true);
     setDuesMessage(null);
-    const form = new FormData(event.currentTarget);
-    const dueAt = String(form.get("dueAt") || "");
-    const coverageStart = String(form.get("coverageStart") || "");
-    const coverageEnd = String(form.get("coverageEnd") || "");
-    const response = await fetch("/api/admin/finance/assessments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        billingScope,
-        chapterId: billingScope === "CHAPTER" ? String(form.get("chapterId") || "") : null,
-        assessmentTypeCode: billingScope === "NATIONAL" ? "NATIONAL_DUES" : "MONTHLY_DUES",
-        title: String(form.get("title") || ""),
-        description: String(form.get("description") || "") || null,
-        amount: Number(form.get("amount")),
-        coverageStart: coverageStart ? new Date(`${coverageStart}T00:00:00`).toISOString() : null,
-        coverageEnd: coverageEnd ? new Date(`${coverageEnd}T23:59:59`).toISOString() : null,
-        dueAt: dueAt ? new Date(`${dueAt}T23:59:59`).toISOString() : null,
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    setBusy(false);
-    if (response.ok) {
-      const message = billingScope === "NATIONAL"
-        ? `National dues posted to ${payload.chargedMembers ?? 0} active member(s) across ${payload.chaptersCharged ?? 0} Chapter(s).`
-        : `Chapter dues posted to ${payload.chargedMembers ?? 0} active member(s).`;
-      setDuesMessage(message);
-      event.currentTarget.reset();
-      setBillingScope("CHAPTER");
-      router.refresh();
-    } else {
-      setDuesMessage(payload.message ?? "Unable to create dues / bill.");
+
+    try {
+      const dueAt = String(form.get("dueAt") || "");
+      const coverageStart = String(form.get("coverageStart") || "");
+      const coverageEnd = String(form.get("coverageEnd") || "");
+      const response = await fetch("/api/admin/finance/assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billingScope,
+          chapterId: billingScope === "CHAPTER" ? String(form.get("chapterId") || "") : null,
+          assessmentTypeCode: billingScope === "NATIONAL" ? "NATIONAL_DUES" : "MONTHLY_DUES",
+          title: String(form.get("title") || ""),
+          description: String(form.get("description") || "") || null,
+          amount: Number(form.get("amount")),
+          coverageStart: phtDateBoundaryIso(coverageStart),
+          coverageEnd: phtDateBoundaryIso(coverageEnd, true),
+          dueAt: phtDateBoundaryIso(dueAt, true),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const message = billingScope === "NATIONAL"
+          ? `National dues posted to ${payload.chargedMembers ?? 0} active member(s) across ${payload.chaptersCharged ?? 0} Chapter(s).`
+          : `Chapter dues posted to ${payload.chargedMembers ?? 0} active member(s).`;
+        setDuesMessage(message);
+        formElement.reset();
+        setBillingScope("CHAPTER");
+        router.refresh();
+      } else {
+        setDuesMessage(payload.message ?? "Unable to create dues / bill.");
+      }
+    } catch {
+      setDuesMessage("Unable to create dues / bill because the request could not reach the server. Please retry.");
+    } finally {
+      setBusy(false);
     }
   }
 
   async function submitRate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true);
     setRateMessage(null);
-    const form = new FormData(event.currentTarget);
-    const effectiveFrom = String(form.get("effectiveFrom") || "");
-    const response = await fetch("/api/admin/finance/rates", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chapterId: String(form.get("chapterId") || ""),
-        assessmentTypeCode: String(form.get("assessmentTypeCode") || ""),
-        amount: Number(form.get("amount")),
-        effectiveFrom: effectiveFrom ? new Date(effectiveFrom).toISOString() : "",
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    setBusy(false);
-    setRateMessage(response.ok ? "Rate added. Historical rates remain preserved." : payload.message ?? "Unable to save rate.");
-    if (response.ok) router.refresh();
+
+    try {
+      const effectiveFrom = String(form.get("effectiveFrom") || "");
+      const response = await fetch("/api/admin/finance/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chapterId: String(form.get("chapterId") || ""),
+          assessmentTypeCode: String(form.get("assessmentTypeCode") || ""),
+          amount: Number(form.get("amount")),
+          effectiveFrom: phtDateTimeIso(effectiveFrom) ?? "",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      setRateMessage(response.ok ? "Rate added. Historical rates remain preserved." : payload.message ?? "Unable to save rate.");
+      if (response.ok) router.refresh();
+    } catch {
+      setRateMessage("Unable to save rate because the request could not reach the server. Please retry.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submitAssessment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true);
     setAssessmentMessage(null);
-    const form = new FormData(event.currentTarget);
-    const iso = (name: string) => {
-      const value = String(form.get(name) || "");
-      return value ? new Date(value).toISOString() : null;
-    };
-    const amountText = String(form.get("amount") || "").trim();
-    const response = await fetch("/api/admin/finance/assessments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        billingScope: "CHAPTER",
-        chapterId: String(form.get("chapterId") || ""),
-        assessmentTypeCode: String(form.get("assessmentTypeCode") || ""),
-        title: String(form.get("title") || ""),
-        description: String(form.get("description") || "") || null,
-        amount: amountText ? Number(amountText) : undefined,
-        coverageStart: iso("coverageStart"),
-        coverageEnd: iso("coverageEnd"),
-        dueAt: iso("dueAt"),
-      }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    setBusy(false);
-    setAssessmentMessage(response.ok ? `Assessment posted to ${payload.chargedMembers ?? 0} active member(s).` : payload.message ?? "Unable to post assessment.");
-    if (response.ok) {
-      event.currentTarget.reset();
-      router.refresh();
+
+    try {
+      const iso = (name: string) => phtDateTimeIso(String(form.get(name) || ""));
+      const amountText = String(form.get("amount") || "").trim();
+      const response = await fetch("/api/admin/finance/assessments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billingScope: "CHAPTER",
+          chapterId: String(form.get("chapterId") || ""),
+          assessmentTypeCode: String(form.get("assessmentTypeCode") || ""),
+          title: String(form.get("title") || ""),
+          description: String(form.get("description") || "") || null,
+          amount: amountText ? Number(amountText) : undefined,
+          coverageStart: iso("coverageStart"),
+          coverageEnd: iso("coverageEnd"),
+          dueAt: iso("dueAt"),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      setAssessmentMessage(response.ok ? `Assessment posted to ${payload.chargedMembers ?? 0} active member(s).` : payload.message ?? "Unable to post assessment.");
+      if (response.ok) {
+        formElement.reset();
+        router.refresh();
+      }
+    } catch {
+      setAssessmentMessage("Unable to post assessment because the request could not reach the server. Please retry.");
+    } finally {
+      setBusy(false);
     }
   }
 
