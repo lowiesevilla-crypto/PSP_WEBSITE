@@ -1,284 +1,217 @@
 # PSP Payments & PayMongo Platforms Integration
 
+**Current payment release target:** `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`
+
 ## Authoritative Accounting Model
 
 PSP owns the member ledger and payment classification. PayMongo is the payment/settlement gateway, not the accounting system of record.
 
-Canonical online-payment model:
+Canonical linked-account model:
 
 - PSP PayMongo account = parent/platform account;
 - each PSP Chapter = linked child PayMongo `org_*` account;
 - PSP authenticates server-side with the parent secret;
 - child operations use parent authentication plus child `Account-Id`;
-- PSP does not store a Chapter API secret key in linked-account mode;
+- PSP does not store Chapter API secret keys in linked-account mode;
 - Chapter `org_*` Account ID is a non-secret provider identifier and may be stored directly;
-- the real child webhook signing secret is encrypted at rest with the stable server payment-configuration encryption key;
+- the real child webhook signing secret is encrypted at rest;
 - one linked child account may belong to only one PSP Chapter.
+
+## Create Dues / Bill — r15
+
+Finance exposes a dedicated **Create Dues / Bill** workflow. Billing scope is explicit and server-authorized.
+
+### Specific Chapter
+
+- Chapter Admin may create dues only for a Chapter covered by exact `finance.manage` authority.
+- National/System Admin may create Chapter dues only after deliberately selecting the target Chapter.
+- Multi-Chapter/National users are not defaulted to the first Chapter; an explicit Chapter selection is required.
+- Chapter dues use `MONTHLY_DUES` in the dedicated dues workflow.
+- Charges are posted only to active members of the selected Chapter.
+- Foreign-Chapter members must never receive the charge.
+
+### National
+
+- `billingScope=NATIONAL` requires national-scoped `finance.manage`.
+- Chapter-scoped Admin attempts to use National billing return HTTP 403.
+- National billing must use `NATIONAL_DUES` and an explicit amount.
+- National Dues fan out to active Chapters as Chapter-specific assessments and ledger charges while preserving isolation.
+
+### Billing idempotency
+
+Equivalent duplicate billing is checked inside the database transaction, not as a race-prone preflight request.
+
+The posting transaction uses `SERIALIZABLE` isolation. If an equivalent assessment already exists, or a concurrent transaction conflicts with the same billing operation, the later request is rolled back and returns HTTP 409 instead of committing duplicate assessments or member `CHARGE` entries.
+
+### Finance date semantics
+
+Admin civil dates are interpreted as Philippine Standard Time (`Asia/Manila`, UTC+08:00) before UTC persistence. The saved coverage and due dates therefore do not change based on the administrator browser/computer timezone.
+
+### Member Amount to Pay
+
+Authenticated members see the exact outstanding **Amount to Pay** for their assigned Chapter and National dues. Outstanding status is derived from PSP ledger/payment records; the UI must not fabricate or infer paid state from browser redirects.
 
 ## Admin Configuration Layers
 
-The Finance Admin page must visibly distinguish two configuration layers.
+### PSP parent split-payment platform
 
-### 1. PSP parent split-payment platform
+This is National/System infrastructure. Server-only settings are:
 
-This is National/System infrastructure, not a per-Chapter secret form. The UI exposes readiness only and never renders parent secret values.
+- `PAYMONGO_PLATFORM_ACCOUNT_ID`
+- `PAYMONGO_PLATFORM_SECRET_KEY`
+- `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`
+- `PAYMENT_CONFIG_ENCRYPTION_KEY`
+- `PAYMONGO_LIVE_ENABLED`
 
-Server-side secure environment settings:
+Parent secrets and the encryption key are never editable or displayed in a Chapter form.
 
-- `PAYMONGO_PLATFORM_ACCOUNT_ID` — PSP parent PayMongo `org_*` account;
-- `PAYMONGO_PLATFORM_SECRET_KEY` — PSP parent TEST/LIVE secret;
-- `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS` — deliberate PSP split/convenience fee;
-- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable server-only value of at least 32 characters, required before storing real child webhook signing secrets;
-- `PAYMONGO_LIVE_ENABLED=false` until controlled TEST acceptance is completed and National Admin records LIVE approval.
+### Chapter linked-account configuration
 
-The parent secret and encryption key are never editable or displayed in a Chapter form.
+An authorized Chapter/National Admin may save a disabled Chapter Draft containing:
 
-### National Admin credential-encryption setup
+- linked child Account ID (`org_*`);
+- TEST or LIVE mode;
+- accepted methods (`qrph`, `gcash`, `paymaya`).
 
-When `PAYMENT_CONFIG_ENCRYPTION_KEY` is missing, the Finance Admin page must show a dedicated **Credential Encryption Setup** panel for National Admin. The panel must:
+Configuration states remain:
 
-- identify `PAYMENT_CONFIG_ENCRYPTION_KEY` as the blocking server setting;
-- explain that it protects Chapter child-webhook signing secrets;
-- direct the National Admin to the production app's secure environment-variable settings in Hostinger hPanel for `psp.hoahub.tech`;
-- require a stable random value of at least 32 characters;
-- instruct the Admin to save/redeploy or restart the production app, then re-check activation readiness;
-- never provide a browser form that stores or displays the master encryption key.
+1. `NOT_CONFIGURED`
+2. `DRAFT`
+3. `READY`
+4. `ENABLED`
+5. `BLOCKED`
 
-The key must never be pasted into Chapter settings, chat, email, screenshots, source code or GitHub. Existing encrypted webhook secrets depend on the stable key; rotation requires a controlled migration.
+A disabled Draft is saveable before parent/encryption readiness. It must not call PayMongo, create a child webhook, or make the Chapter payable.
 
-### National Admin TEST Acceptance & LIVE Approval
+Activation requires parent platform readiness, deliberate fee configuration, stable credential encryption, matching mode, valid unique linked account, valid methods, child webhook signing readiness, and applicable LIVE controls.
 
-The previous wording "pending test-mode signoff and explicit approval" did not have an actual Admin workflow. PSP now provides the controlled signoff at:
+## National Admin TEST Acceptance & LIVE Approval
+
+PSP provides the audited workflow at:
 
 **Admin → Live Approval**  
 `/admin/finance/live-approval`
 
-Only a **national-scoped** administrator with `finance.manage` may approve or revoke the platform LIVE gate. Chapter-scoped Finance/Admin roles cannot perform this action.
+Only national-scoped `finance.manage` may approve or revoke LIVE processing.
 
-Before National Admin can approve LIVE processing, the UI requires explicit confirmation that the controlled TEST evidence has actually been completed:
+Before approval is truthful, real controlled evidence must exist for:
 
-1. TEST dues payment completed and expected Chapter/platform split amounts verified;
-2. TEST contribution/other payment completed and expected split amounts verified;
-3. TEST child webhook, payment status, PSP receipt and reconciliation verified.
+1. PayMongo TEST DUES payment and observed Chapter/platform split;
+2. PayMongo TEST CONTRIBUTION/OTHER payment and observed split;
+3. real child webhook, payment status, PSP receipt and reconciliation.
 
-The approval is not a mutable boolean row. PSP writes an append-only AuditLog event with the approving user, timestamp, checklist evidence and optional notes. Revocation writes a later append-only revocation event with its reason. The latest approval/revocation event determines the current PSP approval state.
+Approval/revocation is append-only AuditLog evidence. LIVE has dual control:
 
-LIVE has **dual control**:
+- PSP National Admin TEST Acceptance & LIVE Approval; and
+- Hostinger `PAYMONGO_LIVE_ENABLED=true`.
 
-- **PSP governance control** — National Admin TEST Acceptance & LIVE Approval must be recorded in PSP;
-- **infrastructure kill-switch** — `PAYMONGO_LIVE_ENABLED=true` must be configured in the Hostinger production environment.
+Both are required. Neither substitutes for the other.
 
-Both controls are required before LIVE PayMongo provider actions are allowed. The server kill-switch is not editable in the PSP browser and the National Admin approval does not silently change Hostinger environment variables.
+## Provider Endpoint Safety
 
-Required transition to LIVE:
+Production provider calls are pinned to:
 
-1. Complete and retain the controlled TEST evidence.
-2. National Admin opens **Admin → Live Approval**, confirms all TEST acceptance items, and records **Approve LIVE after TEST signoff**.
-3. In Hostinger production Environment Variables, set `PAYMONGO_LIVE_ENABLED=true`.
-4. Save and redeploy/restart `psp.hoahub.tech` so the server loads the new value.
-5. Return to Finance and re-check activation readiness.
-6. Only then may the authorized Admin deliberately select **Enable Online Payment** and submit **Save & Activate Online Payment** for a LIVE Chapter whose other prerequisites are ready.
+`https://api.paymongo.com/v1`
 
-If National approval is revoked, new LIVE provider calls fail closed even if the Hostinger kill-switch remains ON. For emergency infrastructure shutdown, turning the Hostinger kill-switch OFF also blocks LIVE processing independently of PSP approval.
-
-### 2. Chapter linked-account setup
-
-An authorized Chapter/National Admin can select the Chapter and edit while Online Payment is disabled:
-
-- linked child Account ID (`org_*`);
-- draft PayMongo mode (`TEST` or `LIVE`);
-- accepted methods (`qrph`, `gcash`, `paymaya`).
-
-The disabled draft mode remains editable before activation. Activation requires the Chapter mode to match the PSP parent platform mode.
-
-## Chapter Payment Configuration States
-
-Chapter payment setup is intentionally separated from activation.
-
-1. **NOT_CONFIGURED** — no linked child Account ID saved.
-2. **DRAFT** — linked child account, selected mode and methods are saved; Online Payment is disabled; PSP parent platform, encryption readiness, LIVE governance and/or child webhook may still be incomplete.
-3. **READY** — parent platform, convenience fee, credential encryption, mode, linked-account and applicable LIVE controls are valid; the child webhook is created during activation when needed.
-4. **ENABLED** — Online Payment is active for the Chapter in the allowed mode.
-5. **BLOCKED** — saved/enabled configuration fails current validation and must fail closed until remediated.
-
-### Draft-save contract
-
-A Chapter Admin/National Admin with exact finance authority must be able to save a **disabled Draft even while the PSP parent PayMongo platform or `PAYMENT_CONFIG_ENCRYPTION_KEY` is not configured**.
-
-Draft save:
-
-- validates Chapter authority and `org_*` format;
-- persists the linked child Account ID as a non-secret provider identifier;
-- persists selected payment methods and the chosen disabled-draft mode;
-- keeps `isEnabled=false`;
-- does not call PayMongo;
-- does not create a child webhook;
-- stores a non-secret pending-webhook marker only to retain compatibility with the existing non-null production column;
-- never reports that marker as a real webhook signing secret;
-- never makes the Chapter payable.
-
-Existing production records that contain a legacy encrypted `org_*` Account ID remain readable for backward compatibility. A later authorized save normalizes the non-secret identifier without requiring a schema migration.
-
-Runtime member payment configuration rejects staged/pending webhook state.
-
-### Activation contract
-
-Enabling Online Payment requires all of the following before `isEnabled=true` is persisted:
-
-- PSP parent platform secret/account configuration is valid;
-- platform convenience fee is explicitly configured;
-- stable `PAYMENT_CONFIG_ENCRYPTION_KEY` is present before any provider webhook-creation call;
-- Chapter mode matches parent TEST/LIVE mode;
-- linked child `org_*` account is valid and unique to that Chapter;
-- selected method list is valid;
-- real child webhook signing secret exists, creating the child webhook when required;
-- for LIVE, National Admin TEST Acceptance & LIVE Approval is currently approved;
-- for LIVE, the Hostinger `PAYMONGO_LIVE_ENABLED` server kill-switch is ON.
-
-Encryption readiness is checked **before** PSP creates a PayMongo child webhook. A missing encryption key therefore cannot create an orphan provider webhook whose signing secret PSP is unable to persist safely.
-
-Actual outbound LIVE provider operations also enforce the National approval in the PayMongo client before creating a linked Payment Intent, Payment Method, attachment, or child webhook. This prevents a UI/API path from bypassing the governance gate.
-
-The Finance UI activation control remains clickable for visibility even when activation is blocked. Clicking it while blocked must keep `isEnabled=false` and display the exact current blockers. Once the saved draft, parent platform, credential encryption, mode match and applicable LIVE controls are ready, selecting the control prepares activation and the Admin must explicitly submit **Save & Activate Online Payment**.
-
-If activation fails, the previously saved Draft remains disabled. A failed activation must not leave `isEnabled=true`.
+`PAYMONGO_API_BASE_URL` is a CI/testing hook only. It is honored only when `APP_ENV=test` and only for loopback hosts (`localhost`, `127.0.0.1`, `::1`). Production cannot redirect the parent Basic-auth secret or Chapter account identifier to an arbitrary configured origin.
 
 ## Platform Convenience Fee
 
-Approved environment controls:
+Approved controls:
 
-- `PLATFORM_CONVENIENCE_FEE_BPS` — integer basis points;
-- `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS` — optional fixed PHP centavos.
+- `PLATFORM_CONVENIENCE_FEE_BPS`
+- `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`
 
-Either or both may be used. Never invent/silently default a business fee.
+Never invent a fee default.
 
-For every payment:
+Canonical invariant:
 
 `gross total = Chapter amount + platform convenience fee`
 
-Member sees Chapter amount, fee, and gross total before confirmation.
+Definitions:
 
-Historical split evidence snapshots Chapter amount/centavos, platform fee/centavos, gross amount/centavos, method, child account, platform account, Payment Intent, Chapter/member/category/internal reference. Later configuration changes never rewrite historical evidence.
-
-## Supported Categories & Methods
-
-Categories:
-
-- `DUES`
-- `CONTRIBUTION`
-- `OTHER`
-
-Methods:
-
-- QR Ph (`qrph`)
-- GCash (`gcash`)
-- Maya (`paymaya`)
-
-Card payment is intentionally not implemented in the server-created linked-account Payment Method flow because PSP backend must not collect raw sensitive card data. A future card flow requires reviewed client-side PayMongo public-key/tokenization design.
+- **Chapter amount** — member obligation/contribution/other Chapter entitlement; stored in `Payment.amount` and posted to the Chapter/member ledger.
+- **Platform fee** — PSP convenience fee; stored in immutable split metadata and never posted as Chapter income.
+- **Gross total** — amount sent to PayMongo and paid by the member.
 
 ## Required Split-Payment Flow
 
-1. Authenticated active member selects a payable type/amount.
-2. Server derives/validates the member Chapter, assessment/category/amount, and ownership.
-3. Server resolves enabled Chapter linked-account configuration and allowed method.
-4. Server resolves parent platform configuration and fee.
-5. If the platform is LIVE, server verifies current National Admin LIVE approval before provider action; the Hostinger LIVE kill-switch is independently enforced by platform configuration.
-6. Member receives fee preview showing Chapter amount, platform fee, gross total.
-7. Member explicitly confirms.
-8. PSP creates internal `Payment` with `Payment.amount = Chapter amount` only.
-9. PSP creates PayMongo Payment Intent using parent authentication + Chapter child `Account-Id`.
-10. Payment Intent amount is gross total.
-11. Split-payment recipient sends configured PSP platform fee to parent; remainder is transferred/settled to Chapter child.
-12. PSP creates/attaches selected Payment Method.
-13. QR Ph renders provider QR and polls internal PSP status; GCash/Maya follow provider authorization/redirect flow.
-14. Browser redirect/polling is never authoritative for `PAID`.
-15. Child webhook sends payment state.
-16. PSP verifies raw webhook signature before parsing/mutation.
-17. PSP enforces unique event idempotency and same-Chapter Payment Intent matching.
-18. PSP verifies gateway amount against persisted gross total.
-19. On paid: mark Payment PAID, post one Chapter ledger PAYMENT for Chapter amount only, create one receipt, audit split settlement.
-20. On failed: mark failed without Chapter ledger payment/receipt.
-21. Duplicate webhook succeeds idempotently without duplicate posting.
+1. Authenticated active member selects a payable obligation and method.
+2. Server derives member, Chapter, category, assessment/amount and ownership.
+3. Server resolves enabled Chapter linked-account configuration.
+4. Server resolves parent platform and fee configuration.
+5. LIVE provider calls additionally require current National approval and the Hostinger LIVE kill-switch.
+6. Member sees Chapter amount, platform fee and gross total before confirmation.
+7. PSP creates internal `Payment` with `Payment.amount = Chapter amount` only.
+8. PSP creates PayMongo Payment Intent using parent authentication and Chapter child `Account-Id`.
+9. Payment Intent amount is gross.
+10. `split_payment.recipients` contains the PSP parent as the fixed platform-fee recipient.
+11. `split_payment.transfer_to` is the Chapter linked child account.
+12. PSP creates/attaches QR Ph, GCash or Maya Payment Method.
+13. Browser redirect/polling remains UX only.
+14. Child webhook sends provider payment state.
+15. PSP verifies raw signature, event idempotency, same-Chapter Payment Intent and gross amount.
+16. On paid: mark Payment `PAID`, post one Chapter ledger `PAYMENT` for Chapter amount only, create one receipt and audit split settlement.
+17. On failure: do not post Chapter payment/receipt.
+18. Duplicate webhook succeeds idempotently without duplicate financial posting.
 
-## Amount Semantics
+## Receipts and Reporting
 
-- **Chapter amount** — obligation/contribution/other Chapter payment; stored in `Payment.amount`; posted to Chapter ledger.
-- **Platform convenience fee** — PSP platform fee; stored in immutable split metadata; never posted to Chapter ledger.
-- **Total paid** — gross PayMongo amount = Chapter amount + fee.
+Confirmed receipts distinguish:
 
-PayMongo amounts are integer centavos. Negative/invalid fractional amounts are rejected.
-
-## Finance Reporting Rules
-
-- Summary totals must use the complete authorized dataset or authoritative aggregates; never calculate organization totals from a silently capped recent subset.
-- Effective-dated Chapter rates preserve history.
-- Posted assessment amount is historical and is not rewritten by later rate changes.
-- Corrections use adjustments/reversals/refunds.
-- Member balances come from the PSP ledger.
-- National reporting may span authorized Chapters; Chapter Admin remains exact-Chapter scoped.
-- Search/pagination affects register presentation only and must not change aggregate truth.
-
-## Receipts
-
-Every confirmed receipt distinguishes:
-
-- payment type/purpose;
+- purpose/category;
 - member/membership number;
 - Chapter;
 - payment method;
 - Chapter amount;
 - platform convenience fee;
-- total paid;
+- gross total paid;
 - PSP reference;
 - PayMongo reference;
-- confirmation/issue timestamps;
-- official PSP branding.
+- issue/confirmation time.
 
-The receipt must not imply that PSP platform fee is Chapter dues/contribution income.
+Finance summary/report totals use the complete authorized dataset or authoritative aggregates, not silently capped recent records. Search/pagination affects presentation only. Effective-dated rates preserve history; posted assessment amounts are immutable historical facts. Corrections use adjustments/reversals/refunds.
 
-## Webhook / Idempotency
+## Automated r15 Evidence
 
-Canonical child webhook:
+PR #48 adds a required authenticated runtime E2E using seeded Chapter Admin, National/System Admin and Member accounts plus an isolated loopback PayMongo-compatible test double.
 
-`https://psp.hoahub.tech/api/webhooks/paymongo/[CHAPTER_CODE]`
+A passing application candidate proved:
 
-- signing secret is encrypted and never returned to browser;
-- TEST/LIVE signature selection follows Chapter mode;
-- outbound Payment Intent uses stable internal reference/idempotency key;
-- inbound PayMongo event IDs are unique;
-- replay never duplicates Payment, ledger entry, receipt, collection/contribution totals, or platform-fee recognition;
-- multi-record posting uses a database transaction.
+- Chapter Admin creates own-Chapter dues;
+- foreign-Chapter member is not charged;
+- Chapter Admin National escalation returns 403;
+- National Admin creates National Dues across active Chapters;
+- member sees both Chapter and National `Amount to Pay` values;
+- TEST Chapter configuration activates against the isolated provider double;
+- Chapter amount `PHP 100.00` + PSP fee `PHP 5.00` = gross `PHP 105.00`;
+- Payment Intent uses the Chapter linked Account-Id;
+- fixed recipient is the PSP platform account for `PHP 5.00`;
+- `transfer_to` is the Chapter linked account;
+- signed `payment.paid` webhook marks paid;
+- Chapter/member ledger receives `PHP 100.00` only;
+- receipt is generated.
 
-## Server Environment
+The final r15 candidate also adds transactional duplicate-billing protection, PHT date handling, explicit Chapter selection for multi-Chapter users, resilient busy/reset behavior, production-safe provider endpoint pinning, and exact r15 deployment markers.
 
-Required for **activated** linked-account split payment:
+Production capability markers:
 
-- `PAYMONGO_PLATFORM_SECRET_KEY`
-- `PAYMONGO_PLATFORM_ACCOUNT_ID`
-- `PAYMENT_CONFIG_ENCRYPTION_KEY` — stable server-only value, minimum 32 characters, required before activation/webhook-secret persistence but not for a disabled Chapter draft
-- `PLATFORM_CONVENIENCE_FEE_BPS` and/or `PLATFORM_CONVENIENCE_FEE_FIXED_CENTAVOS`
-- `PAYMONGO_LIVE_ENABLED=false` during TEST; set to `true` only after National Admin records controlled TEST Acceptance & LIVE Approval
-- `NEXT_PUBLIC_APP_URL=https://psp.hoahub.tech`
+- `billingDuesVersion=chapter-national-v1`
+- `splitPaymentContractVersion=linked-split-e2e-v1`
 
-Never expose platform secret, child webhook secret, or encryption key in browser/PWA code, manifests, service workers, GitHub, logs, screenshots, URLs, or documentation.
+See `BILLING_DUES_SPLIT_E2E_2026-09-07.md` for deterministic evidence.
 
-## Automated r14 Evidence
+## What Automated Evidence Does Not Prove
 
-PR #34 runtime CI proves without contacting the real PayMongo provider:
+The loopback PayMongo-compatible test double proves PSP application behavior. It does **not** prove real PayMongo TEST settlement, provider delivery or linked-account settlement.
 
-- foreign Chapter payment configuration is rejected;
-- own Chapter disabled Draft saves while parent platform is intentionally unavailable;
-- Draft returns linked Account ID but reports no real webhook secret;
-- Draft state remains `DRAFT` and `isEnabled=false`;
-- attempted activation without parent platform fails with 409;
-- failed activation does not change persisted `isEnabled=false`.
+Still controlled/external:
 
-Later r14 Finance hotfix CI additionally requires:
+- real PayMongo TEST DUES split transaction;
+- real PayMongo TEST CONTRIBUTION/OTHER split transaction;
+- real child webhook/signature/status/receipt reconciliation;
+- National Admin LIVE approval after those real TEST results exist;
+- Hostinger LIVE kill-switch after National approval;
+- controlled first LIVE payment and settlement.
 
-- National Admin credential-encryption setup instructions are visible when the server key is absent;
-- the blocked activation control remains actionable for blocker visibility while still fail-closed;
-- the exact saved Chapter draft is still required before activation;
-- National-only TEST Acceptance & LIVE Approval UI/API exists and is auditable/revocable;
-- every outbound LIVE PayMongo provider action is guarded by the current National approval;
-- the Hostinger `PAYMONGO_LIVE_ENABLED` kill-switch remains a separate required control;
-- the complete high/critical dependency audit and runtime-only audit remain green.
+Do not record TEST Acceptance & LIVE Approval from CI/mock evidence alone.
