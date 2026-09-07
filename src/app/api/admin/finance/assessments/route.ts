@@ -17,6 +17,13 @@ const schema = z.object({
   dueAt: z.string().datetime().optional().nullable(),
 });
 
+class DuplicateAssessmentError extends Error {
+  constructor(readonly chapterNames: string[]) {
+    super(`A matching assessment already exists for ${chapterNames.join(", ")}.`);
+    this.name = "DuplicateAssessmentError";
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const context = await getAuthContext();
@@ -79,26 +86,6 @@ export async function POST(request: Request) {
     }
 
     const targetIds = targetChapters.map((chapter) => chapter.id);
-    const duplicates = await prisma.assessment.findMany({
-      where: {
-        chapterId: { in: targetIds },
-        assessmentTypeId: type.id,
-        title: input.title,
-        coverageStart,
-        coverageEnd,
-        status: { not: "CANCELLED" },
-      },
-      select: { chapter: { select: { name: true } } },
-    });
-    if (duplicates.length > 0) {
-      return NextResponse.json(
-        {
-          message: `A matching assessment already exists for ${duplicates.map((item) => item.chapter.name).join(", ")}.`,
-        },
-        { status: 409 },
-      );
-    }
-
     const explicitAmount = input.amount === undefined
       ? null
       : new Prisma.Decimal(input.amount).toDecimalPlaces(2);
@@ -140,6 +127,24 @@ export async function POST(request: Request) {
     }
 
     const created = await prisma.$transaction(async (tx) => {
+      // This duplicate predicate is deliberately inside a SERIALIZABLE transaction.
+      // Concurrent equivalent billing requests therefore cannot both pass the
+      // predicate and commit duplicate assessments/ledger charges.
+      const duplicates = await tx.assessment.findMany({
+        where: {
+          chapterId: { in: targetIds },
+          assessmentTypeId: type.id,
+          title: input.title,
+          coverageStart,
+          coverageEnd,
+          status: { not: "CANCELLED" },
+        },
+        select: { chapter: { select: { name: true } } },
+      });
+      if (duplicates.length > 0) {
+        throw new DuplicateAssessmentError(duplicates.map((item) => item.chapter.name));
+      }
+
       const results: Array<{ id: string; chapterId: string; chapterName: string; amount: string; chargedMembers: number }> = [];
 
       for (const chapter of targetChapters) {
@@ -206,6 +211,10 @@ export async function POST(request: Request) {
       }
 
       return results;
+    }, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 10_000,
+      timeout: 60_000,
     });
 
     await Promise.allSettled(
@@ -230,6 +239,15 @@ export async function POST(request: Request) {
       { status: 201, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    if (error instanceof DuplicateAssessmentError) {
+      return NextResponse.json({ message: error.message }, { status: 409 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+      return NextResponse.json(
+        { message: "A concurrent matching billing request was detected and this request was rolled back. Refresh Finance before retrying." },
+        { status: 409 },
+      );
+    }
     console.error("Assessment posting error", error);
     return NextResponse.json({ message: error instanceof Error ? error.message : "Unable to post assessment." }, { status: 500 });
   }
