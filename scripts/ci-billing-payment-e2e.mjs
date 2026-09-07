@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 const APP_PORT = 3001;
 const MOCK_PORT = 3999;
 const BASE_URL = `http://127.0.0.1:${APP_PORT}`;
+const CANONICAL_ORIGIN = "https://psp.hoahub.tech";
 const MOCK_URL = `http://127.0.0.1:${MOCK_PORT}/v1`;
 const CHAPTER_ADMIN_EMAIL = "ci-alpha-admin@example.invalid";
 const CHAPTER_ADMIN_PASSWORD = "CI-Chapter-Admin-Password-2026!";
@@ -134,7 +135,7 @@ async function waitForApp() {
 async function login(email, password) {
   const response = await fetch(`${BASE_URL}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: BASE_URL, "Sec-Fetch-Site": "same-origin" },
+    headers: { "Content-Type": "application/json", Origin: CANONICAL_ORIGIN },
     body: JSON.stringify({ email, password }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -149,8 +150,7 @@ async function request(path, cookie, init = {}) {
     ...init,
     headers: {
       Cookie: cookie,
-      Origin: BASE_URL,
-      "Sec-Fetch-Site": "same-origin",
+      Origin: CANONICAL_ORIGIN,
       ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(init.headers ?? {}),
     },
