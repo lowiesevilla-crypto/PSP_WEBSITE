@@ -20,9 +20,11 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-06-r14
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-06-platform-hardening-v1
+      EXPECTED_RELEASE: 2026-09-07-r15
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-07-dues-billing-split-v1
       EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION: chapter-draft-ux-v2
+      EXPECTED_BILLING_DUES_VERSION: chapter-national-v1
+      EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION: linked-split-e2e-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -48,7 +50,9 @@ jobs:
               && grep -q '"service":"psi-sigma-phi-digital-platform"' /tmp/psp-health.json \
               && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
               && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json \
-              && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION\"" /tmp/psp-health.json; then
+              && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"billingDuesVersion\":\"$EXPECTED_BILLING_DUES_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"splitPaymentContractVersion\":\"$EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION\"" /tmp/psp-health.json; then
               deployed=true
               break
             fi
@@ -218,4 +222,4 @@ jobs:
 
       - name: Production smoke summary
         run: |
-          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE generation $EXPECTED_DEPLOYMENT_GENERATION finance-config $EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION"
+          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE generation $EXPECTED_DEPLOYMENT_GENERATION finance-config $EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION billing $EXPECTED_BILLING_DUES_VERSION split $EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION"
