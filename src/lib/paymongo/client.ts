@@ -1,7 +1,23 @@
 import { Prisma } from "@prisma/client";
 import { assertPayMongoLiveApprovalForSecret } from "@/lib/paymongo/live-approval";
 
-const PAYMONGO_V1_API = process.env.PAYMONGO_API_BASE_URL?.trim().replace(/\/$/, "") || "https://api.paymongo.com/v1";
+const PAYMONGO_PRODUCTION_V1_API = "https://api.paymongo.com/v1";
+
+function resolvePayMongoApiBase() {
+  if (process.env.APP_ENV !== "test") return PAYMONGO_PRODUCTION_V1_API;
+
+  const override = process.env.PAYMONGO_API_BASE_URL?.trim().replace(/\/$/, "");
+  if (!override) return PAYMONGO_PRODUCTION_V1_API;
+
+  const url = new URL(override);
+  const allowedLoopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+  if (!allowedLoopbackHosts.has(url.hostname)) {
+    throw new Error("PAYMONGO_API_BASE_URL is allowed only for loopback test doubles when APP_ENV=test.");
+  }
+  return override;
+}
+
+const PAYMONGO_V1_API = resolvePayMongoApiBase();
 
 export function amountToCentavos(amount: Prisma.Decimal) {
   if (amount.lte(0)) throw new Error("Payment amount must be greater than zero.");
