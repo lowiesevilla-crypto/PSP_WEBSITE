@@ -20,7 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-06-r14
+      EXPECTED_RELEASE: 2026-09-07-r15
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-07-dues-billing-split-v1
       EXPECTED_FINANCE_VERSION: chapter-draft-ux-v2
       EXPECTED_ACTIVATION_UX_VERSION: national-admin-v2
       EXPECTED_LIVE_APPROVAL_VERSION: national-signoff-v1
@@ -44,6 +45,7 @@ jobs:
             echo "Health attempt $attempt: HTTP ${status:-000}"
             if [ "$status" = "200" ] \
               && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
+              && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json \
               && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"paymentActivationUxVersion\":\"$EXPECTED_ACTIVATION_UX_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"paymongoLiveApprovalVersion\":\"$EXPECTED_LIVE_APPROVAL_VERSION\"" /tmp/psp-health.json \
@@ -81,4 +83,4 @@ jobs:
 
       - name: PayMongo billing production summary
         run: |
-          echo "PayMongo activation UX, Chapter/National dues billing and split-payment contract are deployed and PSP readiness remains green."
+          echo "PayMongo activation UX, Chapter/National dues billing and split-payment contract are deployed at $EXPECTED_RELEASE / $EXPECTED_DEPLOYMENT_GENERATION and PSP readiness remains green."
