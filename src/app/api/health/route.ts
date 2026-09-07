@@ -17,6 +17,8 @@ export async function GET() {
       paymentActivationUxVersion: "national-admin-v2",
       paymongoLiveApprovalVersion: "national-signoff-v1",
       certificateHotfixVersion: "chapter-logo-email-invalidation-v1",
+      billingDuesVersion: "chapter-national-v1",
+      splitPaymentContractVersion: "linked-split-e2e-v1",
       timestamp: new Date().toISOString(),
     },
     {

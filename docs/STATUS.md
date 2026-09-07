@@ -1,159 +1,143 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-06 PHT  
+**Status timestamp:** 2026-09-07 PHT  
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Release identity:** `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`
+**Current release target:** `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`
 
 > Read with `../AGENTS.md`. Never claim provider-, credential-, device-, inbox-, payment-, backup-, approval-, or production-state behavior without direct evidence.
 
 ## Executive Status
 
-The urgent PayMongo National Admin LIVE-approval product defect is **fixed, merged and production-capability proven**.
+PR #48, **Chapter/National dues billing and split-payment E2E**, is the active urgent release candidate. It corrects the Finance workflow that previously exposed generic assessment controls without a clear operational distinction between Chapter dues and National dues.
 
-Production review had shown the error **"pending test-mode signoff and explicit approval"** even though PSP had no Admin workflow where that signoff could be performed. PR #44 adds the missing audited National Admin workflow while retaining the Hostinger `PAYMONGO_LIVE_ENABLED` variable as an independent infrastructure kill-switch.
+The r15 candidate provides a dedicated **Create Dues / Bill** workflow, exact Chapter authorization, National dues fan-out, member-visible `Amount to Pay`, deterministic split-payment reconciliation, and a required authenticated Admin/Member runtime E2E.
 
-PR #44 exact passing head `858934d4dabdf63afebffdae35e2be3bf6c5d497` merged as `dd62dc9c6cb3cd91255e35fad176719938a4c6cb`. Exact-head PSP CI #651 passed every gate; post-merge PSP CI #652 also passed every gate. Dedicated PayMongo production smoke #2 observed `paymongoLiveApprovalVersion=national-signoff-v1` together with the existing Finance/activation/certificate markers and green readiness.
+The release identity has been advanced from r14 to:
 
-The workflow is intentionally **not automatically approved**. Production readiness currently reports `payMongoLive=disabled`; real TEST evidence, National Admin approval, and the separate Hostinger LIVE kill-switch remain controlled actions.
+- release: `2026-09-07-r15`
+- deployment generation: `2026-09-07-dues-billing-split-v1`
+- billing marker: `billingDuesVersion=chapter-national-v1`
+- split marker: `splitPaymentContractVersion=linked-split-e2e-v1`
 
-## Proven Release Evidence
+Production cannot be called r15-proven until the final exact PR head passes all required gates, merges by exact SHA, post-merge `main` CI passes, and the dedicated production capability smoke observes the r15 identity/markers with readiness green.
 
-- PR #34 exact head `6a4fbe1552fdcd857363b12975f34c25f0c7b954` passed PSP CI #572 and merged.
-- Merge SHA `3701313f371b473df8400ed7404359fb6a5ccf72` passed post-merge PSP CI #573.
-- Production schema/build hotfix PR #37 exact head `c7b2e9f9a22cf36e107d94069f020f17214bf640` passed complete CI and merged.
-- Next.js/security/cache PR #38 exact head `60fd5c7e04bd8ea95c97990586d14f61e3f77f89` passed exact-head CI and merged.
-- PayMongo Chapter Draft UX PR #39 exact head `396e746e99ac765813f531822477659be0c9c26e` passed exact-head CI and merged.
-- Deployment proof PR #40 exact head `870c84264947e05327b09fa41932cd7cb9099037` passed exact-head CI and merged.
-- Production `/api/health` exposed `financePaymentConfigVersion=chapter-draft-ux-v2`, proving the Chapter Draft Finance code live.
-- Certificate PR #42 exact head `94770571b37806c17b9ab343d2df4fe3b5601f26` passed PSP CI #642, merged as `80ab8b501a74b02995c4dd0fc0e71c5bf86fa511`, and post-merge PSP CI #644 passed every gate.
-- Dedicated certificate production smoke passed, proving `certificateHotfixVersion=chapter-logo-email-invalidation-v1` with readiness green.
-- PayMongo National Admin activation UX PR #43 exact head `c1b9a7e7b278ddb00d25c9a0c73713a28b8653c7` passed PSP CI #647, merged as `f3d8de0792d733c71f4b44258a917d999ff1bfd5`, and post-merge PSP CI #648 passed every gate.
-- PayMongo TEST Signoff/LIVE Approval PR #44 exact head `858934d4dabdf63afebffdae35e2be3bf6c5d497` passed PSP CI #651 and merged as `dd62dc9c6cb3cd91255e35fad176719938a4c6cb`.
-- Post-merge PSP CI #652 passed the complete high/critical audit, Prisma/schema, production additive upgrade, lint, typecheck, production build, runtime/security smoke and runtime-only audit.
-- Dedicated PayMongo production smoke #2 observed, on the live site, `financePaymentConfigVersion=chapter-draft-ux-v2`, `paymentActivationUxVersion=national-admin-v2`, `paymongoLiveApprovalVersion=national-signoff-v1`, `certificateHotfixVersion=chapter-logo-email-invalidation-v1`, exact r14 identity and readiness HTTP 200/ready.
+## r15 Billing Contract
 
-## Dependency / Build Security
+### Chapter Admin
 
-The original three high-severity findings were traced to `prisma@6.19.3 -> @prisma/config -> deepmerge-ts < 8.0.0`. The reviewed fix pins `deepmerge-ts` `8.0.1`; `npm audit fix --force` is not used.
+- `finance.manage` is required for the exact target Chapter.
+- Chapter Admin can create Chapter dues only for an authorized Chapter.
+- Chapter Admin cannot escalate to `billingScope=NATIONAL`; server returns HTTP 403.
+- Chapter posting creates ledger `CHARGE` entries only for active members of that Chapter.
+- Foreign-Chapter members are not charged.
 
-Next.js and `eslint-config-next` are on `16.3.3`. Certificate image normalization uses patched `sharp 0.35.4`.
+### National/System Admin
 
-Permanent release gates include complete high/critical dependency audit, runtime-only audit, Prisma validate/generate/schema application, production-only additive schema regression, lint, typecheck, production build, and runtime/security isolation smoke.
+- National dues require national-scoped `finance.manage`.
+- `billingScope=NATIONAL` must use `NATIONAL_DUES` and an explicit amount.
+- National dues fan out into Chapter-specific assessments for active Chapters inside one controlled transaction.
+- National/multi-Chapter users must deliberately select a Chapter for Chapter-scoped dues, rates, and other assessments; the UI does not silently select the first available Chapter.
 
-## Certificate Lifecycle — PRODUCTION CAPABILITY PROVEN
+### Billing Safety
 
-- Certificate PDF uses the issuing Chapter logo; stored JPG/PNG/WEBP logos are normalized before PDF embedding; national seal is fallback only when no usable Chapter logo exists.
-- Successful issuance attempts email to the member's registered account email with Chapter branding, Chairman message/signature, verification link and attached certificate PDF.
-- Email success/failure creates audit evidence and does not roll back a valid certificate when SMTP delivery fails.
-- Chapter Admin/National Admin Delete / Invalidate uses `certificates.manage` Chapter scope.
-- Delete / Invalidate is an audit-preserving soft revocation: `REVOKED`, `revokedAt`, reason, member notification and audit record.
-- QR verification displays `INVALID · REVOKED`; revoked PDF download fails closed with HTTP 410.
+- Equivalent duplicate assessment detection executes inside a `SERIALIZABLE` transaction.
+- A concurrent conflicting billing transaction is rolled back and returns HTTP 409 rather than committing duplicate charges.
+- Finance form busy state clears in `finally` even on network failure.
+- The submitted form element is retained before asynchronous work so success reset/refresh cannot fail after the request commits.
+- Finance civil dates are converted from `Asia/Manila` / UTC+08:00 before UTC persistence, independent of browser timezone.
 
-Production marker: `certificateHotfixVersion=chapter-logo-email-invalidation-v1`.
+### Member Visibility
 
-Actual recipient inbox receipt/rendering remains controlled external acceptance until directly observed.
+The authenticated member payment page displays the exact outstanding **Amount to Pay** for assigned Chapter/National dues and continues to derive payment state from the PSP ledger/payment records.
 
-## PayMongo National Admin Activation UX — PRODUCTION CAPABILITY PROVEN
+## Split-Payment Contract
 
-- Credential Encryption Setup panel identifies missing `PAYMENT_CONFIG_ENCRYPTION_KEY` and directs National Admin to secure Hostinger Environment Variables without exposing the secret in PSP.
-- Stable encryption key requirement is at least 32 characters.
-- Finance provides **Re-check activation readiness**.
-- Enable Online Payment remains clickable for blocker visibility while fail-closed.
-- Exact saved Chapter draft remains required before activation.
-- Activation still requires explicit **Save & Activate Online Payment**.
-- Encryption readiness is checked before child-webhook provider creation.
+Canonical accounting remains:
 
-Production marker: `paymentActivationUxVersion=national-admin-v2`.
+`gross paid = Chapter amount + PSP platform convenience fee`
 
-## PayMongo TEST Acceptance & LIVE Approval — PRODUCTION CAPABILITY PROVEN
+- `Payment.amount` stores Chapter entitlement only.
+- PayMongo Payment Intent amount is gross.
+- fixed split recipient receives configured PSP platform fee.
+- `transfer_to` is the Chapter linked `org_*` account.
+- split metadata snapshots Chapter amount, platform fee, gross, member, Chapter, category and internal reference.
+- signed child webhook is authoritative for `PAID`.
+- paid ledger entry credits Chapter amount only.
+- platform fee is never posted as Chapter dues/contribution income.
+- one receipt is generated per confirmed Payment.
 
-National Administration now has an explicit navigation item and page:
+Production PayMongo calls are pinned to `https://api.paymongo.com/v1`. `PAYMONGO_API_BASE_URL` can override the endpoint only for a loopback provider test double when `APP_ENV=test`; production cannot send platform credentials to an arbitrary configured origin.
 
-**Admin → Live Approval**  
-`/admin/finance/live-approval`
+## Automated Evidence Already Obtained
 
-Only a national-scoped assignment with `finance.manage` may approve or revoke LIVE processing.
+A prior exact application candidate `2b577b58877f0bcbaf72a3d34e52032dd847e506` passed PSP CI #664 / run `34121839949`. Its required authenticated runtime E2E reported:
 
-Before approval is accepted, National Admin must explicitly confirm all three real TEST acceptance items:
+- Chapter Admin billing: PASS
+- National Admin billing: PASS
+- member Amount-to-Pay visibility: PASS
+- Chapter amount: PHP 100.00
+- PSP platform fee: PHP 5.00
+- gross Payment Intent: PHP 105.00
+- `transfer_to`: Chapter linked test account
+- fixed split recipient: PSP platform test account
+- signed `payment.paid` webhook: PASS
+- Chapter ledger payment: PHP 100.00 only
+- receipt creation: PASS
 
-1. TEST dues payment and expected Chapter/platform split amounts verified;
-2. TEST contribution/other payment and expected split amounts verified;
-3. TEST child webhook, payment status, PSP receipt and reconciliation verified.
+A later marker-only exact head also passed PSP CI #665, and the documentation/smoke-bearing head passed PSP CI #667 before review identified additional release-governance, concurrency, form reliability, timezone, explicit-Chapter-selection, provider-endpoint and documentation findings. Those findings are being fixed on newer heads; no earlier green head authorizes merge after the branch moves.
 
-Approval/revocation is append-only AuditLog evidence with actor, timestamp, checklist/notes or revocation reason. The latest event determines the current PSP governance state.
+Detailed deterministic evidence is in `BILLING_DUES_SPLIT_E2E_2026-09-07.md`.
 
-### Dual-control LIVE safety
+## Prior r14 Baseline Retained
 
-LIVE provider actions require both:
+The r15 hotfix builds on the already-delivered r14 baseline:
 
-1. current National Admin TEST Acceptance & LIVE Approval in PSP; and
-2. Hostinger production `PAYMONGO_LIVE_ENABLED=true`.
-
-The PSP approval never changes the Hostinger variable. The Hostinger variable never substitutes for National approval.
-
-Outbound LIVE provider operations centrally enforce the National approval before linked Payment Intent creation, Payment Method creation, Payment Method attachment, or child webhook creation. TEST-mode provider operations are unaffected by this governance gate.
-
-Production marker: `paymongoLiveApprovalVersion=national-signoff-v1`.
+- PayMongo Chapter Draft→Activate and fail-closed readiness;
+- National Admin TEST Acceptance & LIVE Approval workflow with separate Hostinger kill-switch;
+- scoped Admin member editing;
+- Finance complete-history totals and searchable/paginated registers;
+- responsive Admin Table Standard;
+- payment-first Member Dashboard;
+- privacy-safe public Chapter/National feed;
+- custom/bulk certificates with Chapter branding and QR verification;
+- additive production schema/readiness controls;
+- security/origin/isolation/dependency-audit gates.
 
 ## Current Payment Safety State
 
-Production readiness at the dedicated smoke reported:
+The deterministic E2E proves PSP application behavior against a local PayMongo-compatible test double. It **does not** prove real PayMongo TEST settlement or provider delivery.
 
-- database/auth/baseline/custom certificate/public announcement readiness: green;
-- SMTP: configured;
-- PayMongo platform configuration: configured;
-- `payMongoLive`: **disabled**.
+`PAYMONGO_LIVE_ENABLED` must remain false until all real TEST acceptance evidence exists and National Admin records the audited LIVE approval. The Hostinger LIVE variable remains an independent control and must not substitute for PSP approval.
 
-Therefore the software defect is closed, but LIVE payment processing is still correctly blocked until controlled acceptance is completed.
+## Separate General Production Smoke Concern
 
-Do not fabricate the National signoff. CI proves authorization and fail-closed behavior; it does not prove a real PayMongo TEST transaction happened.
+Earlier general production smoke evidence showed a Hostinger homepage CDN/cache problem where `/` could be served as a stale cached object. The r15 general Production Smoke retains the no-store/public-feed assertions; those assertions must not be weakened merely to make a release pass.
 
-Required controlled sequence:
-
-1. If TEST evidence is not already complete, configure/use PayMongo TEST mode and complete DUES plus CONTRIBUTION/OTHER split-payment tests and child webhook/receipt reconciliation.
-2. National Admin opens **Admin → Live Approval** and records approval only after those confirmations are true.
-3. After approval, set Hostinger production `PAYMONGO_LIVE_ENABLED=true`.
-4. Save and redeploy/restart production so the runtime loads the setting.
-5. Return to Finance and re-check readiness.
-6. Deliberately activate the Chapter with **Save & Activate Online Payment** only when all blockers are clear.
-7. Perform a controlled first LIVE payment and settlement acceptance.
-
-## Separate General Production Smoke Blocker — Hostinger Homepage CDN
-
-The urgent PayMongo production smoke is green. The general Production Smoke #34 remains red for a separate public-homepage hosting/cache issue.
-
-Exact failure evidence from the final deployment:
-
-- exact r14 release check passed;
-- datastore/auth readiness passed;
-- normal `/` returned HTTP 200 but Hostinger/Next served an old cached object;
-- `x-nextjs-cache: HIT`;
-- `x-nextjs-prerender: 1`;
-- `cache-control: s-maxage=31536000`;
-- `x-hcdn-cache-status: HIT`;
-- cached object age was approximately 205,000 seconds;
-- smoke failed `public-home-no-store-cache-control` before later public/PWA checks.
-
-The available Hostinger connector cannot purge CDN/cache or edit production environment variables. This hosting-side cache must be purged/corrected in hPanel and the unchanged general Production Smoke rerun. Do not weaken the no-store/public-feed assertion.
+The dedicated PayMongo/billing capability smoke is separate and requires exact r15 health identity, the Chapter/National billing marker, the split-payment marker, existing Finance/activation/LIVE-approval/certificate markers and readiness HTTP 200/ready.
 
 ## Controlled / External Pending
 
-- real PayMongo TEST DUES split-payment evidence if not already completed;
-- real PayMongo TEST CONTRIBUTION/OTHER split-payment evidence if not already completed;
-- real child webhook/signature, payment-status and receipt/reconciliation evidence;
-- National Admin TEST Acceptance & LIVE Approval after evidence exists;
-- Hostinger `PAYMONGO_LIVE_ENABLED=true` after National approval, followed by redeploy;
-- controlled first LIVE payment and split-settlement acceptance;
-- Hostinger public-homepage CDN/cache purge and full general Production Smoke closure;
-- actual recipient certificate-email receipt/rendering in a real inbox;
+- final PR #48 exact-head CI after all review fixes;
+- exact-head merge of PR #48;
+- post-merge `main` CI;
+- exact r15 billing capability production smoke;
+- general Production Smoke closure, including Hostinger homepage cache behavior;
+- real PayMongo TEST DUES split-payment transaction and observed settlement;
+- real PayMongo TEST CONTRIBUTION/OTHER split-payment transaction and observed settlement;
+- real child webhook delivery/signature/payment-status/receipt reconciliation;
+- audited National Admin TEST Acceptance & LIVE Approval only after real TEST evidence;
+- Hostinger `PAYMONGO_LIVE_ENABLED=true` only after National approval and controlled redeploy;
+- controlled first LIVE payment and settlement acceptance;
+- actual recipient certificate-email receipt/rendering;
 - physical Android/iOS installed-PWA acceptance;
 - real passkey-device acceptance;
 - second-device Digital ID / Certificate QR acceptance where required;
 - database backup/restore drill.
 
 Payment architecture: `PAYMENTS.md`  
+Billing E2E evidence: `BILLING_DUES_SPLIT_E2E_2026-09-07.md`  
+Detailed hardening tracker: `PSP_PLATFORM_HARDENING_2026-09-06.md`  
 Deployment runbook: `DEPLOYMENT.md`  
-Detailed tracker: `PSP_PLATFORM_HARDENING_2026-09-06.md`  
 UI/UX: `UI_UX.md`

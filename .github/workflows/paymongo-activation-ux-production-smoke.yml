@@ -15,19 +15,22 @@ concurrency:
 
 jobs:
   verify-paymongo-activation-ux:
-    name: Verify PayMongo activation UX deployment
+    name: Verify PayMongo activation and billing deployment
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-06-r14
+      EXPECTED_RELEASE: 2026-09-07-r15
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-07-dues-billing-split-v1
       EXPECTED_FINANCE_VERSION: chapter-draft-ux-v2
       EXPECTED_ACTIVATION_UX_VERSION: national-admin-v2
       EXPECTED_LIVE_APPROVAL_VERSION: national-signoff-v1
       EXPECTED_CERTIFICATE_HOTFIX_VERSION: chapter-logo-email-invalidation-v1
+      EXPECTED_BILLING_DUES_VERSION: chapter-national-v1
+      EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION: linked-split-e2e-v1
 
     steps:
-      - name: Wait for PayMongo activation UX capability
+      - name: Wait for PayMongo activation and billing capability
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -42,10 +45,13 @@ jobs:
             echo "Health attempt $attempt: HTTP ${status:-000}"
             if [ "$status" = "200" ] \
               && grep -q "\"release\":\"$EXPECTED_RELEASE\"" /tmp/psp-health.json \
+              && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json \
               && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"paymentActivationUxVersion\":\"$EXPECTED_ACTIVATION_UX_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"paymongoLiveApprovalVersion\":\"$EXPECTED_LIVE_APPROVAL_VERSION\"" /tmp/psp-health.json \
-              && grep -q "\"certificateHotfixVersion\":\"$EXPECTED_CERTIFICATE_HOTFIX_VERSION\"" /tmp/psp-health.json; then
+              && grep -q "\"certificateHotfixVersion\":\"$EXPECTED_CERTIFICATE_HOTFIX_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"billingDuesVersion\":\"$EXPECTED_BILLING_DUES_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"splitPaymentContractVersion\":\"$EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION\"" /tmp/psp-health.json; then
               deployed=true
               break
             fi
@@ -53,7 +59,7 @@ jobs:
           done
 
           if [ "$deployed" != "true" ]; then
-            echo "Expected PayMongo National Admin activation/LIVE approval capability did not become visible within the deployment window." >&2
+            echo "Expected PayMongo activation, Chapter/National dues billing and split-payment capability did not become visible within the deployment window." >&2
             cat /tmp/psp-health.json 2>/dev/null || true
             exit 1
           fi
@@ -75,6 +81,6 @@ jobs:
           grep -q '"authSchema":"ok"' /tmp/psp-readiness.json
           grep -q '"customCertificateSchema":"ok"' /tmp/psp-readiness.json
 
-      - name: PayMongo activation UX production summary
+      - name: PayMongo billing production summary
         run: |
-          echo "PayMongo National Admin activation UX and LIVE approval workflow are deployed and PSP readiness remains green."
+          echo "PayMongo activation UX, Chapter/National dues billing and split-payment contract are deployed at $EXPECTED_RELEASE / $EXPECTED_DEPLOYMENT_GENERATION and PSP readiness remains green."

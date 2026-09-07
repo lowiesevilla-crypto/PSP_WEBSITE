@@ -143,9 +143,10 @@ export default async function PaymentsPage() {
                     <small style={{ color: "#806500", fontWeight: 900 }}>{category} · {assessment.assessmentType.name}</small>
                     <h3 style={{ margin: "5px 0 0" }}>{assessment.title}</h3>
                   </div>
-                  <div>
-                    <small style={{ color: "#746b5b" }}>Chapter amount due</small>
+                  <div data-member-amount-to-pay={amount.toFixed(2)}>
+                    <small style={{ color: "#746b5b", fontWeight: 800 }}>Amount to Pay</small>
                     <strong style={{ display: "block", fontSize: "1.55rem" }}>{php(amount)}</strong>
+                    <small style={{ color: "#746b5b" }}>This is the Chapter/National dues amount before the separately disclosed PSP convenience fee.</small>
                   </div>
                   {assessment.dueAt ? (
                     <small style={{ color: "#6b665c" }}>

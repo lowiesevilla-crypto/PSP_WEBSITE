@@ -1,7 +1,23 @@
 import { Prisma } from "@prisma/client";
 import { assertPayMongoLiveApprovalForSecret } from "@/lib/paymongo/live-approval";
 
-const PAYMONGO_V1_API = "https://api.paymongo.com/v1";
+const PAYMONGO_PRODUCTION_V1_API = "https://api.paymongo.com/v1";
+
+function resolvePayMongoApiBase() {
+  if (process.env.APP_ENV !== "test") return PAYMONGO_PRODUCTION_V1_API;
+
+  const override = process.env.PAYMONGO_API_BASE_URL?.trim().replace(/\/$/, "");
+  if (!override) return PAYMONGO_PRODUCTION_V1_API;
+
+  const url = new URL(override);
+  const allowedLoopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+  if (!allowedLoopbackHosts.has(url.hostname)) {
+    throw new Error("PAYMONGO_API_BASE_URL is allowed only for loopback test doubles when APP_ENV=test.");
+  }
+  return override;
+}
+
+const PAYMONGO_V1_API = resolvePayMongoApiBase();
 
 export function amountToCentavos(amount: Prisma.Decimal) {
   if (amount.lte(0)) throw new Error("Payment amount must be greater than zero.");
@@ -40,8 +56,7 @@ async function assertProviderActionAllowed(secretKey: string) {
 
 export type LinkedPaymentMethod = "qrph" | "gcash" | "paymaya";
 
-export async function createLinkedSplitPaymentIntent(input: {
-  secretKey: string;
+type SplitPaymentIntentBodyInput = {
   childAccountId: string;
   platformAccountId: string;
   baseCentavos: number;
@@ -53,41 +68,56 @@ export async function createLinkedSplitPaymentIntent(input: {
   chapterId: string;
   paymentCategory: "DUES" | "CONTRIBUTION" | "OTHER";
   paymentMethod: LinkedPaymentMethod;
+};
+
+export function buildLinkedSplitPaymentIntentBody(input: SplitPaymentIntentBodyInput) {
+  if (input.grossCentavos !== input.baseCentavos + input.platformFeeCentavos) {
+    throw new Error("PayMongo split invariant failed: gross must equal Chapter amount plus platform fee.");
+  }
+  if (input.platformFeeCentavos < 0 || input.baseCentavos <= 0) {
+    throw new Error("PayMongo split amounts are invalid.");
+  }
+
+  return {
+    data: {
+      attributes: {
+        amount: input.grossCentavos,
+        currency: "PHP",
+        capture_type: "automatic",
+        payment_method_allowed: [input.paymentMethod],
+        split_payment: {
+          recipients: [
+            {
+              merchant_id: input.platformAccountId,
+              split_type: "fixed",
+              value: input.platformFeeCentavos,
+            },
+          ],
+          transfer_to: input.childAccountId,
+        },
+        description: input.description.slice(0, 255),
+        metadata: {
+          internal_reference: input.referenceNumber,
+          member_id: input.memberId,
+          chapter_id: input.chapterId,
+          payment_category: input.paymentCategory,
+          chapter_amount_centavos: String(input.baseCentavos),
+          platform_fee_centavos: String(input.platformFeeCentavos),
+        },
+      },
+    },
+  };
+}
+
+export async function createLinkedSplitPaymentIntent(input: SplitPaymentIntentBodyInput & {
+  secretKey: string;
   idempotencyKey: string;
 }) {
   await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/payment_intents`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId, input.idempotencyKey),
-    body: JSON.stringify({
-      data: {
-        attributes: {
-          amount: input.grossCentavos,
-          currency: "PHP",
-          capture_type: "automatic",
-          payment_method_allowed: [input.paymentMethod],
-          split_payment: {
-            recipients: [
-              {
-                merchant_id: input.platformAccountId,
-                split_type: "fixed",
-                value: input.platformFeeCentavos,
-              },
-            ],
-            transfer_to: input.childAccountId,
-          },
-          description: input.description.slice(0, 255),
-          metadata: {
-            internal_reference: input.referenceNumber,
-            member_id: input.memberId,
-            chapter_id: input.chapterId,
-            payment_category: input.paymentCategory,
-            chapter_amount_centavos: String(input.baseCentavos),
-            platform_fee_centavos: String(input.platformFeeCentavos),
-          },
-        },
-      },
-    }),
+    body: JSON.stringify(buildLinkedSplitPaymentIntentBody(input)),
     cache: "no-store",
   });
 

@@ -7,6 +7,7 @@ on:
       - "feature/**"
       - "feat/**"
       - "fix/**"
+      - "hotfix/**"
       - "chore/**"
       - "docs/**"
   pull_request:
@@ -146,8 +147,10 @@ jobs:
 
           HEALTH="$(curl --fail --silent http://127.0.0.1:3000/api/health)"
           echo "$HEALTH"
-          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-06-r14"'
-          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-06-platform-hardening-v1"'
+          printf '%s' "$HEALTH" | grep -q '"release":"2026-09-07-r15"'
+          printf '%s' "$HEALTH" | grep -q '"deploymentGeneration":"2026-09-07-dues-billing-split-v1"'
+          printf '%s' "$HEALTH" | grep -q '"billingDuesVersion":"chapter-national-v1"'
+          printf '%s' "$HEALTH" | grep -q '"splitPaymentContractVersion":"linked-split-e2e-v1"'
 
           READINESS="$(curl --fail --silent http://127.0.0.1:3000/api/health/ready)"
           echo "$READINESS"
@@ -174,12 +177,12 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/privacy > /dev/null
           curl --fail --silent http://127.0.0.1:3000/register > /tmp/psp-register.html
           grep -q 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html
-          INSTALL_URL='http://127.0.0.1:3000/install?release=2026-09-06-platform-hardening-v1'
+          INSTALL_URL='http://127.0.0.1:3000/install?release=2026-09-07-dues-billing-split-v1'
           curl --fail --silent "$INSTALL_URL" > /tmp/psp-install.html
           grep -q 'Install PSP App' /tmp/psp-install.html
           grep -q 'One PSP app' /tmp/psp-install.html
           grep -q 'data-pwa-install-version="simple-cross-platform-pwa-v1"' /tmp/psp-install.html
-          grep -q 'data-pwa-install-release="2026-09-06-platform-hardening-v1"' /tmp/psp-install.html
+          grep -q 'data-pwa-install-release="2026-09-07-dues-billing-split-v1"' /tmp/psp-install.html
           curl --fail --silent --head "$INSTALL_URL" > /tmp/psp-install.headers
           grep -Eqi '^cache-control:.*(no-store|no-cache)' /tmp/psp-install.headers
           curl --fail --silent --location http://127.0.0.1:3000/api/public/chapters/ci-missing-chapter/logo > /tmp/psp-brand-logo
@@ -234,6 +237,8 @@ jobs:
           echo "Invalid webhook status: $INVALID_WEBHOOK_STATUS"
           test "$INVALID_WEBHOOK_STATUS" = "401"
 
+          node scripts/ci-billing-payment-e2e.mjs
+          node scripts/ci-billing-concurrency.mjs
           node scripts/ci-isolation-test.mjs
 
       - name: Remove development-only packages

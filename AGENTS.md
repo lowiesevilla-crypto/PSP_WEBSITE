@@ -20,7 +20,8 @@
 - Liveness: `/api/health`.
 - Readiness: `/api/health/ready`.
 - Every production-significant release uses a new exact release/deployment-generation marker.
-- Current hardening target: `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`.
+- Current hardening target: `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`.
+- r15 capability markers: `billingDuesVersion=chapter-national-v1` and `splitPaymentContractVersion=linked-split-e2e-v1`.
 
 ## 3. Roles, Authorization & Chapter Isolation
 
@@ -165,6 +166,13 @@ Supported categories: `DUES`, `CONTRIBUTION`, `OTHER`.
 - Platform convenience fee is never credited to Chapter dues/contribution/ledger/collection totals.
 - Member archival never rewrites posted financial history.
 - Summary/report totals must not be silently calculated from a capped recent subset.
+- Chapter billing requires exact `finance.manage` authority for the selected Chapter.
+- National dues require national-scoped `finance.manage`; Chapter Admin attempts to use National billing fail closed.
+- National dues fan out to active Chapters while preserving Chapter-specific assessments and member ledger entries.
+- National/multi-Chapter administrators must explicitly select a Chapter for Chapter-scoped rates/assessments; the UI must not silently choose the first Chapter.
+- Billing duplicate detection must be enforced inside an atomic database transaction so overlapping equivalent requests cannot create duplicate charges.
+- PSP finance civil dates are interpreted in `Asia/Manila` (UTC+08:00) before UTC persistence, independent of the administrator browser timezone.
+- Member payment UI shows the exact outstanding `Amount to Pay` for assigned Chapter/National dues.
 
 ## 13. PayMongo Platforms / Linked Accounts — Canonical Model
 
@@ -175,8 +183,10 @@ New member online payments use **PayMongo Platforms / Linked Accounts**, not ind
 - Parent secret is server-only.
 - Child operations use parent authentication + PayMongo `Account-Id`.
 - PSP does not store Chapter PayMongo API secret keys in linked-account mode.
-- Child Account ID and real child webhook signing secret are encrypted at rest.
+- Chapter `org_*` Account ID is a non-secret provider identifier and may be stored directly.
+- Real child webhook signing secret is encrypted at rest.
 - One linked child account may belong to only one PSP Chapter.
+- Production provider calls are pinned to `https://api.paymongo.com/v1`; `PAYMONGO_API_BASE_URL` overrides are accepted only for loopback test doubles when `APP_ENV=test`.
 
 ### Chapter configuration states
 
@@ -207,7 +217,7 @@ Do not invent a fee default. Definitions:
 
 Payment Intent gross amount is total paid. Split settlement sends configured platform fee to PSP parent and remainder to Chapter child. Current methods: QR Ph, GCash, Maya. Browser return/polling is UX only; signed child webhook is authoritative. Paid ledger entry posts Chapter amount only; receipt shows Chapter amount, platform fee, gross total.
 
-`PAYMONGO_LIVE_ENABLED=false` remains mandatory until controlled TEST split-payment acceptance passes and explicit product-owner live approval is recorded.
+`PAYMONGO_LIVE_ENABLED=false` remains mandatory until real controlled PayMongo TEST split-payment acceptance passes and the audited National Admin TEST Acceptance & LIVE Approval is recorded. The Hostinger LIVE flag and PSP National approval are separate required controls.
 
 See `docs/PAYMENTS.md`.
 
@@ -280,32 +290,39 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - Missing/malformed/stale/timed-out dependency audit evidence is not a clean audit.
 - Email/payment/passkey/device/QR/backup/authenticated production state-changing gates require real evidence; source/public smoke alone cannot close them.
 
-## 18. Current Delivery Baseline — r14 Hardening Program
+## 18. Current Delivery Baseline — r15 Dues Billing & Split-Payment Hotfix
 
-Active release program: PR #34, branch `feat/psp-platform-hardening-2026-09-06`, target `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`.
+Active release program: PR #48, branch `hotfix/dues-billing-split-e2e-2026-09-07`, target `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`.
 
-Implemented release scope includes:
+r15 adds to the prior r14 hardening baseline:
 
-- PayMongo Chapter Draft→Activate workflow and runtime fail-closed behavior;
-- scoped Admin member editing;
-- Finance complete-history summary correction and searchable/paginated registers;
-- responsive searchable/paginated administration Table Standard;
-- payment-first Member Dashboard;
-- privacy-safe public Chapter/National announcements/events aggregation;
-- custom/bulk certificates with actual-type PDF/QR verification;
-- additive production schema/readiness hardening;
-- stronger CI runtime isolation and privacy contracts;
-- explicit r14 release identity.
+- dedicated **Create Dues / Bill** Admin workflow;
+- explicit `CHAPTER` vs `NATIONAL` billing scope;
+- Chapter Admin exact-scope billing and National escalation denial;
+- National Admin National Dues fan-out across active Chapters;
+- member-visible exact `Amount to Pay`;
+- transactionally protected duplicate-billing prevention;
+- Asia/Manila civil-date handling independent of browser timezone;
+- deliberate Chapter selection for multi-Chapter/National administrators;
+- PayMongo test endpoint override restricted to isolated loopback TEST use;
+- deterministic authenticated Chapter Admin + National Admin + Member billing/split-payment E2E;
+- exact split contract: Chapter amount + PSP fee = gross, `transfer_to` Chapter linked account, fixed PSP fee recipient, Chapter ledger credits Chapter amount only;
+- exact r15 production capability markers and smoke assertions.
 
-Code-candidate automated evidence is recorded in `docs/STATUS.md` and `docs/PSP_PLATFORM_HARDENING_2026-09-06.md`. Do not call r14 production-proven until exact merge, post-merge CI, and exact r14 Production Smoke are successful.
+Prior r14 scope remains part of the current product baseline: PayMongo Chapter Draft→Activate, scoped Admin member editing, complete-history Finance summaries/registers, responsive Admin Table Standard, payment-first Member Dashboard, privacy-safe public content, custom/bulk certificates, additive schema/readiness hardening and CI isolation/security gates.
+
+Automated evidence is recorded in `docs/STATUS.md`, `docs/PAYMENTS.md`, `docs/BILLING_DUES_SPLIT_E2E_2026-09-07.md`, and `docs/PSP_PLATFORM_HARDENING_2026-09-06.md`. Do not call r15 production-proven until exact merge, post-merge CI, and exact r15 billing capability production smoke are successful.
 
 ## 19. Open External / Controlled Acceptance
 
-Even after automated r14 release closure, these remain external until real evidence exists:
+Even after automated r15 release closure, these remain external until real evidence exists:
 
-- PayMongo Platforms/Linked Accounts TEST DUES/CONTRIBUTION/OTHER split-payment E2E;
+- real PayMongo Platforms/Linked Accounts TEST DUES split-payment transaction and observed settlement;
+- real PayMongo TEST CONTRIBUTION/OTHER split-payment transaction and observed settlement;
 - real child webhook delivery/signature and settlement observation;
-- controlled LIVE payment only after TEST signoff + explicit owner approval;
+- audited National Admin TEST Acceptance & LIVE Approval only after the real TEST evidence exists;
+- Hostinger `PAYMONGO_LIVE_ENABLED=true` only after National approval and controlled redeploy;
+- controlled first LIVE payment only after TEST signoff and LIVE controls;
 - real production admin/member credential workflows where state-changing evidence is required;
 - actual recipient email receipt/rendering;
 - physical Android PWA installation;
