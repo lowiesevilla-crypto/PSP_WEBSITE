@@ -238,6 +238,7 @@ jobs:
           test "$INVALID_WEBHOOK_STATUS" = "401"
 
           node scripts/ci-billing-payment-e2e.mjs
+          node scripts/ci-billing-concurrency.mjs
           node scripts/ci-isolation-test.mjs
 
       - name: Remove development-only packages
