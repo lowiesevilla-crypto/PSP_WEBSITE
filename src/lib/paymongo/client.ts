@@ -40,8 +40,7 @@ async function assertProviderActionAllowed(secretKey: string) {
 
 export type LinkedPaymentMethod = "qrph" | "gcash" | "paymaya";
 
-export async function createLinkedSplitPaymentIntent(input: {
-  secretKey: string;
+type SplitPaymentIntentBodyInput = {
   childAccountId: string;
   platformAccountId: string;
   baseCentavos: number;
@@ -53,41 +52,56 @@ export async function createLinkedSplitPaymentIntent(input: {
   chapterId: string;
   paymentCategory: "DUES" | "CONTRIBUTION" | "OTHER";
   paymentMethod: LinkedPaymentMethod;
+};
+
+export function buildLinkedSplitPaymentIntentBody(input: SplitPaymentIntentBodyInput) {
+  if (input.grossCentavos !== input.baseCentavos + input.platformFeeCentavos) {
+    throw new Error("PayMongo split invariant failed: gross must equal Chapter amount plus platform fee.");
+  }
+  if (input.platformFeeCentavos < 0 || input.baseCentavos <= 0) {
+    throw new Error("PayMongo split amounts are invalid.");
+  }
+
+  return {
+    data: {
+      attributes: {
+        amount: input.grossCentavos,
+        currency: "PHP",
+        capture_type: "automatic",
+        payment_method_allowed: [input.paymentMethod],
+        split_payment: {
+          recipients: [
+            {
+              merchant_id: input.platformAccountId,
+              split_type: "fixed",
+              value: input.platformFeeCentavos,
+            },
+          ],
+          transfer_to: input.childAccountId,
+        },
+        description: input.description.slice(0, 255),
+        metadata: {
+          internal_reference: input.referenceNumber,
+          member_id: input.memberId,
+          chapter_id: input.chapterId,
+          payment_category: input.paymentCategory,
+          chapter_amount_centavos: String(input.baseCentavos),
+          platform_fee_centavos: String(input.platformFeeCentavos),
+        },
+      },
+    },
+  };
+}
+
+export async function createLinkedSplitPaymentIntent(input: SplitPaymentIntentBodyInput & {
+  secretKey: string;
   idempotencyKey: string;
 }) {
   await assertProviderActionAllowed(input.secretKey);
   const response = await fetch(`${PAYMONGO_V1_API}/payment_intents`, {
     method: "POST",
     headers: authHeaders(input.secretKey, input.childAccountId, input.idempotencyKey),
-    body: JSON.stringify({
-      data: {
-        attributes: {
-          amount: input.grossCentavos,
-          currency: "PHP",
-          capture_type: "automatic",
-          payment_method_allowed: [input.paymentMethod],
-          split_payment: {
-            recipients: [
-              {
-                merchant_id: input.platformAccountId,
-                split_type: "fixed",
-                value: input.platformFeeCentavos,
-              },
-            ],
-            transfer_to: input.childAccountId,
-          },
-          description: input.description.slice(0, 255),
-          metadata: {
-            internal_reference: input.referenceNumber,
-            member_id: input.memberId,
-            chapter_id: input.chapterId,
-            payment_category: input.paymentCategory,
-            chapter_amount_centavos: String(input.baseCentavos),
-            platform_fee_centavos: String(input.platformFeeCentavos),
-          },
-        },
-      },
-    }),
+    body: JSON.stringify(buildLinkedSplitPaymentIntentBody(input)),
     cache: "no-store",
   });
 
