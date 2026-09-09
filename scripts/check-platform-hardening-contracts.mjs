@@ -33,6 +33,14 @@ const [
   paymongoClient,
   platformConfig,
   adminLayout,
+  memberPaymentsPage,
+  splitPaymentAction,
+  payButton,
+  otherPaymentForm,
+  financeManager,
+  assessmentRoute,
+  eventManager,
+  healthRoute,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -58,6 +66,14 @@ const [
   source("src/lib/paymongo/client.ts"),
   source("src/lib/paymongo/platform-config.ts"),
   source("src/app/admin/layout.tsx"),
+  source("src/app/payments/page.tsx"),
+  source("src/components/payments/split-payment-action.tsx"),
+  source("src/components/payments/pay-button.tsx"),
+  source("src/components/payments/other-payment-form.tsx"),
+  source("src/components/admin/finance-manager.tsx"),
+  source("src/app/api/admin/finance/assessments/route.ts"),
+  source("src/components/admin/event-manager.tsx"),
+  source("src/app/api/health/route.ts"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -101,11 +117,24 @@ assert(platformConfig.includes('/admin/finance/live-approval') && platformConfig
 assert(paymongoClient.includes("assertPayMongoLiveApprovalForSecret"), "PayMongo provider client must enforce audited LIVE approval.");
 const providerGuardCount = (paymongoClient.match(/await assertProviderActionAllowed\(input\.secretKey\);/g) ?? []).length;
 assert(providerGuardCount >= 4, "Every outbound linked PayMongo provider action must enforce the LIVE approval gate.");
+assert(memberPaymentsPage.includes('by: ["category"]') && memberPaymentsPage.includes('_sum: { amount: true }'), "Member payment totals must use complete-history aggregates rather than the capped recent-payment list.");
+assert(memberPaymentsPage.includes("availableMethods={paymentRuntime.methods}"), "Member payment actions must receive the exact Chapter-enabled payment methods.");
+assert(splitPaymentAction.includes("availableMethods.map"), "Payment UI must render only Chapter-enabled payment methods.");
+assert(!splitPaymentAction.includes('(["qrph", "gcash", "paymaya"] as PaymentMethod[]).map'), "Payment UI must not hard-code unavailable methods.");
+assert(payButton.includes("availableMethods={availableMethods}") && otherPaymentForm.includes("availableMethods={availableMethods}"), "Every dues, contribution and other payment action must enforce the Chapter-enabled methods in the UI.");
+assert(assessmentRoute.includes('"SELECTED_CHAPTERS"') && assessmentRoute.includes('"MEMBERS"'), "Admin payment assignment must support selected Chapters and selected members.");
+assert(assessmentRoute.includes("memberIds") && assessmentRoute.includes("chapterIds"), "Admin payment assignment API must accept explicit member and Chapter targets.");
+assert(financeManager.includes('value="SELECTED_CHAPTERS"') && financeManager.includes('value="MEMBERS"'), "Finance Admin UI must expose selected Chapter and selected member payment assignment.");
+assert(financeManager.includes('name="memberIds"') && financeManager.includes('name="chapterIds"'), "Finance Admin UI must submit explicit selected member and Chapter payment targets.");
+assert(healthRoute.includes('paymentAssignmentVersion: "chapter-selected-member-v1"'), "Health marker for selected payment assignment is missing.");
 
-assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v1"'), "Public global Chapter feed marker is missing.");
+assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
 assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
+assert(publicPage.includes("Public announcement feed unavailable") && publicPage.includes("Public event feed unavailable"), "Public homepage announcements and events must fail independently instead of crashing the whole feed.");
+assert(eventManager.includes("public PSP website"), "Event Admin UI must clearly explain that published events appear on the public PSP website.");
+assert(healthRoute.includes('publicFeedVersion: "global-chapter-feed-v2"'), "Health marker for public feed hardening is missing.");
 assert(announcementRoute.includes("isPublic: z.boolean().optional().default(false)"), "Announcement API does not default public visibility to false.");
 assert(announcementRoute.includes("isPublic: input.isPublic"), "Announcement API does not persist explicit public visibility.");
 assert(announcementManager.includes('name="isPublic"'), "Announcement Admin UI lacks explicit public publication control.");
