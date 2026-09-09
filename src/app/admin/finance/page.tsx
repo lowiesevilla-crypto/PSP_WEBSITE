@@ -6,6 +6,7 @@ import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AssessmentActions } from "@/components/admin/assessment-actions";
+import { BalanceActions } from "@/components/admin/balance-actions";
 import { FinanceManager } from "@/components/admin/finance-manager";
 import { ChapterPaymentConfig } from "@/components/admin/chapter-payment-config";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
@@ -352,7 +353,7 @@ function PaymentRegister({ payments, splitByPaymentId }: { payments: Array<any>;
 
 function BalanceRegister({ rows }: { rows: Array<{ memberId: string; membershipNo: string; memberName: string; chapterName: string; chapterCode: string; balance: Prisma.Decimal }> }) {
   if (!rows.length) return <p style={{ color: "#6b665c" }}>No non-zero member balances match the current search and filters.</p>;
-  return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Member</th><th>Chapter</th><th>Current Balance</th><th>Position</th></tr></thead><tbody>{rows.map((row) => <tr key={row.memberId}><td data-label="Member"><strong>{row.memberName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.membershipNo}</small></td><td data-label="Chapter"><strong>{row.chapterName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.chapterCode}</small></td><td data-label="Current Balance"><strong>{php(row.balance)}</strong></td><td data-label="Position">{row.balance.gt(0) ? "Outstanding" : "Credit"}</td></tr>)}</tbody></table></div>;
+  return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Member</th><th>Chapter</th><th>Current Balance</th><th>Position</th><th>Actions</th></tr></thead><tbody>{rows.map((row) => <tr key={row.memberId}><td data-label="Member"><strong>{row.memberName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.membershipNo}</small></td><td data-label="Chapter"><strong>{row.chapterName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.chapterCode}</small></td><td data-label="Current Balance"><strong>{php(row.balance)}</strong></td><td data-label="Position">{row.balance.gt(0) ? "Outstanding" : "Credit"}</td><td data-label="Actions"><BalanceActions memberId={row.memberId} memberName={row.memberName} balance={php(row.balance)} /></td></tr>)}</tbody></table></div>;
 }
 
 function RateRegister({ rows }: { rows: Array<any> }) {
