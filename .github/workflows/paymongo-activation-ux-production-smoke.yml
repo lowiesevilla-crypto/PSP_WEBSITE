@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-09-r17
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-finance-bills-public-feed-v1
+      EXPECTED_RELEASE: 2026-09-09-r18
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-finance-full-editor-public-feed-v1
       EXPECTED_FINANCE_VERSION: chapter-draft-ux-v2
       EXPECTED_ACTIVATION_UX_VERSION: national-admin-v2
       EXPECTED_LIVE_APPROVAL_VERSION: national-signoff-v1

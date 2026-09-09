@@ -5,7 +5,7 @@
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production:** `https://psp.hoahub.tech`  
 **Current release candidate:** PR #48  
-**Target release:** `2026-09-09-r17 / 2026-09-09-finance-bills-public-feed-v1`
+**Target release:** `2026-09-09-r18 / 2026-09-09-finance-full-editor-public-feed-v1`
 
 > `COMPLETE (AUTOMATED)` means implementation plus deterministic CI/runtime evidence exists. `PRODUCTION-PROVEN` requires exact live release identity/capability evidence. Real provider/device/inbox/backup acceptance remains external until directly observed.
 
@@ -112,8 +112,8 @@ Detailed evidence: `BILLING_DUES_SPLIT_E2E_2026-09-07.md`.
 r15 exact identity:
 
 ```text
-release = 2026-09-09-r17
-deploymentGeneration = 2026-09-09-finance-bills-public-feed-v1
+release = 2026-09-09-r18
+deploymentGeneration = 2026-09-09-finance-full-editor-public-feed-v1
 billingDuesVersion = chapter-national-v1
 splitPaymentContractVersion = linked-split-e2e-v1
 paymentAssignmentVersion = chapter-selected-member-v1

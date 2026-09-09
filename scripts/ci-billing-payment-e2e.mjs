@@ -276,6 +276,7 @@ async function main() {
     assert(postedBillsView.status === 200, `Chapter Admin Created Bills view returned ${postedBillsView.status}.`);
     assert(postedBillsHtml.includes(CHAPTER_DUES_TITLE), "Created Bills view does not show the newly posted Primary Bill.");
     assert(postedBillsHtml.includes("Edit") && postedBillsHtml.includes("Delete"), "Created Bills view does not expose Edit/Delete actions.");
+    assert(postedBillsHtml.includes('data-assessment-editor-version="full-panel-v1"'), "Created Bills view does not expose the full bill editor.");
 
     const blockedNational = await request("/api/admin/finance/assessments", chapterAdminCookie, {
       method: "POST",
@@ -314,6 +315,11 @@ async function main() {
     assert(alphaNationalCharge?.amount.toFixed(2) === "50.00" && betaNationalCharge?.amount.toFixed(2) === "50.00", "National dues did not charge ₱50 to both test Chapters.");
 
     const memberCookie = await login(MEMBER_EMAIL, MEMBER_PASSWORD);
+    const balancesView = await request("/admin/finance?view=balances", chapterAdminCookie);
+    const balancesHtml = await balancesView.text();
+    assert(balancesView.status === 200, `Chapter Admin Balances view returned ${balancesView.status}.`);
+    assert(balancesHtml.includes('data-balance-actions-version="adjust-writeoff-v1"'), "Member Balances view does not expose adjustment/write-off actions.");
+
     const memberPaymentsBefore = await request("/payments", memberCookie);
     const memberHtmlBefore = await memberPaymentsBefore.text();
     assert(memberPaymentsBefore.status === 200, `Member payments page returned ${memberPaymentsBefore.status}.`);

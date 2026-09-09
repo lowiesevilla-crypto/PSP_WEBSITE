@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-09-r17
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-finance-bills-public-feed-v1
+      EXPECTED_RELEASE: 2026-09-09-r18
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-finance-full-editor-public-feed-v1
       EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION: chapter-draft-ux-v2
       EXPECTED_BILLING_DUES_VERSION: chapter-national-v1
       EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION: linked-split-e2e-v1
@@ -154,6 +154,8 @@ jobs:
 
           assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
           assert_contains public-feed-marker 'data-public-chapter-feed-version="global-chapter-feed-v2"' /tmp/psp-home.html
+          assert_contains public-feed-design 'data-public-feed-design-version="homepage-cards-v1"' /tmp/psp-home.html
+          assert_contains public-feed-heading 'Public PSP Updates' /tmp/psp-home.html
           assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
           assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
           assert_contains registration-mobile-checkbox 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html

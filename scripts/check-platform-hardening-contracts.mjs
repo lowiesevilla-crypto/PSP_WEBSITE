@@ -42,6 +42,8 @@ const [
   assessmentRoute,
   assessmentActionRoute,
   assessmentActions,
+  balanceActionRoute,
+  balanceActions,
   eventManager,
   healthRoute,
   proxyRoute,
@@ -79,6 +81,8 @@ const [
   source("src/app/api/admin/finance/assessments/route.ts"),
   source("src/app/api/admin/finance/assessments/[id]/route.ts"),
   source("src/components/admin/assessment-actions.tsx"),
+  source("src/app/api/admin/finance/member-balances/[memberId]/route.ts"),
+  source("src/components/admin/balance-actions.tsx"),
   source("src/components/admin/event-manager.tsx"),
   source("src/app/api/health/route.ts"),
   source("src/proxy.ts"),
@@ -143,11 +147,17 @@ assert(financePage.includes('return "assessments"'), "Finance Admin must default
 assert(financePage.includes("AssessmentActions"), "Created bills register must expose edit/delete actions.");
 assert(assessmentActionRoute.includes("export async function PATCH") && assessmentActionRoute.includes("export async function DELETE"), "Finance bill edit/delete API is missing.");
 assert(assessmentActionRoute.includes("ASSESSMENT_UPDATED") && assessmentActionRoute.includes("ASSESSMENT_DELETED"), "Finance bill edit/delete must preserve audit evidence.");
-assert(assessmentActionRoute.includes("_count: { select: { payments: true } }") && assessmentActionRoute.includes("Amount cannot be changed"), "Bill amount edits must be blocked after payment activity exists.");
+assert(assessmentActionRoute.includes("export async function GET") && assessmentActionRoute.includes("availableMembers") && assessmentActionRoute.includes("memberIds"), "Finance bill editor must load and update the assigned member list.");
+assert(assessmentActionRoute.includes("_count: { select: { payments: true } }") && assessmentActionRoute.includes("Amount and member list cannot be changed"), "Bill amount and member-list edits must be blocked after payment activity exists.");
 assert(assessmentActions.includes('method: "PATCH"') && assessmentActions.includes('method: "DELETE"'), "Finance bill actions must call the edit/delete API.");
-assert(healthRoute.includes('financeLayoutVersion: "bills-first-edit-delete-v1"'), "Health marker for simplified Finance layout is missing.");
+assert(assessmentActions.includes('data-assessment-editor-version="full-panel-v1"') && assessmentActions.includes("Assigned Members"), "Finance bill actions must expose the full inline editor panel.");
+assert(balanceActionRoute.includes("MEMBER_BALANCE_ADJUSTED") && balanceActionRoute.includes("MEMBER_BALANCE_WRITTEN_OFF"), "Member balance edit/write-off API must preserve audit evidence.");
+assert(balanceActions.includes('data-balance-actions-version="adjust-writeoff-v1"') && balanceActions.includes("Adjust") && balanceActions.includes("Write Off"), "Member Balances view must expose adjustment and write-off actions.");
+assert(financePage.includes("BalanceActions"), "Member Balances register must render balance action controls.");
+assert(healthRoute.includes('financeLayoutVersion: "full-bill-editor-balance-actions-v1"'), "Health marker for full Finance editor layout is missing.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
+assert(publicPage.includes('data-public-feed-design-version="homepage-cards-v1"') && publicPage.includes("Public PSP Updates") && publicPage.includes("Announcements & Events"), "Public homepage must visibly present public announcements and events near the top.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
 assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
