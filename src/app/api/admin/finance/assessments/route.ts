@@ -154,12 +154,12 @@ export async function POST(request: Request) {
           where: { chapterId: { in: targetIds }, membershipStatus: "ACTIVE" },
           select: { id: true, chapterId: true, userId: true },
         });
-    const membersByChapter = new Map<string, Array<{ id: string; userId: string }>>();
-    for (const member of members) {
-      const list = membersByChapter.get(member.chapterId) ?? [];
-      list.push({ id: member.id });
-      membersByChapter.set(member.chapterId, list);
-    }
+  const membersByChapter = new Map<string, Array<{ id: string; userId: string }>>();
+  for (const member of members) {
+    const list = membersByChapter.get(member.chapterId) ?? [];
+    list.push({ id: member.id, userId: member.userId });
+    membersByChapter.set(member.chapterId, list);
+  }
 
     const created = await prisma.$transaction(async (tx) => {
       // This duplicate predicate is deliberately inside a SERIALIZABLE transaction.
