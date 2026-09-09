@@ -8,6 +8,7 @@ const updateSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).optional().nullable(),
   amount: z.coerce.number().positive().max(10000000),
+  memberIds: z.array(z.string().min(1)).max(5000).optional(),
   coverageStart: z.string().datetime().optional().nullable(),
   coverageEnd: z.string().datetime().optional().nullable(),
   dueAt: z.string().datetime().optional().nullable(),
@@ -27,11 +28,64 @@ async function getEditableAssessment(id: string) {
       id: true,
       chapterId: true,
       title: true,
+      assessmentTypeId: true,
       amount: true,
       _count: { select: { payments: true } },
     },
   });
   return assessment;
+}
+
+export async function GET(_request: Request, { params }: RouteParams) {
+  try {
+    const context = await getAuthContext();
+    if (!context) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+    const { id } = await params;
+    const assessment = await getEditableAssessment(id);
+    if (!assessment) return NextResponse.json({ message: "Bill not found." }, { status: 404 });
+    if (!hasPermission(context, "finance.manage", assessment.chapterId)) {
+      return NextResponse.json({ message: "Finance management permission is required for this Chapter." }, { status: 403 });
+    }
+
+    const [charges, members] = await Promise.all([
+      prisma.memberLedgerEntry.findMany({
+        where: { assessmentId: id, type: "CHARGE" },
+        orderBy: [{ member: { lastName: "asc" } }, { member: { firstName: "asc" } }],
+        select: {
+          memberId: true,
+          amount: true,
+          member: { select: { membershipNo: true, firstName: true, lastName: true } },
+        },
+      }),
+      prisma.member.findMany({
+        where: { chapterId: assessment.chapterId, membershipStatus: "ACTIVE" },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        select: { id: true, membershipNo: true, firstName: true, lastName: true },
+      }),
+    ]);
+
+    return NextResponse.json(
+      {
+        paymentCount: assessment._count.payments,
+        chargedMemberIds: charges.map((charge) => charge.memberId),
+        chargedMembers: charges.map((charge) => ({
+          id: charge.memberId,
+          name: `${charge.member.firstName} ${charge.member.lastName}`,
+          membershipNo: charge.member.membershipNo,
+          amount: charge.amount.toFixed(2),
+        })),
+        availableMembers: members.map((member) => ({
+          id: member.id,
+          name: `${member.firstName} ${member.lastName}`,
+          membershipNo: member.membershipNo,
+        })),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    console.error("Assessment detail error", error);
+    return NextResponse.json({ message: error instanceof Error ? error.message : "Unable to load bill details." }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -62,11 +116,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ message: "Coverage end cannot be before coverage start." }, { status: 400 });
     }
 
-    if (!assessment.amount.eq(amount) && assessment._count.payments > 0) {
+    const requestedMemberIds = input.memberIds ? Array.from(new Set(input.memberIds)) : null;
+    if ((!assessment.amount.eq(amount) || requestedMemberIds) && assessment._count.payments > 0) {
       return NextResponse.json(
-        { message: "This bill already has payment activity. Amount cannot be changed; create an adjustment or a new bill instead." },
+        { message: "This bill already has payment activity. Amount and member list cannot be changed; create an adjustment or a new bill instead." },
         { status: 409 },
       );
+    }
+    const selectedMembers = requestedMemberIds
+      ? await prisma.member.findMany({
+          where: { id: { in: requestedMemberIds }, chapterId: assessment.chapterId, membershipStatus: "ACTIVE" },
+          select: { id: true },
+        })
+      : [];
+    if (requestedMemberIds && selectedMembers.length !== requestedMemberIds.length) {
+      return NextResponse.json({ message: "One or more selected members are not active in this bill Chapter." }, { status: 400 });
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -95,6 +159,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           data: { description: input.title },
         });
       }
+      if (requestedMemberIds) {
+        await tx.memberLedgerEntry.deleteMany({ where: { assessmentId: id, type: "CHARGE", paymentId: null } });
+        if (selectedMembers.length > 0) {
+          await tx.memberLedgerEntry.createMany({
+            data: selectedMembers.map((member) => ({
+              chapterId: assessment.chapterId,
+              memberId: member.id,
+              assessmentId: id,
+              type: "CHARGE" as const,
+              amount,
+              reference: id,
+              description: input.title,
+              occurredAt: new Date(),
+            })),
+          });
+        }
+      }
 
       await tx.auditLog.create({
         data: {
@@ -107,6 +188,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             title: bill.title,
             amount: bill.amount.toFixed(2),
             status: bill.status,
+            memberIds: requestedMemberIds ?? undefined,
             coverageStart: coverageStart?.toISOString() ?? null,
             coverageEnd: coverageEnd?.toISOString() ?? null,
             dueAt: dueAt?.toISOString() ?? null,
