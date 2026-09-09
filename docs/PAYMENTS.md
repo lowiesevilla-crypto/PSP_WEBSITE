@@ -1,6 +1,6 @@
 # PSP Payments & PayMongo Platforms Integration
 
-**Current payment release target:** `2026-09-09-r17 / 2026-09-09-finance-bills-public-feed-v1`
+**Current payment release target:** `2026-09-09-r18 / 2026-09-09-finance-full-editor-public-feed-v1`
 
 ## Authoritative Accounting Model
 
