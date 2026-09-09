@@ -58,6 +58,10 @@ export async function POST(request: Request) {
     }
 
     const input = parsed.data;
+    if (input.paymentMethod !== "qrph") {
+      return NextResponse.json({ message: "Member online payment currently supports QR Ph only." }, { status: 400 });
+    }
+
     const [chapterGateway, platformGateway] = await Promise.all([
       getChapterPayMongoConfig(member.chapterId),
       Promise.resolve(getPlatformPayMongoConfig()),
