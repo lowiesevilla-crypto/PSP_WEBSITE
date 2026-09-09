@@ -148,6 +148,8 @@ assert(financePage.includes('data-finance-simple-layout-version="separate-create
 assert(financePage.includes('data-finance-simple-layout-version="separate-paymongo-setup-v1"'), "Finance Admin page must expose PayMongo Setup as a separate view.");
 assert(financePage.includes("Created Bills") && financePage.includes("Create Bill") && financePage.includes("PayMongo Setup"), "Finance Admin page must present each Finance function as a separate selectable view.");
 assert(financePage.includes('return "assessments"'), "Finance Admin must default to Created Bills so posted bills are immediately visible.");
+assert(financePage.includes('status: "PAID"') && financePage.includes("Successful Payments") && financePage.includes("Convenience Fees Collected"), "Finance totals and payment register must reflect successful paid payments and convenience fees only.");
+assert(financePage.includes('status: { not: "CANCELLED" }'), "Created Bills register must hide cancelled/deleted bills.");
 assert(financePage.includes("AssessmentActions"), "Created bills register must expose edit/delete actions.");
 assert(assessmentActionRoute.includes("export async function PATCH") && assessmentActionRoute.includes("export async function DELETE"), "Finance bill edit/delete API is missing.");
 assert(assessmentActionRoute.includes("ASSESSMENT_UPDATED") && assessmentActionRoute.includes("ASSESSMENT_DELETED"), "Finance bill edit/delete must preserve audit evidence.");
@@ -155,6 +157,7 @@ assert(assessmentActionRoute.includes("export async function GET") && assessment
 assert(assessmentActionRoute.includes("_count: { select: { payments: true } }") && assessmentActionRoute.includes("Amount and member list cannot be changed"), "Bill amount and member-list edits must be blocked after payment activity exists.");
 assert(assessmentActions.includes('method: "PATCH"') && assessmentActions.includes('method: "DELETE"'), "Finance bill actions must call the edit/delete API.");
 assert(assessmentActions.includes('data-assessment-editor-version="full-panel-v1"') && assessmentActions.includes("Assigned Members"), "Finance bill actions must expose the full inline editor panel.");
+assert(assessmentActionRoute.includes("removedLedgerCharges") && assessmentActionRoute.includes("ASSESSMENT_CANCELLED_WITH_PAYMENT_HISTORY"), "Cancelling a bill with payment history must remove unpaid member charges while preserving payment records.");
 assert(balanceActionRoute.includes("MEMBER_BALANCE_ADJUSTED") && balanceActionRoute.includes("MEMBER_BALANCE_WRITTEN_OFF"), "Member balance edit/write-off API must preserve audit evidence.");
 assert(balanceActions.includes('data-balance-actions-version="adjust-writeoff-v1"') && balanceActions.includes("Adjust") && balanceActions.includes("Write Off"), "Member Balances view must expose adjustment and write-off actions.");
 assert(financePage.includes("BalanceActions"), "Member Balances register must render balance action controls.");
