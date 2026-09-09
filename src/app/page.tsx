@@ -107,6 +107,48 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <section className="public-feed-band" id="updates" data-public-feed-design-version="homepage-cards-v1">
+        <div className="container">
+          <div className="section-header">
+            <div>
+              <div className="eyebrow">Public PSP Updates</div>
+              <h2>Announcements & Events</h2>
+            </div>
+            <p>When National or Chapter admins tag an announcement as public, or publish an event, it appears here on the PSP website landing page.</p>
+          </div>
+          <div className="public-feed-grid">
+            <article className="public-feed-panel">
+              <div className="public-feed-panel-head">
+                <small>Announcements</small>
+                <Link href="/announcements">View all</Link>
+              </div>
+              {announcements.length ? announcements.slice(0, 3).map((announcement) => (
+                <div className="public-feed-card" key={announcement.id}>
+                  <small>{announcement.chapter ? `${announcement.chapter.name} · ${announcement.chapter.code}` : "National"}</small>
+                  <h3>{announcement.title}</h3>
+                  <p>{excerpt(announcement.body, 150)}</p>
+                  <span>{publicDate(announcement.startsAt ?? announcement.createdAt)}</span>
+                </div>
+              )) : <p className="public-feed-empty">No public announcements yet.</p>}
+            </article>
+            <article className="public-feed-panel">
+              <div className="public-feed-panel-head">
+                <small>Events</small>
+                <Link href="/events">View all</Link>
+              </div>
+              {events.length ? events.slice(0, 3).map((event) => (
+                <div className="public-feed-card" key={event.id}>
+                  <small>{event.chapter ? `${event.chapter.name} · ${event.chapter.code}` : "National"}</small>
+                  <h3>{event.title}</h3>
+                  <p>{excerpt(event.description, 150)}</p>
+                  <span>{publicDate(event.startsAt)}{event.venue ? ` · ${event.venue}` : ""}</span>
+                </div>
+              )) : <p className="public-feed-empty">No published events yet.</p>}
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section className="section" id="platform">
         <div className="container">
           <div className="section-header"><h2>Built for the full Ψ Σ Φ ecosystem.</h2><p>The digital platform combines the official website, installable Member PWA, Chapter Admin Portal, and National/System Admin Portal in one architecture.</p></div>
@@ -114,7 +156,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section" id="updates">
+      <section className="section" id="announcements">
         <div className="container">
           <div className="section-header"><div><div className="eyebrow">Across Psi Sigma Phi Philippines Inc.</div><h2>Latest National & Chapter Updates</h2></div><p>Announcements appear here only when an authorized administrator explicitly marks them for the public PSP website.</p></div>
           {announcements.length ? (
