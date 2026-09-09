@@ -62,6 +62,8 @@ CI now blocks merge on both:
 
 The earlier public-homepage hardening additionally upgraded Next.js and `eslint-config-next` from `16.3.1` to security release `16.3.3`. The full CI/runtime/audit suite must continue proving that dependency/security posture before merge.
 
+The r16 PR also updates `nodemailer` to `9.1.1` after the unchanged CI audit gate reported high-severity advisories for `nodemailer <=9.1.0`. Do not bypass the audit or use `npm audit fix --force`; the patched direct dependency must pass the normal install/audit/runtime flow.
+
 ## Public Homepage Freshness Contract
 
 The public homepage contains live National/Chapter announcements and published events. It must not be served as stale deployment HTML.
