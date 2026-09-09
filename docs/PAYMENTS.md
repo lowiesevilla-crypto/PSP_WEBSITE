@@ -1,6 +1,6 @@
 # PSP Payments & PayMongo Platforms Integration
 
-**Current payment release target:** `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`
+**Current payment release target:** `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`
 
 ## Authoritative Accounting Model
 
@@ -17,7 +17,7 @@ Canonical linked-account model:
 - the real child webhook signing secret is encrypted at rest;
 - one linked child account may belong to only one PSP Chapter.
 
-## Create Dues / Bill — r15
+## Create Dues / Bill and Required Payments — r16
 
 Finance exposes a dedicated **Create Dues / Bill** workflow. Billing scope is explicit and server-authorized.
 
@@ -30,12 +30,26 @@ Finance exposes a dedicated **Create Dues / Bill** workflow. Billing scope is ex
 - Charges are posted only to active members of the selected Chapter.
 - Foreign-Chapter members must never receive the charge.
 
+### Selected Chapters
+
+- `billingScope=SELECTED_CHAPTERS` requires national-scoped `finance.manage`.
+- The server validates that every selected Chapter is active.
+- One assessment is created per selected Chapter and only active members of those Chapters receive ledger `CHARGE` entries.
+
 ### National
 
 - `billingScope=NATIONAL` requires national-scoped `finance.manage`.
 - Chapter-scoped Admin attempts to use National billing return HTTP 403.
-- National billing must use `NATIONAL_DUES` and an explicit amount.
-- National Dues fan out to active Chapters as Chapter-specific assessments and ledger charges while preserving isolation.
+- National billing may use dues, contribution, or other required-payment assessment types.
+- National billing fans out to active Chapters as Chapter-specific assessments and ledger charges while preserving isolation.
+
+### Selected Members
+
+- `billingScope=MEMBERS` accepts explicit active member IDs.
+- The server reapplies `finance.manage` against every selected member's Chapter.
+- Chapter Admin can therefore assign only members in their authorized Chapter.
+- National/System Admin can assign selected active members across Chapters.
+- Notifications for selected-member assignments go only to the intended selected members, not every member in the Chapter.
 
 ### Billing idempotency
 
@@ -198,6 +212,8 @@ Production capability markers:
 
 - `billingDuesVersion=chapter-national-v1`
 - `splitPaymentContractVersion=linked-split-e2e-v1`
+- `paymentAssignmentVersion=chapter-selected-member-v1`
+- `publicFeedVersion=global-chapter-feed-v2`
 
 See `BILLING_DUES_SPLIT_E2E_2026-09-07.md` for deterministic evidence.
 
