@@ -54,6 +54,22 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   });
   const manageableChapters = manageScope === null ? chapters : chapters.filter((chapter) => manageScope.includes(chapter.id));
   const assessmentTypes = await prisma.assessmentType.findMany({ orderBy: { name: "asc" }, select: { code: true, name: true } });
+  const activeMembers = await prisma.member.findMany({
+    where: {
+      membershipStatus: "ACTIVE",
+      ...(manageScope === null ? {} : { chapterId: { in: manageScope } }),
+    },
+    orderBy: [{ chapter: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }],
+    take: 5000,
+    select: {
+      id: true,
+      membershipNo: true,
+      firstName: true,
+      lastName: true,
+      chapterId: true,
+      chapter: { select: { name: true } },
+    },
+  });
 
   const params = await searchParams;
   const view = registerView(single(params.view));
@@ -245,7 +261,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
         </section>
 
         {manageableChapters.length > 0 ? <ChapterPaymentConfig chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} /> : null}
-        {manageableChapters.length > 0 ? <div style={{ marginTop: 18 }}><FinanceManager chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} assessmentTypes={assessmentTypes} /></div> : null}
+        {manageableChapters.length > 0 ? <div style={{ marginTop: 18 }}><FinanceManager chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} activeMembers={activeMembers.map((member) => ({ id: member.id, membershipNo: member.membershipNo, name: `${member.firstName} ${member.lastName}`, chapterId: member.chapterId, chapterName: member.chapter.name }))} assessmentTypes={assessmentTypes} /></div> : null}
 
         <section className="app-panel" style={{ marginTop: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 14 }}>

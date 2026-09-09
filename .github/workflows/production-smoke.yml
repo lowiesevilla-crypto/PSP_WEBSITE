@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-07-r15
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-07-dues-billing-split-v1
+      EXPECTED_RELEASE: 2026-09-09-r16
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-payment-assignment-public-feed-v1
       EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION: chapter-draft-ux-v2
       EXPECTED_BILLING_DUES_VERSION: chapter-national-v1
       EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION: linked-split-e2e-v1
@@ -52,7 +52,9 @@ jobs:
               && grep -q "\"deploymentGeneration\":\"$EXPECTED_DEPLOYMENT_GENERATION\"" /tmp/psp-health.json \
               && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"billingDuesVersion\":\"$EXPECTED_BILLING_DUES_VERSION\"" /tmp/psp-health.json \
-              && grep -q "\"splitPaymentContractVersion\":\"$EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION\"" /tmp/psp-health.json; then
+              && grep -q "\"splitPaymentContractVersion\":\"$EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION\"" /tmp/psp-health.json \
+              && grep -q '"paymentAssignmentVersion":"chapter-selected-member-v1"' /tmp/psp-health.json \
+              && grep -q '"publicFeedVersion":"global-chapter-feed-v2"' /tmp/psp-health.json; then
               deployed=true
               break
             fi
@@ -151,7 +153,7 @@ jobs:
           fetch_200 chapter-logo-fallback "$PROD_URL/api/public/chapters/prod-smoke-invalid/logo" /tmp/psp-brand-logo yes
 
           assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
-          assert_contains public-feed-marker 'data-public-chapter-feed-version="global-chapter-feed-v1"' /tmp/psp-home.html
+          assert_contains public-feed-marker 'data-public-chapter-feed-version="global-chapter-feed-v2"' /tmp/psp-home.html
           assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
           assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
           assert_contains registration-mobile-checkbox 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html

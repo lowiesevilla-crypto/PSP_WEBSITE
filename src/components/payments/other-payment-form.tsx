@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { SplitPaymentAction } from "@/components/payments/split-payment-action";
+import { SplitPaymentAction, type PaymentMethod } from "@/components/payments/split-payment-action";
 
-export function OtherPaymentForm({ disabledReason }: { disabledReason?: string }) {
+export function OtherPaymentForm({ availableMethods, disabledReason }: { availableMethods: PaymentMethod[]; disabledReason?: string }) {
   const [category, setCategory] = useState<"CONTRIBUTION" | "OTHER">("CONTRIBUTION");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -60,6 +60,7 @@ export function OtherPaymentForm({ disabledReason }: { disabledReason?: string }
         category={category}
         chapterAmount={validAmount ? Number(amount).toFixed(2) : "0.00"}
         description={description.trim()}
+        availableMethods={availableMethods}
         disabled={formDisabled}
         disabledReason={disabledReason}
       />

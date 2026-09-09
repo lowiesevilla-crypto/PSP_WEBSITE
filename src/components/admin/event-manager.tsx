@@ -71,7 +71,10 @@ export function EventManager({ chapters, initialEvents, canNational }: { chapter
           <label style={labelStyle}><strong>Starts</strong><input name="startsAt" required type="datetime-local" value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} disabled={busy} style={fieldStyle} /></label>
           <label style={labelStyle}><strong>Ends</strong><input name="endsAt" type="datetime-local" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} disabled={busy} style={fieldStyle} /></label>
         </div>
-        <label style={{ display: "flex", gap: 9, alignItems: "center" }}><input name="publish" type="checkbox" checked={form.publish} onChange={(e) => setForm({ ...form, publish: e.target.checked })} disabled={busy} /> Publish immediately</label>
+        <label style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: 12, border: "1px solid #ddd5c1", borderRadius: 12, background: "#fffaf0" }}>
+          <input name="publish" type="checkbox" checked={form.publish} onChange={(e) => setForm({ ...form, publish: e.target.checked })} disabled={busy} style={{ width: "auto", marginTop: 3 }} />
+          <span><strong>Publish to members and the public PSP website</strong><small style={{ display: "block", color: "#746b5b", marginTop: 3, lineHeight: 1.45 }}>Published National and Chapter events appear automatically on the landing page event section.</small></span>
+        </label>
         {error ? <div role="alert" style={{ color: "#7b2424" }}>{error}</div> : null}
         <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Create Event"}</button>
       </form>

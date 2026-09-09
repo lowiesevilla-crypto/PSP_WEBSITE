@@ -1,34 +1,39 @@
 # PSP Digital Platform — Authoritative Delivery Status
 
-**Status timestamp:** 2026-09-07 PHT  
+**Status timestamp:** 2026-09-09 PHT
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current release target:** `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`
+**Current release target:** `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`
 
 > Read with `../AGENTS.md`. Never claim provider-, credential-, device-, inbox-, payment-, backup-, approval-, or production-state behavior without direct evidence.
 
 ## Executive Status
 
-PR #48, **Chapter/National dues billing and split-payment E2E**, is the active urgent release candidate. It corrects the Finance workflow that previously exposed generic assessment controls without a clear operational distinction between Chapter dues and National dues.
+PR #48, **Chapter/National dues billing and split-payment E2E**, has merged into `main` at `b1ad693f107ff6695c7522f4902a8f940e7026af`; PSP CI #690 succeeded for that main head.
 
-The r15 candidate provides a dedicated **Create Dues / Bill** workflow, exact Chapter authorization, National dues fan-out, member-visible `Amount to Pay`, deterministic split-payment reconciliation, and a required authenticated Admin/Member runtime E2E.
+The current r16 patch extends the payment workflow to match the product requirement more directly: Finance Admin can assign dues/contribution/required-payment assessments to one Chapter, selected Chapters, selected active members, or all active Chapters; members see payable items and pay online through the configured Chapter PayMongo linked account; receipts remain webhook-generated and visible to members/admins.
 
-The release identity has been advanced from r14 to:
+PR #49 CI first failed at the fail-closed high-severity dependency audit because `nodemailer <=9.1.0` is now covered by high advisories. The r16 branch updates the direct `nodemailer` dependency to `9.1.1`; this must pass the unchanged audit gate before merge.
 
-- release: `2026-09-07-r15`
-- deployment generation: `2026-09-07-dues-billing-split-v1`
+The release identity has been advanced to:
+
+- release: `2026-09-09-r16`
+- deployment generation: `2026-09-09-payment-assignment-public-feed-v1`
 - billing marker: `billingDuesVersion=chapter-national-v1`
 - split marker: `splitPaymentContractVersion=linked-split-e2e-v1`
+- payment assignment marker: `paymentAssignmentVersion=chapter-selected-member-v1`
+- public feed marker: `publicFeedVersion=global-chapter-feed-v2`
 
-Production cannot be called r15-proven until the final exact PR head passes all required gates, merges by exact SHA, post-merge `main` CI passes, and the dedicated production capability smoke observes the r15 identity/markers with readiness green.
+Production cannot be called r16-proven until the exact PR head passes all required gates, merges by exact SHA, post-merge `main` CI passes, and the dedicated production smokes observe the r16 identity/markers with readiness green. The latest production-smoke reruns for r15 failed because `https://psp.hoahub.tech/api/health` still returned `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`.
 
-## r15 Billing Contract
+## r16 Billing Contract
 
 ### Chapter Admin
 
 - `finance.manage` is required for the exact target Chapter.
 - Chapter Admin can create Chapter dues only for an authorized Chapter.
+- Chapter Admin can assign contribution/required-payment assessments to all active members in their Chapter or selected active members inside that same Chapter.
 - Chapter Admin cannot escalate to `billingScope=NATIONAL`; server returns HTTP 403.
 - Chapter posting creates ledger `CHARGE` entries only for active members of that Chapter.
 - Foreign-Chapter members are not charged.
@@ -36,8 +41,8 @@ Production cannot be called r15-proven until the final exact PR head passes all 
 ### National/System Admin
 
 - National dues require national-scoped `finance.manage`.
-- `billingScope=NATIONAL` must use `NATIONAL_DUES` and an explicit amount.
-- National dues fan out into Chapter-specific assessments for active Chapters inside one controlled transaction.
+- National/System Admin can assign dues, contribution, or required-payment assessments to one Chapter, selected Chapters, selected active members, or all active Chapters.
+- National/all-Chapter scope fans out into Chapter-specific assessments for active Chapters inside one controlled transaction.
 - National/multi-Chapter users must deliberately select a Chapter for Chapter-scoped dues, rates, and other assessments; the UI does not silently select the first available Chapter.
 
 ### Billing Safety
@@ -113,16 +118,16 @@ The deterministic E2E proves PSP application behavior against a local PayMongo-c
 
 ## Separate General Production Smoke Concern
 
-Earlier general production smoke evidence showed a Hostinger homepage CDN/cache problem where `/` could be served as a stale cached object. The r15 general Production Smoke retains the no-store/public-feed assertions; those assertions must not be weakened merely to make a release pass.
+Earlier general production smoke evidence showed a Hostinger homepage CDN/cache problem where `/` could be served as a stale cached object. The r16 general Production Smoke retains the no-store/public-feed assertions and now requires `global-chapter-feed-v2`; those assertions must not be weakened merely to make a release pass.
 
 The dedicated PayMongo/billing capability smoke is separate and requires exact r15 health identity, the Chapter/National billing marker, the split-payment marker, existing Finance/activation/LIVE-approval/certificate markers and readiness HTTP 200/ready.
 
 ## Controlled / External Pending
 
-- final PR #48 exact-head CI after all review fixes;
-- exact-head merge of PR #48;
+- r16 PR exact-head CI;
+- exact-head merge of r16 PR;
 - post-merge `main` CI;
-- exact r15 billing capability production smoke;
+- exact r16 billing/payment/public-feed production smokes;
 - general Production Smoke closure, including Hostinger homepage cache behavior;
 - real PayMongo TEST DUES split-payment transaction and observed settlement;
 - real PayMongo TEST CONTRIBUTION/OTHER split-payment transaction and observed settlement;

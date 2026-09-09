@@ -19,6 +19,8 @@ export async function GET() {
       certificateHotfixVersion: "chapter-logo-email-invalidation-v1",
       billingDuesVersion: "chapter-national-v1",
       splitPaymentContractVersion: "linked-split-e2e-v1",
+      paymentAssignmentVersion: "chapter-selected-member-v1",
+      publicFeedVersion: "global-chapter-feed-v2",
       timestamp: new Date().toISOString(),
     },
     {

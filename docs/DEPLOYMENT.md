@@ -9,20 +9,18 @@
 - Production branch: `main`
 - Runtime: Node.js 22+
 - Database: dedicated PSP MySQL, separate from HOAHub
-- Release target: `2026-09-06-r14 / 2026-09-06-platform-hardening-v1`
+- Release target: `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`
 
-## Current Production State — 2026-09-06
+## Current Production State — 2026-09-09
 
-PR #37 fixed the Hostinger production build and successfully deployed exact r14. Production Smoke #28 observed:
+Production is currently behind the repository release line. After PR #48 merged and PSP CI #690 passed on `main`, both r15 production-smoke reruns still observed:
 
 ```text
 release = 2026-09-06-r14
 deploymentGeneration = 2026-09-06-platform-hardening-v1
 ```
 
-`/api/health/ready` returned HTTP 200 / `status=ready` with database, auth schema, baseline, member-mobile schema, custom-certificate schema, public-announcement schema and auth configuration all `ok`.
-
-The remaining automated release defect is the public homepage: `/` returned stale pre-r14 HTML and therefore failed the required `data-public-chapter-feed-version="global-chapter-feed-v1"` assertion. PR #38 is the active freshness/security hotfix.
+That means production cannot be called r15/r16-proven until Hostinger builds/deploys the current `main` head and the exact production smokes pass unchanged.
 
 ## Hostinger Build Incident — Closed
 
@@ -62,13 +60,15 @@ CI now blocks merge on both:
 - complete `npm audit --audit-level=high`;
 - post-prune runtime-only dependency audit.
 
-PR #38 additionally upgrades Next.js and `eslint-config-next` from `16.3.1` to security release `16.3.3`. The full CI/runtime/audit suite must prove that patch before merge.
+The earlier public-homepage hardening additionally upgraded Next.js and `eslint-config-next` from `16.3.1` to security release `16.3.3`. The full CI/runtime/audit suite must continue proving that dependency/security posture before merge.
+
+The r16 PR also updates `nodemailer` to `9.1.1` after the unchanged CI audit gate reported high-severity advisories for `nodemailer <=9.1.0`. Do not bypass the audit or use `npm audit fix --force`; the patched direct dependency must pass the normal install/audit/runtime flow.
 
 ## Public Homepage Freshness Contract
 
 The public homepage contains live National/Chapter announcements and published events. It must not be served as stale deployment HTML.
 
-PR #38 enforces:
+The public homepage hardening enforces:
 
 ```text
 dynamic = force-dynamic
@@ -78,7 +78,7 @@ Pragma: no-cache
 Expires: 0
 ```
 
-Production Smoke must fetch normal `/` without a cache-busting query, require `Cache-Control` to contain `no-store`, and then require the r14 public-feed marker. This validates the behavior real visitors receive rather than bypassing the cache in the test.
+Production Smoke must fetch normal `/` without a cache-busting query, require `Cache-Control` to contain `no-store`, and then require the current public-feed marker. This validates the behavior real visitors receive rather than bypassing the cache in the test.
 
 If the first deployment containing this policy still serves the pre-existing cached object, perform a one-time Hostinger server/CDN cache purge and rerun Production Smoke unchanged. Do not remove or weaken the homepage assertion.
 
@@ -113,12 +113,12 @@ Secrets belong only in Hostinger secret/environment management, never GitHub, ch
 
 ## Production Closure Smoke
 
-After PR #38 exact-head CI and merge, require all of the following on the resulting `main`:
+After the r16 exact-head CI and merge, require all of the following on the resulting `main`:
 
-1. exact r14 `/api/health` release/generation;
+1. exact r16 `/api/health` release/generation;
 2. `/api/health/ready` returns ready with all required schema/auth/baseline checks `ok`;
 3. normal `/` returns `Cache-Control` containing `no-store`;
-4. normal `/` contains the r14 public-feed marker;
+4. normal `/` contains the r16 public-feed marker;
 5. manifest stable `id: "/"` and registration/install/login PWA markers pass;
 6. production security headers pass;
 7. canonical invalid login returns 401 and cross-site login is rejected 403;
@@ -135,9 +135,9 @@ After PR #38 exact-head CI and merge, require all of the following on the result
 - [x] exact r14 health visible in production
 - [x] production readiness/schema/auth checks green
 - [x] 3 high npm findings remediated and permanently gated
-- [ ] PR #38 exact final head fully green
-- [ ] PR #38 exact passing head merged
-- [ ] normal production `/` proves no-store freshness + r14 public-feed marker
+- [ ] r16 exact final head fully green
+- [ ] r16 exact passing head merged
+- [ ] normal production `/` proves no-store freshness + r16 public-feed marker
 - [ ] remaining PWA/security/auth/public-verification Production Smoke steps pass
 - [ ] controlled external acceptance items complete where required
 
