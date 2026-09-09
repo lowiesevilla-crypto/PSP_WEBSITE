@@ -48,6 +48,7 @@ const [
   eventManager,
   healthRoute,
   proxyRoute,
+  contentMediaRoute,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -88,6 +89,7 @@ const [
   source("src/components/admin/event-manager.tsx"),
   source("src/app/api/health/route.ts"),
   source("src/proxy.ts"),
+  source("src/app/api/content-media/[kind]/[id]/route.ts"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -168,6 +170,8 @@ assert(publicPage.includes('data-public-feed-design-version="homepage-cards-v1"'
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
 assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
+assert(publicPage.includes("updates-card-image") && publicPage.includes("View Announcements") && publicPage.includes("View Events"), "Public homepage must show image-forward update cards with archive links.");
+assert(contentMediaRoute.includes("publicAllowed") && contentMediaRoute.includes("item.isPublic") && contentMediaRoute.includes("public, max-age=300"), "Public announcement/event images must be readable only for public active content.");
 assert(publicPage.includes("Public announcement feed unavailable") && publicPage.includes("Public event feed unavailable"), "Public homepage announcements and events must fail independently instead of crashing the whole feed.");
 assert(eventManager.includes("public PSP website"), "Event Admin UI must clearly explain that published events appear on the public PSP website.");
 assert(healthRoute.includes('publicFeedVersion: "global-chapter-feed-v2"'), "Health marker for public feed hardening is missing.");

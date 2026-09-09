@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { contentMediaUrl } from "@/lib/content/media";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ async function loadPublicFeed() {
       startsAt: true,
       expiresAt: true,
       createdAt: true,
+      imageUrl: true,
       chapter: { select: { name: true, code: true } },
     },
   }).catch((error) => {
@@ -76,6 +78,7 @@ async function loadPublicFeed() {
       startsAt: true,
       endsAt: true,
       audience: true,
+      imageUrl: true,
       chapter: { select: { name: true, code: true } },
     },
   }).catch((error) => {
@@ -97,6 +100,7 @@ export default async function HomePage() {
       meta: expiresLabel(item.expiresAt),
       href: "/announcements",
       source: sourceLabel(item),
+      imageUrl: contentMediaUrl("announcement", item.id, item.imageUrl),
     })),
     ...events.map((item) => ({
       id: item.id,
@@ -107,6 +111,7 @@ export default async function HomePage() {
       meta: item.venue ? `${publicDate(item.startsAt)} · ${item.venue}` : publicDate(item.startsAt),
       href: "/events",
       source: sourceLabel(item),
+      imageUrl: contentMediaUrl("event", item.id, item.imageUrl),
     })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 6);
 
@@ -145,6 +150,7 @@ export default async function HomePage() {
               <div className="updates-card-grid">
                 {spotlightItems.map((item) => (
                   <Link href={item.href} className="updates-card" key={`${item.kind}-${item.id}`}>
+                    {item.imageUrl ? <img src={item.imageUrl} alt="" className="updates-card-image" /> : <div className="updates-card-mark" aria-hidden="true">{item.kind === "Event" ? "EV" : "PSP"}</div>}
                     <small>{item.kind} · {item.source}</small>
                     <h2>{item.title}</h2>
                     <p>{excerpt(item.body, 145)}</p>
@@ -197,6 +203,7 @@ export default async function HomePage() {
               {announcements.length ? announcements.slice(0, 3).map((announcement) => (
                 <div className="public-feed-card" key={announcement.id}>
                   <small>{sourceLabel(announcement)}</small>
+                  {announcement.imageUrl ? <img src={contentMediaUrl("announcement", announcement.id, announcement.imageUrl) ?? ""} alt="" className="public-feed-card-image" /> : null}
                   <h3>{announcement.title}</h3>
                   <p>{excerpt(announcement.body, 150)}</p>
                   <span>{publicDate(announcement.startsAt ?? announcement.createdAt)} · {expiresLabel(announcement.expiresAt)}</span>
@@ -211,6 +218,7 @@ export default async function HomePage() {
               {events.length ? events.slice(0, 3).map((event) => (
                 <div className="public-feed-card" key={event.id}>
                   <small>{sourceLabel(event)}</small>
+                  {event.imageUrl ? <img src={contentMediaUrl("event", event.id, event.imageUrl) ?? ""} alt="" className="public-feed-card-image" /> : null}
                   <h3>{event.title}</h3>
                   <p>{excerpt(event.description, 150)}</p>
                   <span>{publicDate(event.startsAt)}{event.venue ? ` · ${event.venue}` : ""}</span>

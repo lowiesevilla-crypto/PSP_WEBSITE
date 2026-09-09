@@ -31,16 +31,24 @@ export default async function AnnouncementsPage() {
         </div>
       </header>
       <div className="container app-main">
-        <div className="app-greeting"><p>Official Updates</p><h1>Announcements</h1></div>
-        <section style={{ display: "grid", gap: 14, maxWidth: 820, margin: "0 auto" }}>
-          {announcements.length === 0 ? <div className="app-panel"><p style={{ margin: 0, color: "#6b665c" }}>No active announcements.</p></div> : announcements.map((item) => {
+        <section className="public-archive-hero">
+          <div className="eyebrow">Official Updates</div>
+          <h1>Public announcements from National and Chapters.</h1>
+          <p>Browse active public announcements posted by authorized PSP administrators. Items disappear automatically after their expiration date.</p>
+          <div className="public-archive-toolbar">
+            <strong>{announcements.length} active announcement{announcements.length === 1 ? "" : "s"}</strong>
+            <Link className="btn btn-primary" href="/">Back to Homepage</Link>
+          </div>
+        </section>
+        <section className="public-archive-grid">
+          {announcements.length === 0 ? <div className="app-panel"><p style={{ margin: 0, color: "#6b665c" }}>No active public announcements.</p></div> : announcements.map((item) => {
             const imageUrl = contentMediaUrl("announcement", item.id, item.imageUrl);
             return (
-              <article id={item.id} key={item.id} className="app-panel" style={{ overflow: "hidden" }}>
-                {imageUrl ? <img src={imageUrl} alt="" style={{ width: "100%", maxHeight: 440, objectFit: "cover", borderRadius: 16, marginBottom: 14 }} /> : null}
+              <article id={item.id} key={item.id} className="app-panel public-archive-card">
+                {imageUrl ? <img src={imageUrl} alt="" /> : null}
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  {item.isPinned && <small style={{ fontWeight: 900 }}>PINNED</small>}
-                  <small style={{ color: "#746b5b" }}>{item.audience === "NATIONAL" ? "National" : item.chapter?.name ?? "Chapter"}</small>
+                  {item.isPinned && <small>PINNED</small>}
+                  <small>{item.audience === "NATIONAL" ? "National Office" : item.chapter?.name ?? "Chapter"}</small>
                 </div>
                 <h2 style={{ overflowWrap: "anywhere" }}>{item.title}</h2>
                 <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.65, color: "#575249", overflowWrap: "anywhere" }}>{item.body}</p>
