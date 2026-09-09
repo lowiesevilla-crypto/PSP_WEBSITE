@@ -168,6 +168,8 @@ jobs:
 
           curl --fail --silent http://127.0.0.1:3000/ > /tmp/psp-home.html
           grep -q 'data-public-chapter-feed-version="global-chapter-feed-v2"' /tmp/psp-home.html
+          grep -q 'data-public-feed-design-version="homepage-cards-v1"' /tmp/psp-home.html
+          grep -q 'Public PSP Updates' /tmp/psp-home.html
           grep -q 'CI Alpha Public Update' /tmp/psp-home.html
           if grep -q 'CI Alpha Private Update' /tmp/psp-home.html; then
             echo 'Private Chapter announcement leaked into the public homepage.' >&2
