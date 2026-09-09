@@ -154,6 +154,8 @@ jobs:
 
           assert_contains home-brand 'Psi Sigma Phi' /tmp/psp-home.html
           assert_contains public-feed-marker 'data-public-chapter-feed-version="global-chapter-feed-v2"' /tmp/psp-home.html
+          assert_contains public-feed-design 'data-public-feed-design-version="homepage-cards-v1"' /tmp/psp-home.html
+          assert_contains public-feed-heading 'Public PSP Updates' /tmp/psp-home.html
           assert_contains manifest-start-url '"start_url"' /tmp/psp-manifest.json
           assert_contains manifest-stable-id '"id":"/"' /tmp/psp-manifest.json
           assert_contains registration-mobile-checkbox 'data-registration-acknowledgement-version="mobile-checkbox-v1"' /tmp/psp-register.html
