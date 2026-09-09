@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Status = "DRAFT" | "ACTIVE" | "CLOSED" | "CANCELLED";
@@ -44,29 +44,28 @@ export function AssessmentActions({ assessment }: { assessment: AssessmentAction
   const [details, setDetails] = useState<BillDetails | null>(null);
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (!open || details || busy === "load") return;
-    let cancelled = false;
+  async function loadDetails() {
+    if (details || busy === "load") return;
     setBusy("load");
     setMessage(null);
-    fetch(`/api/admin/finance/assessments/${assessment.id}`, { headers: { Accept: "application/json" }, cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload.message ?? "Unable to load bill details.");
-        if (cancelled) return;
-        setDetails(payload);
-        setSelectedMemberIds(new Set(payload.chargedMemberIds ?? []));
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : "Unable to load bill details.");
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [assessment.id, busy, details, open]);
+    try {
+      const response = await fetch(`/api/admin/finance/assessments/${assessment.id}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message ?? "Unable to load bill details.");
+      setDetails(payload);
+      setSelectedMemberIds(new Set(payload.chargedMemberIds ?? []));
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : "Unable to load bill details.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function toggleOpen() {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (nextOpen) void loadDetails();
+  }
 
   function toggleMember(memberId: string) {
     setSelectedMemberIds((current) => {
@@ -138,7 +137,7 @@ export function AssessmentActions({ assessment }: { assessment: AssessmentAction
 
   return (
     <div className="admin-table-actions" data-assessment-editor-version="full-panel-v1">
-      <button type="button" className="btn" onClick={() => setOpen((value) => !value)} disabled={busy === "delete"} style={{ border: "1px solid #ddd5c1", background: "#fff" }}>
+      <button type="button" className="btn" onClick={toggleOpen} disabled={busy === "delete"} style={{ border: "1px solid #ddd5c1", background: "#fff" }}>
         {open ? "Close" : "Edit"}
       </button>
       <button type="button" className="btn" onClick={remove} disabled={busy !== null || assessment.status === "CANCELLED"} style={{ border: "1px solid #f0b4aa", background: "#fff1f0", color: "#8b1e1e" }}>
