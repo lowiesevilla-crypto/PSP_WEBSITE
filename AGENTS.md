@@ -20,8 +20,8 @@
 - Liveness: `/api/health`.
 - Readiness: `/api/health/ready`.
 - Every production-significant release uses a new exact release/deployment-generation marker.
-- Current hardening target: `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`.
-- r15 capability markers: `billingDuesVersion=chapter-national-v1` and `splitPaymentContractVersion=linked-split-e2e-v1`.
+- Current hardening target: `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`.
+- r16 capability markers: `billingDuesVersion=chapter-national-v1`, `splitPaymentContractVersion=linked-split-e2e-v1`, `paymentAssignmentVersion=chapter-selected-member-v1`, and `publicFeedVersion=global-chapter-feed-v2`.
 
 ## 3. Roles, Authorization & Chapter Isolation
 
@@ -169,6 +169,8 @@ Supported categories: `DUES`, `CONTRIBUTION`, `OTHER`.
 - Chapter billing requires exact `finance.manage` authority for the selected Chapter.
 - National dues require national-scoped `finance.manage`; Chapter Admin attempts to use National billing fail closed.
 - National dues fan out to active Chapters while preserving Chapter-specific assessments and member ledger entries.
+- National/System Admin may target one Chapter, selected Chapters, selected active members, or all active Chapters for dues/contribution/required-payment assessments according to exact `finance.manage` authority.
+- Chapter Admin may target only their authorized Chapter or selected active members inside that Chapter.
 - National/multi-Chapter administrators must explicitly select a Chapter for Chapter-scoped rates/assessments; the UI must not silently choose the first Chapter.
 - Billing duplicate detection must be enforced inside an atomic database transaction so overlapping equivalent requests cannot create duplicate charges.
 - PSP finance civil dates are interpreted in `Asia/Manila` (UTC+08:00) before UTC persistence, independent of the administrator browser timezone.
@@ -290,9 +292,21 @@ Design for Philippine privacy obligations: purpose limitation, minimization, acc
 - Missing/malformed/stale/timed-out dependency audit evidence is not a clean audit.
 - Email/payment/passkey/device/QR/backup/authenticated production state-changing gates require real evidence; source/public smoke alone cannot close them.
 
-## 18. Current Delivery Baseline — r15 Dues Billing & Split-Payment Hotfix
+## 18. Current Delivery Baseline — r16 Payment Assignment & Public Feed Hotfix
 
-Active release program: PR #48, branch `hotfix/dues-billing-split-e2e-2026-09-07`, target `2026-09-07-r15 / 2026-09-07-dues-billing-split-v1`.
+Active release program: branch `fix/payment-methods-and-member-totals-20260908`, target `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`.
+
+r16 adds to the prior r15/r14 hardening baseline:
+
+- Admin Finance assignment targets for one Chapter, selected Chapters, selected active members, and all active Chapters;
+- selected-member payment notifications limited to the intended selected users;
+- member payment UI renders only the Chapter-enabled PayMongo methods;
+- member payment totals use complete-history aggregates rather than the capped recent list;
+- public homepage announcement/event feeds fail independently so one feed query cannot blank the entire public updates section;
+- Event Admin copy explicitly states that published events appear on the public PSP website;
+- exact r16 health and production-smoke markers for payment assignment and public feed hardening.
+
+PR #48 / r15 has merged into `main`, but production evidence after rerun still showed `2026-09-06-r14 / 2026-09-06-platform-hardening-v1` at `/api/health`. Do not call r15 or r16 production-proven until Hostinger exposes the exact current release identity and the post-merge production smokes pass unchanged.
 
 r15 adds to the prior r14 hardening baseline:
 
