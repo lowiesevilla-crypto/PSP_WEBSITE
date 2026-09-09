@@ -14,6 +14,8 @@ PR #48, **Chapter/National dues billing and split-payment E2E**, has merged into
 
 The current r16 patch extends the payment workflow to match the product requirement more directly: Finance Admin can assign dues/contribution/required-payment assessments to one Chapter, selected Chapters, selected active members, or all active Chapters; members see payable items and pay online through the configured Chapter PayMongo linked account; receipts remain webhook-generated and visible to members/admins.
 
+PR #49 CI first failed at the fail-closed high-severity dependency audit because `nodemailer <=9.1.0` is now covered by high advisories. The r16 branch updates the direct `nodemailer` dependency to `9.1.1`; this must pass the unchanged audit gate before merge.
+
 The release identity has been advanced to:
 
 - release: `2026-09-09-r16`
