@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const SERVER_TO_SERVER_PATHS = new Set(["/api/webhooks/paymongo"]);
 const CANONICAL_PRODUCTION_ORIGIN = "https://psp.hoahub.tech";
+const PUBLIC_HOME_FRESHNESS_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0",
+  Pragma: "no-cache",
+  Expires: "0",
+};
 
 function trustedOrigins(request: NextRequest) {
   const origins = new Set<string>([CANONICAL_PRODUCTION_ORIGIN]);
@@ -23,6 +28,12 @@ function trustedOrigins(request: NextRequest) {
 }
 
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/" && SAFE_METHODS.has(request.method)) {
+    const response = NextResponse.next();
+    for (const [key, value] of Object.entries(PUBLIC_HOME_FRESHNESS_HEADERS)) response.headers.set(key, value);
+    return response;
+  }
+
   if (SAFE_METHODS.has(request.method)) return NextResponse.next();
   if (SERVER_TO_SERVER_PATHS.has(request.nextUrl.pathname)) return NextResponse.next();
 
@@ -48,5 +59,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/", "/api/:path*"],
 };
