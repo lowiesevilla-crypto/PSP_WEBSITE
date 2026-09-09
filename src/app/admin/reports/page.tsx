@@ -3,6 +3,7 @@ import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { php } from "@/lib/finance/ledger";
 import { Prisma } from "@prisma/client";
+import { SPLIT_PAYMENT_AUDIT_ACTION, splitAmountsFromMetadata } from "@/lib/paymongo/split-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,31 @@ export default async function AdminReportsPage() {
     }),
     prisma.member.findMany({ where: { ...memberWhere, membershipStatus: "ACTIVE" }, select: { id: true, chapterId: true } }),
     prisma.membershipApplication.findMany({ where: applicationWhere, select: { id: true, chapterId: true, status: true, submittedAt: true } }),
-    prisma.payment.findMany({ where: paymentWhere, select: { id: true, chapterId: true, amount: true, status: true, createdAt: true, paidAt: true } }),
+    prisma.payment.findMany({ where: { ...paymentWhere, status: "PAID" }, select: { id: true, chapterId: true, amount: true, status: true, createdAt: true, paidAt: true } }),
     prisma.certificate.findMany({ where: scope === null ? undefined : { chapterId: { in: scope } }, select: { id: true, chapterId: true, status: true } }),
     prisma.event.findMany({ where: scope === null ? undefined : { OR: [{ chapterId: null }, { chapterId: { in: scope } }] }, select: { id: true, chapterId: true, status: true, startsAt: true } }),
   ]);
+  const paymentSplitAudits = payments.length ? await prisma.auditLog.findMany({
+    where: {
+      action: SPLIT_PAYMENT_AUDIT_ACTION,
+      entityType: "Payment",
+      entityId: { in: payments.map((payment) => payment.id) },
+    },
+    select: { entityId: true, metadataJson: true },
+    orderBy: { createdAt: "desc" },
+  }) : [];
 
-  const paidTotal = payments.filter((payment) => payment.status === "PAID").reduce((sum, payment) => sum.plus(payment.amount), new Prisma.Decimal(0));
-  const pendingTotal = payments.filter((payment) => payment.status === "PENDING" || payment.status === "PROCESSING").reduce((sum, payment) => sum.plus(payment.amount), new Prisma.Decimal(0));
+  const splitByPaymentId = new Map<string, unknown>();
+  for (const audit of paymentSplitAudits) {
+    if (audit.entityId && !splitByPaymentId.has(audit.entityId)) splitByPaymentId.set(audit.entityId, audit.metadataJson);
+  }
+  let paidTotal = new Prisma.Decimal(0);
+  let convenienceFeeTotal = new Prisma.Decimal(0);
+  for (const payment of payments) {
+    const split = splitAmountsFromMetadata(splitByPaymentId.get(payment.id), payment.amount);
+    paidTotal = paidTotal.plus(split.chapterAmount);
+    convenienceFeeTotal = convenienceFeeTotal.plus(split.platformFee);
+  }
   const pendingApplications = applications.filter((item) => ["SUBMITTED", "UNDER_REVIEW", "CORRECTION_REQUIRED", "PENDING_REQUIREMENTS"].includes(item.status)).length;
   const validCertificates = certificates.filter((item) => item.status === "VALID").length;
   const upcomingEvents = events.filter((event) => event.status === "PUBLISHED" && event.startsAt > new Date()).length;
@@ -38,9 +57,16 @@ export default async function AdminReportsPage() {
   const chapterRows = chapters.map((chapter) => {
     const members = activeMembers.filter((member) => member.chapterId === chapter.id).length;
     const apps = applications.filter((item) => item.chapterId === chapter.id).length;
-    const paid = payments.filter((payment) => payment.chapterId === chapter.id && payment.status === "PAID").reduce((sum, payment) => sum.plus(payment.amount), new Prisma.Decimal(0));
-    const pending = payments.filter((payment) => payment.chapterId === chapter.id && (payment.status === "PENDING" || payment.status === "PROCESSING")).reduce((sum, payment) => sum.plus(payment.amount), new Prisma.Decimal(0));
-    return { chapter, members, apps, paid, pending };
+    let paid = new Prisma.Decimal(0);
+    let fees = new Prisma.Decimal(0);
+    let successfulPayments = 0;
+    for (const payment of payments.filter((item) => item.chapterId === chapter.id)) {
+      const split = splitAmountsFromMetadata(splitByPaymentId.get(payment.id), payment.amount);
+      paid = paid.plus(split.chapterAmount);
+      fees = fees.plus(split.platformFee);
+      successfulPayments += 1;
+    }
+    return { chapter, members, apps, paid, fees, successfulPayments };
   });
 
   return (
@@ -54,8 +80,9 @@ export default async function AdminReportsPage() {
         <section className="admin-stat-grid">
           <Metric label="Active Members" value={activeMembers.length.toLocaleString()} />
           <Metric label="Pending Applications" value={pendingApplications.toLocaleString()} />
-          <Metric label="Confirmed Collections" value={php(paidTotal)} />
-          <Metric label="Pending Payments" value={php(pendingTotal)} />
+          <Metric label="Successful Payments" value={payments.length.toLocaleString("en-PH")} />
+          <Metric label="Total Collected" value={php(paidTotal)} />
+          <Metric label="Convenience Fees Collected" value={php(convenienceFeeTotal)} />
           <Metric label="Valid Certificates" value={validCertificates.toLocaleString()} />
           <Metric label="Upcoming Events" value={upcomingEvents.toLocaleString()} />
         </section>
@@ -69,8 +96,9 @@ export default async function AdminReportsPage() {
                 <th align="left">Status</th>
                 <th align="right">Active Members</th>
                 <th align="right">Applications</th>
-                <th align="right">Collected</th>
-                <th align="right">Pending Payments</th>
+                <th align="right">Successful Payments</th>
+                <th align="right">Total Collected</th>
+                <th align="right">Convenience Fees</th>
               </tr>
             </thead>
             <tbody>
@@ -80,8 +108,9 @@ export default async function AdminReportsPage() {
                   <td data-label="Status">{row.chapter.status}</td>
                   <td data-label="Active Members" align="right">{row.members}</td>
                   <td data-label="Applications" align="right">{row.apps}</td>
-                  <td data-label="Collected" align="right">{php(row.paid)}</td>
-                  <td data-label="Pending Payments" align="right">{php(row.pending)}</td>
+                  <td data-label="Successful Payments" align="right">{row.successfulPayments}</td>
+                  <td data-label="Total Collected" align="right">{php(row.paid)}</td>
+                  <td data-label="Convenience Fees" align="right">{php(row.fees)}</td>
                 </tr>
               ))}
             </tbody>
@@ -91,7 +120,7 @@ export default async function AdminReportsPage() {
         <section className="app-panel" style={{ marginTop: 18 }}>
           <h2>Report Integrity</h2>
           <p style={{ color: "#6b665c", lineHeight: 1.6 }}>
-            All figures are derived from the authoritative membership, payment, certificate, and event records within your permitted chapter scope. Posted financial history is not silently deleted; reversals and refunds remain traceable.
+            Collection figures include successful PAID payments only. Cancelled, failed, pending, processing, refunded, and deleted bill records are excluded from collection totals so reports do not overstate PSP money collected.
           </p>
         </section>
       </div>
