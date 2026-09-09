@@ -235,13 +235,20 @@ async function main() {
     await waitForApp();
 
     const chapterAdminCookie = await login(CHAPTER_ADMIN_EMAIL, CHAPTER_ADMIN_PASSWORD);
-    const adminFinance = await request("/admin/finance", chapterAdminCookie);
+    const chapterBillsView = await request("/admin/finance", chapterAdminCookie);
+    const chapterBillsHtml = await chapterBillsView.text();
+    assert(chapterBillsView.status === 200, `Chapter Admin finance page returned ${chapterBillsView.status}.`);
+    assert(chapterBillsHtml.includes('data-finance-simple-layout-version="separate-registers-v1"'), "Chapter Admin finance page is missing the separated Created Bills view.");
+    assert(chapterBillsHtml.includes("Created Bills") && chapterBillsHtml.includes("Create Bill") && chapterBillsHtml.includes("PayMongo Setup"), "Chapter Admin finance page does not expose separate Finance views.");
+
+    const adminFinance = await request("/admin/finance?view=create", chapterAdminCookie);
     const adminFinanceHtml = await adminFinance.text();
-    assert(adminFinance.status === 200, `Chapter Admin finance page returned ${adminFinance.status}.`);
-    assert(adminFinanceHtml.includes('data-dues-billing-version="chapter-national-v1"'), "Chapter Admin finance page is missing the dedicated dues billing workflow.");
-    assert(adminFinanceHtml.includes("Create Dues / Bill"), "Chapter Admin finance page does not expose Create Dues / Bill.");
-    assert(adminFinanceHtml.includes("CI Alpha Chapter"), "Chapter Admin finance page does not expose its authorized Chapter.");
-    assert(!adminFinanceHtml.includes("CI Beta Chapter"), "Chapter Admin finance page leaked a foreign Chapter.");
+    assert(adminFinance.status === 200, `Chapter Admin create bill page returned ${adminFinance.status}.`);
+    assert(adminFinanceHtml.includes('data-finance-simple-layout-version="separate-create-bill-v1"'), "Chapter Admin create bill view is missing.");
+    assert(adminFinanceHtml.includes('data-dues-billing-version="chapter-national-v1"'), "Chapter Admin create bill view is missing the dedicated dues billing workflow.");
+    assert(adminFinanceHtml.includes("Create Dues / Bill"), "Chapter Admin create bill view does not expose Create Dues / Bill.");
+    assert(adminFinanceHtml.includes("CI Alpha Chapter"), "Chapter Admin create bill view does not expose its authorized Chapter.");
+    assert(!adminFinanceHtml.includes("CI Beta Chapter"), "Chapter Admin create bill view leaked a foreign Chapter.");
 
     const chapterBill = await request("/api/admin/finance/assessments", chapterAdminCookie, {
       method: "POST",
@@ -264,6 +271,12 @@ async function main() {
     assert(chapterCharge?.amount.toFixed(2) === "100.00", "Chapter member did not receive the ₱100 dues charge.");
     assert(!(await prisma.memberLedgerEntry.findFirst({ where: { memberId: fixtures.betaMember.id, assessmentId: chapterAssessmentId } })), "Chapter dues leaked into a foreign Chapter.");
 
+    const postedBillsView = await request("/admin/finance?view=assessments", chapterAdminCookie);
+    const postedBillsHtml = await postedBillsView.text();
+    assert(postedBillsView.status === 200, `Chapter Admin Created Bills view returned ${postedBillsView.status}.`);
+    assert(postedBillsHtml.includes(CHAPTER_DUES_TITLE), "Created Bills view does not show the newly posted Primary Bill.");
+    assert(postedBillsHtml.includes("Edit") && postedBillsHtml.includes("Delete"), "Created Bills view does not expose Edit/Delete actions.");
+
     const blockedNational = await request("/api/admin/finance/assessments", chapterAdminCookie, {
       method: "POST",
       body: JSON.stringify({ billingScope: "NATIONAL", assessmentTypeCode: "NATIONAL_DUES", title: "CI E2E Escalation Attempt", amount: 50 }),
@@ -271,9 +284,9 @@ async function main() {
     assert(blockedNational.status === 403, `Chapter Admin National billing escalation should be 403, received ${blockedNational.status}.`);
 
     const nationalAdminCookie = await login(NATIONAL_ADMIN_EMAIL, NATIONAL_ADMIN_PASSWORD);
-    const nationalFinance = await request("/admin/finance", nationalAdminCookie);
+    const nationalFinance = await request("/admin/finance?view=create", nationalAdminCookie);
     const nationalFinanceHtml = await nationalFinance.text();
-    assert(nationalFinance.status === 200, `National Admin finance page returned ${nationalFinance.status}.`);
+    assert(nationalFinance.status === 200, `National Admin create bill page returned ${nationalFinance.status}.`);
     assert(nationalFinanceHtml.includes("National · all active Chapters"), "National Admin billing UI is missing National scope.");
     assert(nationalFinanceHtml.includes("CI Alpha Chapter") && nationalFinanceHtml.includes("CI Beta Chapter"), "National Admin cannot see all active CI Chapters.");
 
