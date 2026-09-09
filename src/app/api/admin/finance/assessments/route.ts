@@ -6,8 +6,10 @@ import { notifyChapterMembers } from "@/lib/notifications/service";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
-  billingScope: z.enum(["CHAPTER", "NATIONAL"]).optional().default("CHAPTER"),
+  billingScope: z.enum(["CHAPTER", "NATIONAL", "SELECTED_CHAPTERS", "MEMBERS"]).optional().default("CHAPTER"),
   chapterId: z.string().min(1).optional().nullable(),
+  chapterIds: z.array(z.string().min(1)).max(500).optional(),
+  memberIds: z.array(z.string().min(1)).max(5000).optional(),
   assessmentTypeCode: z.string().trim().min(1).max(80),
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).optional().nullable(),
@@ -38,15 +40,24 @@ export async function POST(request: Request) {
 
     const input = parsed.data;
     const isNational = input.billingScope === "NATIONAL";
+    const isSelectedChapters = input.billingScope === "SELECTED_CHAPTERS";
+    const isSelectedMembers = input.billingScope === "MEMBERS";
+    const requestedChapterIds = Array.from(new Set(input.chapterIds ?? []));
+    const requestedMemberIds = Array.from(new Set(input.memberIds ?? []));
     if (isNational) {
       if (!hasPermission(context, "finance.manage", null)) {
         return NextResponse.json({ message: "National finance management permission is required." }, { status: 403 });
       }
-      if (input.assessmentTypeCode !== "NATIONAL_DUES") {
-        return NextResponse.json({ message: "National billing must use the National Dues assessment type." }, { status: 400 });
+    } else if (isSelectedChapters) {
+      if (!hasPermission(context, "finance.manage", null)) {
+        return NextResponse.json({ message: "National finance management permission is required to bill selected Chapters." }, { status: 403 });
       }
-      if (input.amount === undefined) {
-        return NextResponse.json({ message: "National dues require an explicit amount." }, { status: 400 });
+      if (requestedChapterIds.length === 0) {
+        return NextResponse.json({ message: "Select at least one Chapter to bill." }, { status: 400 });
+      }
+    } else if (isSelectedMembers) {
+      if (requestedMemberIds.length === 0) {
+        return NextResponse.json({ message: "Select at least one member to bill." }, { status: 400 });
       }
     } else {
       if (!input.chapterId) {
@@ -67,22 +78,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Coverage end cannot be before coverage start." }, { status: 400 });
     }
 
-    const targetChapters = isNational
-      ? await prisma.chapters.findMany({
-          where: { status: "ACTIVE" },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true },
+    const selectedMembers = isSelectedMembers
+      ? await prisma.member.findMany({
+          where: { id: { in: requestedMemberIds }, membershipStatus: "ACTIVE" },
+          select: { id: true, chapterId: true, userId: true, firstName: true, lastName: true, membershipNo: true },
         })
-      : await prisma.chapters.findMany({
-          where: { id: input.chapterId as string, status: "ACTIVE" },
-          select: { id: true, name: true },
-        });
+      : [];
+    if (isSelectedMembers) {
+      if (selectedMembers.length !== requestedMemberIds.length) {
+        return NextResponse.json({ message: "One or more selected members are not active or could not be found." }, { status: 404 });
+      }
+      const unauthorizedMember = selectedMembers.find((member) => !hasPermission(context, "finance.manage", member.chapterId));
+      if (unauthorizedMember) {
+        return NextResponse.json({ message: "Finance management permission is required for every selected member Chapter." }, { status: 403 });
+      }
+    }
+
+    const selectedMemberChapterIds = Array.from(new Set(selectedMembers.map((member) => member.chapterId)));
+    const targetChapterWhere = isNational
+      ? { status: "ACTIVE" as const }
+      : isSelectedChapters
+        ? { id: { in: requestedChapterIds }, status: "ACTIVE" as const }
+        : isSelectedMembers
+          ? { id: { in: selectedMemberChapterIds }, status: "ACTIVE" as const }
+          : { id: input.chapterId as string, status: "ACTIVE" as const };
+    const targetChapters = await prisma.chapters.findMany({
+      where: targetChapterWhere,
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
 
     if (targetChapters.length === 0) {
       return NextResponse.json(
-        { message: isNational ? "No active Chapters are available for National billing." : "Selected Chapter is not active." },
+        { message: isNational ? "No active Chapters are available for National billing." : "Selected Chapter target is not active." },
         { status: 400 },
       );
+    }
+    if (isSelectedChapters && targetChapters.length !== requestedChapterIds.length) {
+      return NextResponse.json({ message: "One or more selected Chapters are not active or could not be found." }, { status: 404 });
     }
 
     const targetIds = targetChapters.map((chapter) => chapter.id);
@@ -115,11 +148,13 @@ export async function POST(request: Request) {
       amountByChapter.set(chapter.id, rate.amount);
     }
 
-    const members = await prisma.member.findMany({
-      where: { chapterId: { in: targetIds }, membershipStatus: "ACTIVE" },
-      select: { id: true, chapterId: true },
-    });
-    const membersByChapter = new Map<string, Array<{ id: string }>>();
+    const members = isSelectedMembers
+      ? selectedMembers.map((member) => ({ id: member.id, chapterId: member.chapterId, userId: member.userId }))
+      : await prisma.member.findMany({
+          where: { chapterId: { in: targetIds }, membershipStatus: "ACTIVE" },
+          select: { id: true, chapterId: true, userId: true },
+        });
+    const membersByChapter = new Map<string, Array<{ id: string; userId: string }>>();
     for (const member of members) {
       const list = membersByChapter.get(member.chapterId) ?? [];
       list.push({ id: member.id });
@@ -145,7 +180,7 @@ export async function POST(request: Request) {
         throw new DuplicateAssessmentError(duplicates.map((item) => item.chapter.name));
       }
 
-      const results: Array<{ id: string; chapterId: string; chapterName: string; amount: string; chargedMembers: number }> = [];
+      const results: Array<{ id: string; chapterId: string; chapterName: string; amount: string; chargedMembers: number; targetUserIds: string[] }> = [];
 
       for (const chapter of targetChapters) {
         const amount = amountByChapter.get(chapter.id);
@@ -190,6 +225,7 @@ export async function POST(request: Request) {
             entityId: assessment.id,
             afterJson: {
               billingScope: input.billingScope,
+              targetMemberIds: isSelectedMembers ? chapterMembers.map((member) => member.id) : undefined,
               type: type.code,
               title: assessment.title,
               amount: amount.toFixed(2),
@@ -207,6 +243,7 @@ export async function POST(request: Request) {
           chapterName: chapter.name,
           amount: amount.toFixed(2),
           chargedMembers: chapterMembers.length,
+          targetUserIds: chapterMembers.map((member) => member.userId),
         });
       }
 
@@ -217,15 +254,27 @@ export async function POST(request: Request) {
       timeout: 60_000,
     });
 
-    await Promise.allSettled(
-      created.map((assessment) => notifyChapterMembers({
-        chapterId: assessment.chapterId,
-        type: "PAYMENT",
-        title: isNational ? "New National dues" : "New Chapter dues / assessment",
-        body: `${input.title} — ₱${assessment.amount}`,
-        href: "/payments",
-      })),
-    );
+    if (isSelectedMembers) {
+      await prisma.notification.createMany({
+        data: created.flatMap((assessment) => assessment.targetUserIds.map((userId) => ({
+          userId,
+          type: "PAYMENT" as const,
+          title: "New assigned payment",
+          body: `${input.title} — ₱${assessment.amount}`,
+          href: "/payments",
+        }))),
+      });
+    } else {
+      await Promise.allSettled(
+        created.map((assessment) => notifyChapterMembers({
+          chapterId: assessment.chapterId,
+          type: "PAYMENT",
+          title: isNational ? "New National dues" : "New Chapter dues / assessment",
+          body: `${input.title} — ₱${assessment.amount}`,
+          href: "/payments",
+        })),
+      );
+    }
 
     const chargedMembers = created.reduce((sum, item) => sum + item.chargedMembers, 0);
     return NextResponse.json(
