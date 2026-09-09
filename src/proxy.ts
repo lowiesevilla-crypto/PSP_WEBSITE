@@ -3,6 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const SERVER_TO_SERVER_PATHS = new Set(["/api/webhooks/paymongo"]);
 const CANONICAL_PRODUCTION_ORIGIN = "https://psp.hoahub.tech";
+const CURRENT_HOME_STYLESHEET = "/_next/static/chunks/2jxq2xjhz6ncd.css";
+const STALE_HOME_STYLESHEETS = new Set([
+  "/_next/static/chunks/1ww1zz_wwbevi.css",
+  "/_next/static/chunks/3o6mo4ilw69rq.css",
+]);
 const PUBLIC_HOME_FRESHNESS_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0",
   Pragma: "no-cache",
@@ -28,6 +33,12 @@ function trustedOrigins(request: NextRequest) {
 }
 
 export function proxy(request: NextRequest) {
+  if (STALE_HOME_STYLESHEETS.has(request.nextUrl.pathname) && SAFE_METHODS.has(request.method)) {
+    const url = request.nextUrl.clone();
+    url.pathname = CURRENT_HOME_STYLESHEET;
+    return NextResponse.rewrite(url);
+  }
+
   if (request.nextUrl.pathname === "/" && SAFE_METHODS.has(request.method)) {
     const response = NextResponse.next();
     for (const [key, value] of Object.entries(PUBLIC_HOME_FRESHNESS_HEADERS)) response.headers.set(key, value);
@@ -59,5 +70,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/api/:path*"],
+  matcher: ["/", "/api/:path*", "/_next/static/chunks/:path*.css"],
 };

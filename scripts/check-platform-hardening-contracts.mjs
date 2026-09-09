@@ -164,7 +164,8 @@ assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation i
 assert(publicPage.includes("Public announcement feed unavailable") && publicPage.includes("Public event feed unavailable"), "Public homepage announcements and events must fail independently instead of crashing the whole feed.");
 assert(eventManager.includes("public PSP website"), "Event Admin UI must clearly explain that published events appear on the public PSP website.");
 assert(healthRoute.includes('publicFeedVersion: "global-chapter-feed-v2"'), "Health marker for public feed hardening is missing.");
-assert(proxyRoute.includes('matcher: ["/", "/api/:path*"]') && proxyRoute.includes("PUBLIC_HOME_FRESHNESS_HEADERS"), "Public homepage must pass through the no-store freshness guard.");
+assert(proxyRoute.includes('"/"') && proxyRoute.includes('"/api/:path*"') && proxyRoute.includes("PUBLIC_HOME_FRESHNESS_HEADERS"), "Public homepage must pass through the no-store freshness guard.");
+assert(proxyRoute.includes("STALE_HOME_STYLESHEETS") && proxyRoute.includes("NextResponse.rewrite") && proxyRoute.includes('"/_next/static/chunks/:path*.css"'), "Stale homepage CSS chunk requests must be rewritten instead of rendering unstyled cached pages.");
 assert(announcementRoute.includes("isPublic: z.boolean().optional().default(false)"), "Announcement API does not default public visibility to false.");
 assert(announcementRoute.includes("isPublic: input.isPublic"), "Announcement API does not persist explicit public visibility.");
 assert(announcementManager.includes('name="isPublic"'), "Announcement Admin UI lacks explicit public publication control.");
