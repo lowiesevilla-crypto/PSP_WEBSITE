@@ -4,8 +4,9 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface Option { id: string; name: string }
+interface MemberOption { id: string; name: string; membershipNo: string; chapterId: string; chapterName: string }
 interface AssessmentTypeOption { code: string; name: string }
-type BillingScope = "CHAPTER" | "NATIONAL";
+type BillingScope = "CHAPTER" | "NATIONAL" | "SELECTED_CHAPTERS" | "MEMBERS";
 
 const PSP_TIMEZONE_OFFSET = "+08:00";
 
@@ -23,9 +24,10 @@ function phtDateTimeIso(value: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option[]; assessmentTypes: AssessmentTypeOption[] }) {
+export function FinanceManager({ chapters, activeMembers, assessmentTypes }: { chapters: Option[]; activeMembers: MemberOption[]; assessmentTypes: AssessmentTypeOption[] }) {
   const router = useRouter();
   const [billingScope, setBillingScope] = useState<BillingScope>("CHAPTER");
+  const [assessmentScope, setAssessmentScope] = useState<BillingScope>("CHAPTER");
   const [duesMessage, setDuesMessage] = useState<string | null>(null);
   const [rateMessage, setRateMessage] = useState<string | null>(null);
   const [assessmentMessage, setAssessmentMessage] = useState<string | null>(null);
@@ -53,6 +55,8 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         body: JSON.stringify({
           billingScope,
           chapterId: billingScope === "CHAPTER" ? String(form.get("chapterId") || "") : null,
+          chapterIds: billingScope === "SELECTED_CHAPTERS" ? form.getAll("chapterIds").map(String) : undefined,
+          memberIds: billingScope === "MEMBERS" ? form.getAll("memberIds").map(String) : undefined,
           assessmentTypeCode: billingScope === "NATIONAL" ? "NATIONAL_DUES" : "MONTHLY_DUES",
           title: String(form.get("title") || ""),
           description: String(form.get("description") || "") || null,
@@ -66,6 +70,10 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
       if (response.ok) {
         const message = billingScope === "NATIONAL"
           ? `National dues posted to ${payload.chargedMembers ?? 0} active member(s) across ${payload.chaptersCharged ?? 0} Chapter(s).`
+          : billingScope === "SELECTED_CHAPTERS"
+            ? `Dues posted to ${payload.chargedMembers ?? 0} active member(s) across ${payload.chaptersCharged ?? 0} selected Chapter(s).`
+            : billingScope === "MEMBERS"
+              ? `Dues posted to ${payload.chargedMembers ?? 0} selected member(s).`
           : `Chapter dues posted to ${payload.chargedMembers ?? 0} active member(s).`;
         setDuesMessage(message);
         formElement.reset();
@@ -126,8 +134,10 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          billingScope: "CHAPTER",
-          chapterId: String(form.get("chapterId") || ""),
+          billingScope: assessmentScope,
+          chapterId: assessmentScope === "CHAPTER" ? String(form.get("chapterId") || "") : null,
+          chapterIds: assessmentScope === "SELECTED_CHAPTERS" ? form.getAll("chapterIds").map(String) : undefined,
+          memberIds: assessmentScope === "MEMBERS" ? form.getAll("memberIds").map(String) : undefined,
           assessmentTypeCode: String(form.get("assessmentTypeCode") || ""),
           title: String(form.get("title") || ""),
           description: String(form.get("description") || "") || null,
@@ -138,7 +148,7 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      setAssessmentMessage(response.ok ? `Assessment posted to ${payload.chargedMembers ?? 0} active member(s).` : payload.message ?? "Unable to post assessment.");
+      setAssessmentMessage(response.ok ? `Assessment posted to ${payload.chargedMembers ?? 0} intended member(s) across ${payload.chaptersCharged ?? 0} Chapter target(s).` : payload.message ?? "Unable to post assessment.");
       if (response.ok) {
         formElement.reset();
         router.refresh();
@@ -152,6 +162,13 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
 
   const chapterOptions = chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>);
   const typeOptions = assessmentTypes.map((type) => <option key={type.code} value={type.code}>{type.name}</option>);
+  const memberOptions = activeMembers.map((member) => <option key={member.id} value={member.id}>{member.name} · {member.membershipNo} · {member.chapterName}</option>);
+  const chapterCheckboxes = chapters.map((chapter) => (
+    <label key={chapter.id} style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", border: "1px solid #ddd5c1", borderRadius: 12 }}>
+      <input type="checkbox" name="chapterIds" value={chapter.id} style={{ width: "auto" }} />
+      {chapter.name}
+    </label>
+  ));
 
   return (
     <div style={{ display: "grid", gap: 18 }}>
@@ -167,11 +184,13 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
           <label>Billing Scope
             <select value={billingScope} onChange={(event) => setBillingScope(event.target.value as BillingScope)}>
               <option value="CHAPTER">Specific Chapter</option>
+              <option value="SELECTED_CHAPTERS">Selected Chapters</option>
+              <option value="MEMBERS">Selected Members</option>
               <option value="NATIONAL">National · all active Chapters (National Admin only)</option>
             </select>
           </label>
           <label>Chapter
-            <select name="chapterId" defaultValue={defaultChapterId} disabled={billingScope === "NATIONAL"} required={billingScope === "CHAPTER"}>
+            <select name="chapterId" defaultValue={defaultChapterId} disabled={billingScope !== "CHAPTER"} required={billingScope === "CHAPTER"}>
               <option value="">Select Chapter</option>
               {chapterOptions}
             </select>
@@ -185,6 +204,8 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
         </div>
         <label>Bill Title<input name="title" required maxLength={200} placeholder={billingScope === "NATIONAL" ? "Example: National Dues - September 2026" : "Example: Chapter Monthly Dues - September 2026"} /></label>
         <label>Description<textarea name="description" rows={2} maxLength={2000} placeholder="Optional billing description or remarks" /></label>
+        {billingScope === "SELECTED_CHAPTERS" ? <div style={{ display: "grid", gap: 8 }}><strong>Selected Chapters</strong><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>{chapterCheckboxes}</div></div> : null}
+        {billingScope === "MEMBERS" ? <label>Selected Members<select name="memberIds" multiple required size={Math.min(8, Math.max(3, activeMembers.length))}>{memberOptions}</select><small style={{ color: "#6b665c" }}>Hold Ctrl/Command to select multiple members.</small></label> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
           <label>Coverage From<input name="coverageStart" type="date" /></label>
           <label>Coverage To<input name="coverageEnd" type="date" /></label>
@@ -207,7 +228,18 @@ export function FinanceManager({ chapters, assessmentTypes }: { chapters: Option
 
         <form className="app-panel" onSubmit={submitAssessment} style={{ display: "grid", gap: 12 }}>
           <h2 style={{ margin: 0 }}>Other Assessment / Collection</h2>
-          <label>Chapter<select name="chapterId" defaultValue={defaultChapterId} required><option value="">Select chapter</option>{chapterOptions}</select></label>
+          <p style={{ margin: 0, color: "#6b665c", lineHeight: 1.45 }}>Post a contribution, special assessment, event collection, donation, or required payment to one Chapter, selected Chapters, or selected members.</p>
+          <label>Target
+            <select value={assessmentScope} onChange={(event) => setAssessmentScope(event.target.value as BillingScope)}>
+              <option value="CHAPTER">Specific Chapter</option>
+              <option value="SELECTED_CHAPTERS">Selected Chapters</option>
+              <option value="MEMBERS">Selected Members</option>
+              <option value="NATIONAL">National · all active Chapters</option>
+            </select>
+          </label>
+          <label>Chapter<select name="chapterId" defaultValue={defaultChapterId} disabled={assessmentScope !== "CHAPTER"} required={assessmentScope === "CHAPTER"}><option value="">Select chapter</option>{chapterOptions}</select></label>
+          {assessmentScope === "SELECTED_CHAPTERS" ? <div style={{ display: "grid", gap: 8 }}><strong>Selected Chapters</strong><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8 }}>{chapterCheckboxes}</div></div> : null}
+          {assessmentScope === "MEMBERS" ? <label>Selected Members<select name="memberIds" multiple required size={Math.min(8, Math.max(3, activeMembers.length))}>{memberOptions}</select><small style={{ color: "#6b665c" }}>Hold Ctrl/Command to select multiple members.</small></label> : null}
           <label>Assessment Type<select name="assessmentTypeCode" required><option value="">Select type</option>{typeOptions}</select></label>
           <label>Title<input name="title" required maxLength={200} /></label>
           <label>Description<textarea name="description" rows={3} maxLength={2000} /></label>
