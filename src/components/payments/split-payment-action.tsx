@@ -48,7 +48,7 @@ export function SplitPaymentAction({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const [method, setMethod] = useState<PaymentMethod>(() => availableMethods[0] ?? "qrph");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(() => availableMethods[0] ?? null);
   const [previewState, setPreviewState] = useState<KeyedPreview | null>(null);
   const [previewError, setPreviewError] = useState<KeyedError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,12 +64,9 @@ export function SplitPaymentAction({
   const previewKey = validAmount && !disabled ? validAmount.toFixed(2) : null;
   const preview = previewKey && previewState?.key === previewKey ? previewState.value : null;
   const currentPreviewError = previewKey && previewError?.key === previewKey ? previewError.message : null;
-
-  useEffect(() => {
-    if (!availableMethods.includes(method) && availableMethods[0]) {
-      setMethod(availableMethods[0]);
-    }
-  }, [availableMethods, method]);
+  const method = selectedMethod && availableMethods.includes(selectedMethod)
+    ? selectedMethod
+    : availableMethods[0] ?? "qrph";
 
   useEffect(() => {
     if (!previewKey) return;
@@ -184,7 +181,7 @@ export function SplitPaymentAction({
           <button
             type="button"
             key={item}
-            onClick={() => setMethod(item)}
+            onClick={() => setSelectedMethod(item)}
             disabled={busy || disabled}
             aria-pressed={method === item}
             style={{
