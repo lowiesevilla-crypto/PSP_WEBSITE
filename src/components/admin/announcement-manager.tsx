@@ -135,7 +135,7 @@ export function AnnouncementManager({ chapters, canPublishNational, initialAnnou
       <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" name="isPinned" style={{ width: "auto" }} disabled={busy} /> Pin announcement</label>
       <label style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: 12, border: "1px solid #ddd5c1", borderRadius: 12, background: "#fffaf0" }}>
         <input type="checkbox" name="isPublic" style={{ width: "auto", marginTop: 3 }} disabled={busy} />
-        <span><strong>Show on the public PSP website</strong><small style={{ display: "block", marginTop: 3, color: "#746b5b", lineHeight: 1.45 }}>Only the announcement text, Chapter attribution and dates are shown publicly. Uploaded images remain protected for authenticated members.</small></span>
+        <span><strong>Show on the public PSP website</strong><small style={{ display: "block", marginTop: 3, color: "#746b5b", lineHeight: 1.45 }}>Announcement text, Chapter attribution, dates, and uploaded image will be visible to public website visitors until expiration.</small></span>
       </label>
       <button className="btn btn-primary" disabled={busy}>{busy ? "Publishing…" : "Publish"}</button>
       {message && <p role="status" style={{ margin: 0, color: "#6b665c" }}>{message}</p>}

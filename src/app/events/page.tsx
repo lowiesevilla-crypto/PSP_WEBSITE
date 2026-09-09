@@ -33,18 +33,23 @@ export default async function EventsPage() {
       </header>
 
       <div className="container app-main">
-        <div className="app-greeting">
-          <p>Events</p>
-          <h1>National & Chapter Calendar</h1>
-        </div>
+        <section className="public-archive-hero">
+          <div className="eyebrow">Organization Calendar</div>
+          <h1>Public events from National and Chapters.</h1>
+          <p>Browse upcoming and currently active public PSP events. Events disappear automatically after their end date passes.</p>
+          <div className="public-archive-toolbar">
+            <strong>{events.length} upcoming event{events.length === 1 ? "" : "s"}</strong>
+            <Link className="btn btn-primary" href="/">Back to Homepage</Link>
+          </div>
+        </section>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 }}>
+        <div className="public-archive-grid">
           {events.map((event) => {
             const imageUrl = contentMediaUrl("event", event.id, event.imageUrl);
             return (
-              <article className="app-panel" key={event.id} style={{ display: "grid", gap: 10, overflow: "hidden" }}>
-                {imageUrl ? <img src={imageUrl} alt="" style={{ width: "100%", maxHeight: 320, objectFit: "cover", borderRadius: 14 }} /> : null}
-                <small style={{ color: "#806500", fontWeight: 900 }}>
+              <article className="app-panel public-archive-card" key={event.id}>
+                {imageUrl ? <img src={imageUrl} alt="" /> : null}
+                <small>
                   {event.audience === "NATIONAL" ? "NATIONAL EVENT" : event.chapter?.name?.toUpperCase()}
                 </small>
                 <h2 style={{ margin: 0, overflowWrap: "anywhere" }}>{event.title}</h2>
