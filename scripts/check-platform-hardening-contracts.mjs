@@ -157,6 +157,7 @@ assert(financePage.includes("BalanceActions"), "Member Balances register must re
 assert(healthRoute.includes('financeLayoutVersion: "full-bill-editor-balance-actions-v1"'), "Health marker for full Finance editor layout is missing.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
+assert(publicPage.includes('data-public-feed-design-version="homepage-cards-v1"') && publicPage.includes("Public PSP Updates") && publicPage.includes("Announcements & Events"), "Public homepage must visibly present public announcements and events near the top.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
 assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
