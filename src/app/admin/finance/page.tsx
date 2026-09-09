@@ -1,9 +1,11 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PaymentCategory, PaymentStatus, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
 import { AdminPagination } from "@/components/admin/admin-pagination";
+import { AssessmentActions } from "@/components/admin/assessment-actions";
 import { FinanceManager } from "@/components/admin/finance-manager";
 import { ChapterPaymentConfig } from "@/components/admin/chapter-payment-config";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
@@ -12,7 +14,7 @@ import { SPLIT_PAYMENT_AUDIT_ACTION, splitAmountsFromMetadata } from "@/lib/paym
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-type RegisterView = "payments" | "balances" | "rates" | "assessments";
+type RegisterView = "assessments" | "create" | "payments" | "balances" | "rates" | "setup";
 const PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "PROCESSING", "PAID", "FAILED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"];
 const PAYMENT_CATEGORIES: PaymentCategory[] = ["DUES", "CONTRIBUTION", "OTHER"];
 
@@ -35,8 +37,17 @@ function parsePage(value: string | undefined) {
 }
 
 function registerView(value: string | undefined): RegisterView {
-  if (value === "balances" || value === "rates" || value === "assessments") return value;
-  return "payments";
+  if (value === "create" || value === "payments" || value === "balances" || value === "rates" || value === "setup" || value === "assessments") return value;
+  return "assessments";
+}
+
+function viewTitle(view: RegisterView) {
+  if (view === "create") return "Create Bill";
+  if (view === "payments") return "Payments / Receipts";
+  if (view === "balances") return "Member Balances";
+  if (view === "rates") return "Rates";
+  if (view === "setup") return "PayMongo Setup";
+  return "Created Bills";
 }
 
 export default async function AdminFinancePage({ searchParams }: { searchParams: SearchParams }) {
@@ -182,7 +193,11 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: { chapter: { select: { name: true, code: true } }, assessmentType: { select: { name: true, code: true } } },
+      include: {
+        chapter: { select: { name: true, code: true } },
+        assessmentType: { select: { name: true, code: true } },
+        _count: { select: { ledgerEntries: true, payments: true } },
+      },
     }) as typeof assessments;
   }
 
@@ -247,9 +262,9 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
       <div className="container app-main">
         <div className="app-greeting">
           <p>Finance</p>
-          <h1>Chapter Billing, Payments & Reconciliation</h1>
+          <h1>Billing & Payments</h1>
           <p style={{ marginTop: 8, maxWidth: 800, color: "#746b5b", lineHeight: 1.55 }}>
-            National Admin sees all explicitly authorized Chapters; Chapter Admin stays inside the exact Chapter scope. Collection metrics below are calculated from the complete authorized payment ledger—not a fixed recent-record sample.
+            Create member bills, review posted bills, and track online payments. Chapter Admin stays inside the authorized Chapter scope; National Admin can manage authorized Chapter or National billing.
           </p>
         </div>
 
@@ -260,20 +275,41 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
           <Metric label="Payment Records" value={paymentCount.toLocaleString("en-PH")} />
         </section>
 
-        {manageableChapters.length > 0 ? <ChapterPaymentConfig chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} /> : null}
-        {manageableChapters.length > 0 ? <div style={{ marginTop: 18 }}><FinanceManager chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} activeMembers={activeMembers.map((member) => ({ id: member.id, membershipNo: member.membershipNo, name: `${member.firstName} ${member.lastName}`, chapterId: member.chapterId, chapterName: member.chapter.name }))} assessmentTypes={assessmentTypes} /></div> : null}
+        <nav className="app-panel" aria-label="Finance views" style={{ marginTop: 18, padding: 14 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <FinanceViewLink href="/admin/finance?view=assessments" active={view === "assessments"}>Created Bills</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=create" active={view === "create"}>Create Bill</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=payments" active={view === "payments"}>Payments / Receipts</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=balances" active={view === "balances"}>Balances</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=rates" active={view === "rates"}>Rates</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=setup" active={view === "setup"}>PayMongo Setup</FinanceViewLink>
+          </div>
+        </nav>
 
-        <section className="app-panel" style={{ marginTop: 18 }}>
+        {view === "create" && manageableChapters.length > 0 ? (
+          <section style={{ marginTop: 18 }} data-finance-simple-layout-version="separate-create-bill-v1">
+            <FinanceManager chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} activeMembers={activeMembers.map((member) => ({ id: member.id, membershipNo: member.membershipNo, name: `${member.firstName} ${member.lastName}`, chapterId: member.chapterId, chapterName: member.chapter.name }))} assessmentTypes={assessmentTypes} />
+          </section>
+        ) : null}
+
+        {view === "setup" && manageableChapters.length > 0 ? (
+          <section style={{ marginTop: 18 }} data-finance-simple-layout-version="separate-paymongo-setup-v1">
+            <ChapterPaymentConfig chapters={manageableChapters.map(({ id, name }) => ({ id, name }))} />
+          </section>
+        ) : null}
+
+        {view !== "create" && view !== "setup" ? <section className="app-panel" style={{ marginTop: 18 }} data-finance-simple-layout-version="separate-registers-v1">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
               <small style={{ color: "#806500", fontWeight: 900 }}>FINANCE REGISTER</small>
-              <h2 style={{ margin: "5px 0 0" }}>{view === "payments" ? "Payment & Split Reconciliation" : view === "balances" ? "Member Balances" : view === "rates" ? "Effective-Dated Rates" : "Assessments"}</h2>
+              <h2 style={{ margin: "5px 0 0" }}>{viewTitle(view)}</h2>
             </div>
+            <Link className="btn btn-primary" href="/admin/finance?view=create">Create New Bill</Link>
             {view === "payments" ? <p style={{ margin: 0, maxWidth: 520, color: "#6b665c", fontSize: ".84rem", lineHeight: 1.5 }}>Chapter amount is what PSP credits to the Chapter/member ledger. Platform fee and gross total are read from the persisted PayMongo split audit for each transaction.</p> : null}
           </div>
 
           <form className="admin-list-toolbar" method="get" action="/admin/finance">
-            <label>Register<select name="view" defaultValue={view}><option value="payments">Payments</option><option value="balances">Member Balances</option><option value="rates">Rates</option><option value="assessments">Assessments</option></select></label>
+            <label>View<select name="view" defaultValue={view}><option value="assessments">Created Bills</option><option value="payments">Payments / Receipts</option><option value="balances">Member Balances</option><option value="rates">Rates</option></select></label>
             <label className="admin-search-field">Search<input name="q" defaultValue={q} placeholder={view === "payments" ? "Member, receipt, reference, assessment or Chapter…" : "Member, Chapter, rate or assessment…"} /></label>
             <label>Chapter<select name="chapter" defaultValue={chapterFilter}><option value="">All authorized Chapters</option>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name} · {chapter.code}</option>)}</select></label>
             {view === "payments" ? <><label>Status<select name="status" defaultValue={statusFilter ?? ""}><option value="">All statuses</option>{PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Category<select name="category" defaultValue={categoryFilter ?? ""}><option value="">All categories</option>{PAYMENT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></> : null}
@@ -287,9 +323,22 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
           {view === "assessments" ? <AssessmentRegister rows={assessments} /> : null}
 
           <AdminPagination pathname="/admin/finance" page={page} totalPages={totalPages} totalItems={totalItems} query={registerQuery} />
-        </section>
+        </section> : null}
       </div>
     </main>
+  );
+}
+
+function FinanceViewLink({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={active ? "btn btn-primary" : "btn"}
+      style={active ? { minHeight: 42 } : { border: "1px solid #ddd5c1", background: "#fff", minHeight: 42 }}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -313,7 +362,7 @@ function RateRegister({ rows }: { rows: Array<any> }) {
 
 function AssessmentRegister({ rows }: { rows: Array<any> }) {
   if (!rows.length) return <p style={{ color: "#6b665c" }}>No assessments match the current search and filters.</p>;
-  return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Assessment</th><th>Chapter</th><th>Type</th><th>Amount</th><th>Coverage</th><th>Due</th><th>Status</th></tr></thead><tbody>{rows.map((assessment) => <tr key={assessment.id}><td data-label="Assessment"><strong>{assessment.title}</strong>{assessment.description ? <small style={{ display: "block", color: "#746b5b" }}>{assessment.description}</small> : null}</td><td data-label="Chapter"><strong>{assessment.chapter.name}</strong><small style={{ display: "block", color: "#746b5b" }}>{assessment.chapter.code}</small></td><td data-label="Type">{assessment.assessmentType.name}</td><td data-label="Amount"><strong>{php(assessment.amount)}</strong></td><td data-label="Coverage">{assessment.coverageStart ? assessment.coverageStart.toLocaleDateString("en-PH") : "—"}{assessment.coverageEnd ? ` → ${assessment.coverageEnd.toLocaleDateString("en-PH")}` : ""}</td><td data-label="Due">{assessment.dueAt ? assessment.dueAt.toLocaleDateString("en-PH") : "—"}</td><td data-label="Status"><strong>{assessment.status}</strong></td></tr>)}</tbody></table></div>;
+  return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Bill</th><th>Chapter</th><th>Type</th><th>Amount</th><th>Due</th><th>Members / Payments</th><th>Status</th><th>Actions</th></tr></thead><tbody>{rows.map((assessment) => <tr key={assessment.id}><td data-label="Bill"><strong>{assessment.title}</strong>{assessment.description ? <small style={{ display: "block", color: "#746b5b" }}>{assessment.description}</small> : null}<small style={{ display: "block", color: "#746b5b" }}>Created {assessment.createdAt.toLocaleString("en-PH", { timeZone: "Asia/Manila" })}</small></td><td data-label="Chapter"><strong>{assessment.chapter.name}</strong><small style={{ display: "block", color: "#746b5b" }}>{assessment.chapter.code}</small></td><td data-label="Type">{assessment.assessmentType.name}</td><td data-label="Amount"><strong>{php(assessment.amount)}</strong></td><td data-label="Due">{assessment.dueAt ? assessment.dueAt.toLocaleDateString("en-PH") : "No due date"}{assessment.coverageStart ? <small style={{ display: "block", color: "#746b5b" }}>{assessment.coverageStart.toLocaleDateString("en-PH")}{assessment.coverageEnd ? ` to ${assessment.coverageEnd.toLocaleDateString("en-PH")}` : ""}</small> : null}</td><td data-label="Members / Payments"><strong>{assessment._count?.ledgerEntries ?? 0} charged</strong><small style={{ display: "block", color: "#746b5b" }}>{assessment._count?.payments ?? 0} payment record(s)</small></td><td data-label="Status"><strong>{assessment.status}</strong></td><td data-label="Actions"><AssessmentActions assessment={{ id: assessment.id, title: assessment.title, description: assessment.description ?? "", amount: assessment.amount.toFixed(2), coverageStart: assessment.coverageStart?.toISOString() ?? "", coverageEnd: assessment.coverageEnd?.toISOString() ?? "", dueAt: assessment.dueAt?.toISOString() ?? "", status: assessment.status }} /></td></tr>)}</tbody></table></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
