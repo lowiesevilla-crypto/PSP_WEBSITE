@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type PaymentMethod = "qrph" | "gcash" | "paymaya";
+export type PaymentMethod = "qrph" | "gcash" | "paymaya";
 type Preview = { chapterAmount: string; platformFee: string; totalAmount: string };
 type CheckoutResponse = Preview & {
   paymentId: string;
@@ -36,6 +36,7 @@ export function SplitPaymentAction({
   chapterAmount,
   assessmentId,
   description,
+  availableMethods,
   disabled = false,
   disabledReason,
 }: {
@@ -43,10 +44,11 @@ export function SplitPaymentAction({
   chapterAmount: string;
   assessmentId?: string;
   description?: string;
+  availableMethods: PaymentMethod[];
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const [method, setMethod] = useState<PaymentMethod>("qrph");
+  const [method, setMethod] = useState<PaymentMethod>(() => availableMethods[0] ?? "qrph");
   const [previewState, setPreviewState] = useState<KeyedPreview | null>(null);
   const [previewError, setPreviewError] = useState<KeyedError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,6 +64,12 @@ export function SplitPaymentAction({
   const previewKey = validAmount && !disabled ? validAmount.toFixed(2) : null;
   const preview = previewKey && previewState?.key === previewKey ? previewState.value : null;
   const currentPreviewError = previewKey && previewError?.key === previewKey ? previewError.message : null;
+
+  useEffect(() => {
+    if (!availableMethods.includes(method) && availableMethods[0]) {
+      setMethod(availableMethods[0]);
+    }
+  }, [availableMethods, method]);
 
   useEffect(() => {
     if (!previewKey) return;
@@ -171,8 +179,8 @@ export function SplitPaymentAction({
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }} aria-label="Payment method">
-        {(["qrph", "gcash", "paymaya"] as PaymentMethod[]).map((item) => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, availableMethods.length)},minmax(0,1fr))`, gap: 8 }} aria-label="Payment method">
+        {availableMethods.map((item) => (
           <button
             type="button"
             key={item}
