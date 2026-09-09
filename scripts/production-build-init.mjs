@@ -20,6 +20,7 @@ const CUSTOM_CERTIFICATE_COLUMNS = [
   ["Certificate", "batchId"],
 ];
 const PUBLIC_ANNOUNCEMENT_COLUMNS = [["Announcement", "isPublic"]];
+const CHAPTER_EXPENSE_TABLES = ["ChapterExpense"];
 
 function runNode(scriptPath, args = []) {
   const result = spawnSync(process.execPath, [scriptPath, ...args], {
@@ -155,6 +156,21 @@ async function applySafePublicAnnouncementUpgrade(columnKeys) {
   }
 }
 
+async function applySafeChapterExpenseUpgrade(tableNames) {
+  const prisma = new PrismaClient();
+  try {
+    console.log("Applying reviewed additive Chapter expense ledger schema upgrade.");
+    if (!tableNames.has("ChapterExpense")) {
+      await prisma.$executeRawUnsafe(
+        "CREATE TABLE `ChapterExpense` (`id` VARCHAR(191) NOT NULL, `chapterId` VARCHAR(191) NOT NULL, `title` VARCHAR(191) NOT NULL, `category` VARCHAR(191) NOT NULL DEFAULT 'OPERATING', `amount` DECIMAL(12,2) NOT NULL, `expenseDate` DATETIME(3) NOT NULL, `vendor` VARCHAR(191) NULL, `receiptReference` VARCHAR(191) NULL, `notes` TEXT NULL, `createdByUserId` VARCHAR(191) NULL, `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), `updatedAt` DATETIME(3) NOT NULL, PRIMARY KEY (`id`), INDEX `ChapterExpense_chapterId_expenseDate_idx` (`chapterId`, `expenseDate`), INDEX `ChapterExpense_createdByUserId_createdAt_idx` (`createdByUserId`, `createdAt`), CONSTRAINT `ChapterExpense_chapterId_fkey` FOREIGN KEY (`chapterId`) REFERENCES `Chapters`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+      );
+    }
+    console.log("Chapter expense ledger additive schema upgrade complete.");
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 if ((process.env.APP_ENV ?? "").trim().toLowerCase() !== PRODUCTION_ENV) {
   console.log("Production build initialization skipped outside APP_ENV=production.");
   process.exit(0);
@@ -213,6 +229,7 @@ const presentCustomCertificateColumns = CUSTOM_CERTIFICATE_COLUMNS.filter(([tabl
 const presentPublicAnnouncementColumns = PUBLIC_ANNOUNCEMENT_COLUMNS.filter(([table, column]) =>
   columnKeys.has(`${table}.${column}`),
 );
+const presentChapterExpenseTables = CHAPTER_EXPENSE_TABLES.filter((name) => tableNames.has(name));
 
 let schemaPushPerformed = false;
 
@@ -255,6 +272,12 @@ if (!schemaPushPerformed) {
     console.log("Existing current PSP public-announcement visibility schema detected.");
   } else {
     await applySafePublicAnnouncementUpgrade(columnKeys);
+  }
+
+  if (presentChapterExpenseTables.length === CHAPTER_EXPENSE_TABLES.length) {
+    console.log("Existing current PSP Chapter expense ledger schema detected.");
+  } else {
+    await applySafeChapterExpenseUpgrade(tableNames);
   }
 }
 

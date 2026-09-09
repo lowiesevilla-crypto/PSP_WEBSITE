@@ -49,6 +49,10 @@ const [
   healthRoute,
   proxyRoute,
   contentMediaRoute,
+  memberDashboardPage,
+  memberChapterFundsPage,
+  chapterExpenseForm,
+  chapterExpenseRoute,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -90,6 +94,10 @@ const [
   source("src/app/api/health/route.ts"),
   source("src/proxy.ts"),
   source("src/app/api/content-media/[kind]/[id]/route.ts"),
+  source("src/app/member/page.tsx"),
+  source("src/app/member/chapter-funds/page.tsx"),
+  source("src/components/admin/chapter-expense-form.tsx"),
+  source("src/app/api/admin/finance/expenses/route.ts"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -148,6 +156,7 @@ assert(healthRoute.includes('paymentAssignmentVersion: "chapter-selected-member-
 assert(financePage.includes('data-finance-simple-layout-version="separate-registers-v1"'), "Finance Admin page must use separated register views.");
 assert(financePage.includes('data-finance-simple-layout-version="separate-create-bill-v1"'), "Finance Admin page must expose Create Bill as a separate view.");
 assert(financePage.includes('data-finance-simple-layout-version="separate-paymongo-setup-v1"'), "Finance Admin page must expose PayMongo Setup as a separate view.");
+assert(financePage.includes('data-finance-simple-layout-version="separate-expenses-v1"') && financePage.includes("Chapter Expenses"), "Finance Admin page must expose Chapter expenses as a separate view.");
 assert(financePage.includes("Created Bills") && financePage.includes("Create Bill") && financePage.includes("PayMongo Setup"), "Finance Admin page must present each Finance function as a separate selectable view.");
 assert(financePage.includes('return "assessments"'), "Finance Admin must default to Created Bills so posted bills are immediately visible.");
 assert(financePage.includes('status: "PAID"') && financePage.includes("Successful Payments") && financePage.includes("Convenience Fees Collected"), "Finance totals and payment register must reflect successful paid payments and convenience fees only.");
@@ -164,6 +173,14 @@ assert(balanceActionRoute.includes("MEMBER_BALANCE_ADJUSTED") && balanceActionRo
 assert(balanceActions.includes('data-balance-actions-version="adjust-writeoff-v1"') && balanceActions.includes("Adjust") && balanceActions.includes("Write Off"), "Member Balances view must expose adjustment and write-off actions.");
 assert(financePage.includes("BalanceActions"), "Member Balances register must render balance action controls.");
 assert(healthRoute.includes('financeLayoutVersion: "full-bill-editor-balance-actions-v1"'), "Health marker for full Finance editor layout is missing.");
+assert(schema.includes("model ChapterExpense") && schema.includes("@@index([chapterId, expenseDate])"), "Chapter expense ledger schema is missing.");
+assert(chapterExpenseRoute.includes('hasPermission(context, "finance.manage", input.chapterId)') && chapterExpenseRoute.includes("CHAPTER_EXPENSE_CREATED"), "Chapter expense API must enforce finance manage scope and audit entries.");
+assert(chapterExpenseForm.includes("/api/admin/finance/expenses") && chapterExpenseForm.includes("Record Expense"), "Admin expense form must post to the Chapter expense API.");
+assert(memberChapterFundsPage.includes('data-member-chapter-funds-version="month-year-expense-ledger-v1"') && memberChapterFundsPage.includes("Collected This Month") && memberChapterFundsPage.includes("Expenses This Year") && memberChapterFundsPage.includes("Unpaid Dues & Contributions"), "Member Chapter Funds page must show month/year collections, expenses, and unpaid totals.");
+assert(memberDashboardPage.includes("/member/chapter-funds") && memberDashboardPage.includes("Chapter Funds"), "Member navigation must expose Chapter Funds.");
+assert(productionBuildInit.includes("CHAPTER_EXPENSE_TABLES") && productionBuildInit.includes("CREATE TABLE `ChapterExpense`"), "Production schema initializer must add the Chapter expense table safely.");
+assert(readinessRoute.includes("chapterExpenseSchemaReady"), "Readiness does not verify the Chapter expense schema.");
+assert(healthRoute.includes('chapterFundsVersion: "month-year-expense-ledger-v1"') && healthRoute.includes('publicFeedMediaVersion: "image-archive-v1"'), "Health markers for Chapter Funds and public media are missing.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes('data-public-feed-design-version="homepage-cards-v1"') && publicPage.includes("Public PSP Updates") && publicPage.includes("Announcements & Events"), "Public homepage must visibly present public announcements and events near the top.");

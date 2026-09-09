@@ -42,6 +42,7 @@ export async function GET() {
   let memberMobileSchemaReady = false;
   let customCertificateSchemaReady = false;
   let publicAnnouncementSchemaReady = false;
+  let chapterExpenseSchemaReady = false;
 
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -76,12 +77,16 @@ export async function GET() {
     const announcementRow = await prisma.announcement.findFirst({ select: { id: true, isPublic: true } });
     void announcementRow;
     publicAnnouncementSchemaReady = true;
+
+    const expenseRow = await prisma.chapterExpense.findFirst({ select: { id: true, chapterId: true, amount: true, expenseDate: true } });
+    void expenseRow;
+    chapterExpenseSchemaReady = true;
   } catch (error) {
     console.error("PSP_READINESS_DATASTORE_ERROR", error instanceof Error ? error.name : "UnknownError");
   }
 
   const authReady = authConfigReady();
-  const ready = databaseReady && authSchemaReady && baselineReady && memberMobileSchemaReady && customCertificateSchemaReady && publicAnnouncementSchemaReady && authReady;
+  const ready = databaseReady && authSchemaReady && baselineReady && memberMobileSchemaReady && customCertificateSchemaReady && publicAnnouncementSchemaReady && chapterExpenseSchemaReady && authReady;
 
   return NextResponse.json(
     {
@@ -95,6 +100,7 @@ export async function GET() {
         memberMobileSchema: memberMobileSchemaReady ? "ok" : "error",
         customCertificateSchema: customCertificateSchemaReady ? "ok" : "error",
         publicAnnouncementSchema: publicAnnouncementSchemaReady ? "ok" : "error",
+        chapterExpenseSchema: chapterExpenseSchemaReady ? "ok" : "error",
         authConfig: authReady ? "ok" : "error",
         smtpConfig: smtpConfigStatus(),
         payMongoPlatformConfig: payMongoPlatformConfigStatus(),
