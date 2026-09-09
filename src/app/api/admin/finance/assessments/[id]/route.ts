@@ -219,6 +219,9 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     const result = await prisma.$transaction(async (tx) => {
       if (assessment._count.payments > 0) {
+        const removedCharges = await tx.memberLedgerEntry.deleteMany({
+          where: { assessmentId: id, type: "CHARGE", paymentId: null },
+        });
         const cancelled = await tx.assessment.update({
           where: { id },
           data: { status: "CANCELLED" },
@@ -231,10 +234,10 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
             action: "ASSESSMENT_CANCELLED_WITH_PAYMENT_HISTORY",
             entityType: "Assessment",
             entityId: id,
-            afterJson: { status: cancelled.status, paymentCount: assessment._count.payments },
+            afterJson: { status: cancelled.status, paymentCount: assessment._count.payments, removedLedgerCharges: removedCharges.count },
           },
         });
-        return { mode: "cancelled", assessment: cancelled };
+        return { mode: "cancelled", assessment: cancelled, removedLedgerCharges: removedCharges.count };
       }
 
       const removedCharges = await tx.memberLedgerEntry.deleteMany({
