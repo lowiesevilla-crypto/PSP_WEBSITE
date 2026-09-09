@@ -88,7 +88,7 @@ export default async function MemberDashboardPage() {
   const totalContributions = contributions._sum.amount ?? new Prisma.Decimal(0);
   const initials = [member.firstName[0], member.lastName[0]].filter(Boolean).join("").toUpperCase();
   const paymentMethods = paymentRuntime.ready
-    ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(" · ")
+    ? paymentRuntime.methods.includes("qrph") ? "QR Ph" : "QR Ph setup required"
     : "Chapter setup required";
 
   return (

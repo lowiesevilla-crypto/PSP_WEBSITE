@@ -48,7 +48,11 @@ export function SplitPaymentAction({
   disabled?: boolean;
   disabledReason?: string;
 }) {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(() => availableMethods[0] ?? null);
+  const memberPaymentMethods = useMemo<PaymentMethod[]>(
+    () => availableMethods.includes("qrph") ? ["qrph"] : [],
+    [availableMethods],
+  );
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(() => memberPaymentMethods[0] ?? null);
   const [previewState, setPreviewState] = useState<KeyedPreview | null>(null);
   const [previewError, setPreviewError] = useState<KeyedError | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,9 +68,9 @@ export function SplitPaymentAction({
   const previewKey = validAmount && !disabled ? validAmount.toFixed(2) : null;
   const preview = previewKey && previewState?.key === previewKey ? previewState.value : null;
   const currentPreviewError = previewKey && previewError?.key === previewKey ? previewError.message : null;
-  const method = selectedMethod && availableMethods.includes(selectedMethod)
+  const method = selectedMethod && memberPaymentMethods.includes(selectedMethod)
     ? selectedMethod
-    : availableMethods[0] ?? "qrph";
+    : memberPaymentMethods[0] ?? "qrph";
 
   useEffect(() => {
     if (!previewKey) return;
@@ -176,8 +180,8 @@ export function SplitPaymentAction({
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, availableMethods.length)},minmax(0,1fr))`, gap: 8 }} aria-label="Payment method">
-        {availableMethods.map((item) => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(1, memberPaymentMethods.length)},minmax(0,1fr))`, gap: 8 }} aria-label="Payment method">
+        {memberPaymentMethods.map((item) => (
           <button
             type="button"
             key={item}
@@ -194,10 +198,11 @@ export function SplitPaymentAction({
               opacity: disabled ? 0.6 : 1,
             }}
           >
-            {item === "qrph" ? "QR Ph" : item === "paymaya" ? "Maya" : "GCash"}
+            QR Ph
           </button>
         ))}
       </div>
+      {!memberPaymentMethods.length ? <div role="status" style={{ padding: 11, borderRadius: 11, background: "#fff6dd", color: "#684d00", border: "1px solid #ebd594", lineHeight: 1.45 }}>QR Ph is not enabled for this Chapter yet. Please contact your Chapter Administrator.</div> : null}
 
       <div style={{ borderRadius: 14, padding: 12, background: "#f7f2e5", display: "grid", gap: 5, fontSize: ".9rem" }}>
         <AmountRow label="Chapter amount" value={preview?.chapterAmount ?? chapterAmount} />
@@ -207,7 +212,7 @@ export function SplitPaymentAction({
         </div>
       </div>
 
-      <button className="btn btn-primary" type="button" disabled={disabled || busy || !preview} onClick={() => void startPayment()} style={{ width: "100%", minHeight: 50 }}>
+      <button className="btn btn-primary" type="button" disabled={disabled || busy || !preview || !memberPaymentMethods.length} onClick={() => void startPayment()} style={{ width: "100%", minHeight: 50 }}>
         {actionLabel}
       </button>
 
@@ -219,6 +224,11 @@ export function SplitPaymentAction({
           <strong style={{ display: "block", marginBottom: 5 }}>Scan QR Ph to complete payment</strong>
           <span style={{ display: "block", color: "#6b665c", fontSize: ".85rem", marginBottom: 12 }}>Total ₱{money(checkout.totalAmount)} · Status: {paymentStatus ?? "PROCESSING"}</span>
           <img src={checkout.qrImageUrl} alt="PayMongo QR Ph payment code" style={{ width: "min(280px, 100%)", aspectRatio: "1", objectFit: "contain" }} />
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            <a className="btn" href={checkout.qrImageUrl} download={`psp-qrph-${checkout.internalReference}.png`} style={{ minHeight: 40, borderRadius: 12, border: "1px solid #ddd5c1", background: "#fff" }}>Download QR</a>
+            <a className="btn" href={checkout.qrImageUrl} target="_blank" rel="noreferrer" style={{ minHeight: 40, borderRadius: 12, border: "1px solid #ddd5c1", background: "#fff" }}>Open QR</a>
+          </div>
+          <small style={{ display: "block", marginTop: 8, color: "#6b665c" }}>Use the original downloaded QR image in any QR Ph-supported banking or wallet app. Avoid scanning a compressed screenshot if the app rejects it.</small>
           {checkout.testUrl ? <a href={checkout.testUrl} target="_blank" rel="noreferrer" style={{ display: "block", marginTop: 10, fontSize: ".82rem" }}>Open PayMongo test helper</a> : null}
           {paymentStatus === "PAID" ? <div style={successStyle}>Payment confirmed.{receipt ? <> <Link href={`/payments/receipts/${receipt.id}`}>View receipt {receipt.receiptNumber}</Link>.</> : null}</div> : null}
           {paymentStatus === "FAILED" ? <div style={errorStyle}>Payment was not completed. You may try again.</div> : null}

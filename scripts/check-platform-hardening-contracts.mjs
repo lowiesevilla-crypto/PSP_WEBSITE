@@ -34,6 +34,7 @@ const [
   platformConfig,
   adminLayout,
   memberPaymentsPage,
+  checkoutRoute,
   splitPaymentAction,
   payButton,
   otherPaymentForm,
@@ -73,6 +74,7 @@ const [
   source("src/lib/paymongo/platform-config.ts"),
   source("src/app/admin/layout.tsx"),
   source("src/app/payments/page.tsx"),
+  source("src/app/api/payments/checkout/route.ts"),
   source("src/components/payments/split-payment-action.tsx"),
   source("src/components/payments/pay-button.tsx"),
   source("src/components/payments/other-payment-form.tsx"),
@@ -131,8 +133,10 @@ const providerGuardCount = (paymongoClient.match(/await assertProviderActionAllo
 assert(providerGuardCount >= 4, "Every outbound linked PayMongo provider action must enforce the LIVE approval gate.");
 assert(memberPaymentsPage.includes('by: ["category"]') && memberPaymentsPage.includes('_sum: { amount: true }'), "Member payment totals must use complete-history aggregates rather than the capped recent-payment list.");
 assert(memberPaymentsPage.includes("availableMethods={paymentRuntime.methods}"), "Member payment actions must receive the exact Chapter-enabled payment methods.");
-assert(splitPaymentAction.includes("availableMethods.map"), "Payment UI must render only Chapter-enabled payment methods.");
-assert(!splitPaymentAction.includes('(["qrph", "gcash", "paymaya"] as PaymentMethod[]).map'), "Payment UI must not hard-code unavailable methods.");
+assert(splitPaymentAction.includes('availableMethods.includes("qrph") ? ["qrph"] : []'), "Member payment UI must render QR Ph only.");
+assert(splitPaymentAction.includes("Download QR") && splitPaymentAction.includes("Open QR"), "Member QR Ph payment must expose download/open QR actions.");
+assert(checkoutRoute.includes('input.paymentMethod !== "qrph"') && checkoutRoute.includes("QR Ph only"), "Member checkout API must reject GCash and Maya submissions.");
+assert(!splitPaymentAction.includes('Maya"') && !splitPaymentAction.includes('GCash"'), "Member payment UI must not show GCash or Maya options.");
 assert(payButton.includes("availableMethods={availableMethods}") && otherPaymentForm.includes("availableMethods={availableMethods}"), "Every dues, contribution and other payment action must enforce the Chapter-enabled methods in the UI.");
 assert(assessmentRoute.includes('"SELECTED_CHAPTERS"') && assessmentRoute.includes('"MEMBERS"'), "Admin payment assignment must support selected Chapters and selected members.");
 assert(assessmentRoute.includes("memberIds") && assessmentRoute.includes("chapterIds"), "Admin payment assignment API must accept explicit member and Chapter targets.");

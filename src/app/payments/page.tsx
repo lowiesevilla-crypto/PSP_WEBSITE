@@ -93,7 +93,7 @@ export default async function PaymentsPage() {
     ? undefined
     : "Online payment is not currently enabled for your Chapter. Your balance and payment history remain available; please contact your Chapter Administrator for payment setup assistance.";
   const methodLabel = paymentRuntime.ready
-    ? paymentRuntime.methods.map((method) => method === "paymaya" ? "Maya" : method === "qrph" ? "QR Ph" : method === "gcash" ? "GCash" : method).join(", ")
+    ? paymentRuntime.methods.includes("qrph") ? "QR Ph" : "QR Ph setup required"
     : "Not available";
 
   return (
