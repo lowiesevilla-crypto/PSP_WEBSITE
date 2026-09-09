@@ -4,7 +4,7 @@
 **Repository:** `lowiesevilla-crypto/PSP_WEBSITE`  
 **Production URL:** `https://psp.hoahub.tech`  
 **Production branch:** `main`  
-**Current release target:** `2026-09-09-r16 / 2026-09-09-payment-assignment-public-feed-v1`
+**Current release target:** `2026-09-09-r17 / 2026-09-09-finance-bills-public-feed-v1`
 
 > Read with `../AGENTS.md`. Never claim provider-, credential-, device-, inbox-, payment-, backup-, approval-, or production-state behavior without direct evidence.
 
@@ -18,8 +18,8 @@ PR #49 CI first failed at the fail-closed high-severity dependency audit because
 
 The release identity has been advanced to:
 
-- release: `2026-09-09-r16`
-- deployment generation: `2026-09-09-payment-assignment-public-feed-v1`
+- release: `2026-09-09-r17`
+- deployment generation: `2026-09-09-finance-bills-public-feed-v1`
 - billing marker: `billingDuesVersion=chapter-national-v1`
 - split marker: `splitPaymentContractVersion=linked-split-e2e-v1`
 - payment assignment marker: `paymentAssignmentVersion=chapter-selected-member-v1`
