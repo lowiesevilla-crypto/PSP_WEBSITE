@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
@@ -80,7 +81,7 @@ export default async function HomePage() {
       <header className="topbar">
         <div className="container nav">
           <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
-            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi Philippines Inc. seal" />
+            <Image src="/brand/psp-logo.jpg" alt="Psi Sigma Phi Philippines Inc. seal" width={52} height={52} />
             <span className="brand-copy"><small>Ψ Σ Φ</small><span>Psi Sigma Phi Philippines Inc.</span></span>
           </Link>
           <nav className="nav-links" aria-label="Primary navigation">
@@ -101,7 +102,7 @@ export default async function HomePage() {
           </div>
           <div className="hero-visual" aria-label="Psi Sigma Phi official seal">
             <div className="hero-orbit" aria-hidden="true" />
-            <div className="seal-card"><img src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi Philippines Inc. seal" /></div>
+            <div className="seal-card"><Image src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi Philippines Inc. seal" width={430} height={430} priority /></div>
             <div className="platform-chip"><strong>National → Chapter → Member</strong><span>One secure platform with chapter-specific organization and finance.</span></div>
           </div>
         </div>
@@ -178,7 +179,7 @@ export default async function HomePage() {
         <div className="container">
           <div className="section-header"><h2>Designed mobile-first for every member.</h2><p>Core membership workflows are designed to work completely from a phone, while Chapter and National administration adapt cleanly to tablet and desktop.</p></div>
           <div className="member-preview">
-            <div className="member-card"><div className="member-card-top"><img src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi seal" /><span className="member-card-status">ACTIVE MEMBER</span></div><div className="member-card-name">Juan Dela Cruz</div><div className="member-card-meta"><div><small>Member No.</small><strong>PSP-2026-000001</strong></div><div><small>Chapter</small><strong>Rho Alpha De Las Piñas</strong></div></div></div>
+            <div className="member-card"><div className="member-card-top"><Image src="/brand/psp-logo.jpg" alt="Official Psi Sigma Phi seal" width={54} height={54} /><span className="member-card-status">ACTIVE MEMBER</span></div><div className="member-card-name">Juan Dela Cruz</div><div className="member-card-meta"><div><small>Member No.</small><strong>PSP-2026-000001</strong></div><div><small>Chapter</small><strong>Rho Alpha De Las Piñas</strong></div></div></div>
             <div className="member-dashboard"><div className="metric-card gold"><small>Outstanding Dues</small><strong>₱500.00</strong></div><div className="metric-card"><small>Next Event</small><strong>Chapter Assembly</strong></div><div className="metric-card"><small>Certificate</small><strong>Available</strong></div><div className="metric-card"><small>Community</small><strong>12 New Updates</strong></div></div>
           </div>
         </div>
