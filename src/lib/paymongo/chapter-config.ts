@@ -1,5 +1,6 @@
 import { decryptSecret } from "@/lib/security/encryption";
 import { prisma } from "@/lib/prisma";
+import type { LinkedPaymentMethod } from "@/lib/paymongo/client";
 import { getPlatformPayMongoConfig } from "@/lib/paymongo/platform-config";
 import { isPendingLinkedWebhookSecret, PENDING_LINKED_WEBHOOK_SECRET } from "@/lib/paymongo/chapter-config-state";
 
@@ -9,16 +10,16 @@ export type ChapterPayMongoRuntimeConfig = {
   mode: "TEST" | "LIVE";
   accountId: string;
   webhookSecret: string;
-  paymentMethods: string[];
+  paymentMethods: LinkedPaymentMethod[];
 };
 
 function normalizeMethods(value: unknown) {
-  if (!Array.isArray(value)) return ["qrph"];
-  const allowed = new Set(["qrph", "gcash", "paymaya"]);
+  if (!Array.isArray(value)) return ["qrph"] satisfies LinkedPaymentMethod[];
+  const allowed = new Set<LinkedPaymentMethod>(["qrph", "gcash", "paymaya"]);
   const methods = value
-    .filter((item): item is string => typeof item === "string" && allowed.has(item.trim()))
-    .map((item) => item.trim());
-  return methods.length ? Array.from(new Set(methods)) : ["qrph"];
+    .filter((item): item is LinkedPaymentMethod => typeof item === "string" && allowed.has(item.trim() as LinkedPaymentMethod))
+    .map((item) => item.trim() as LinkedPaymentMethod);
+  return methods.length ? Array.from(new Set(methods)) : ["qrph"] satisfies LinkedPaymentMethod[];
 }
 
 function linkedAccountFromStorage(value: string) {
