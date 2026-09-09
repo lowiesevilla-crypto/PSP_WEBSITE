@@ -20,6 +20,7 @@ export async function GET() {
       billingDuesVersion: "chapter-national-v1",
       splitPaymentContractVersion: "linked-split-e2e-v1",
       paymentAssignmentVersion: "chapter-selected-member-v1",
+      financeLayoutVersion: "bills-first-edit-delete-v1",
       publicFeedVersion: "global-chapter-feed-v2",
       timestamp: new Date().toISOString(),
     },

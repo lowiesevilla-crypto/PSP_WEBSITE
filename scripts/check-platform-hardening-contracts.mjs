@@ -38,9 +38,13 @@ const [
   payButton,
   otherPaymentForm,
   financeManager,
+  financePage,
   assessmentRoute,
+  assessmentActionRoute,
+  assessmentActions,
   eventManager,
   healthRoute,
+  proxyRoute,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -71,9 +75,13 @@ const [
   source("src/components/payments/pay-button.tsx"),
   source("src/components/payments/other-payment-form.tsx"),
   source("src/components/admin/finance-manager.tsx"),
+  source("src/app/admin/finance/page.tsx"),
   source("src/app/api/admin/finance/assessments/route.ts"),
+  source("src/app/api/admin/finance/assessments/[id]/route.ts"),
+  source("src/components/admin/assessment-actions.tsx"),
   source("src/components/admin/event-manager.tsx"),
   source("src/app/api/health/route.ts"),
+  source("src/proxy.ts"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -127,6 +135,17 @@ assert(assessmentRoute.includes("memberIds") && assessmentRoute.includes("chapte
 assert(financeManager.includes('value="SELECTED_CHAPTERS"') && financeManager.includes('value="MEMBERS"'), "Finance Admin UI must expose selected Chapter and selected member payment assignment.");
 assert(financeManager.includes('name="memberIds"') && financeManager.includes('name="chapterIds"'), "Finance Admin UI must submit explicit selected member and Chapter payment targets.");
 assert(healthRoute.includes('paymentAssignmentVersion: "chapter-selected-member-v1"'), "Health marker for selected payment assignment is missing.");
+assert(financePage.includes('data-finance-simple-layout-version="separate-registers-v1"'), "Finance Admin page must use separated register views.");
+assert(financePage.includes('data-finance-simple-layout-version="separate-create-bill-v1"'), "Finance Admin page must expose Create Bill as a separate view.");
+assert(financePage.includes('data-finance-simple-layout-version="separate-paymongo-setup-v1"'), "Finance Admin page must expose PayMongo Setup as a separate view.");
+assert(financePage.includes("Created Bills") && financePage.includes("Create Bill") && financePage.includes("PayMongo Setup"), "Finance Admin page must present each Finance function as a separate selectable view.");
+assert(financePage.includes('return "assessments"'), "Finance Admin must default to Created Bills so posted bills are immediately visible.");
+assert(financePage.includes("AssessmentActions"), "Created bills register must expose edit/delete actions.");
+assert(assessmentActionRoute.includes("export async function PATCH") && assessmentActionRoute.includes("export async function DELETE"), "Finance bill edit/delete API is missing.");
+assert(assessmentActionRoute.includes("ASSESSMENT_UPDATED") && assessmentActionRoute.includes("ASSESSMENT_DELETED"), "Finance bill edit/delete must preserve audit evidence.");
+assert(assessmentActionRoute.includes("_count: { select: { payments: true } }") && assessmentActionRoute.includes("Amount cannot be changed"), "Bill amount edits must be blocked after payment activity exists.");
+assert(assessmentActions.includes('method: "PATCH"') && assessmentActions.includes('method: "DELETE"'), "Finance bill actions must call the edit/delete API.");
+assert(healthRoute.includes('financeLayoutVersion: "bills-first-edit-delete-v1"'), "Health marker for simplified Finance layout is missing.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
@@ -135,6 +154,7 @@ assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation i
 assert(publicPage.includes("Public announcement feed unavailable") && publicPage.includes("Public event feed unavailable"), "Public homepage announcements and events must fail independently instead of crashing the whole feed.");
 assert(eventManager.includes("public PSP website"), "Event Admin UI must clearly explain that published events appear on the public PSP website.");
 assert(healthRoute.includes('publicFeedVersion: "global-chapter-feed-v2"'), "Health marker for public feed hardening is missing.");
+assert(proxyRoute.includes('matcher: ["/", "/api/:path*"]') && proxyRoute.includes("PUBLIC_HOME_FRESHNESS_HEADERS"), "Public homepage must pass through the no-store freshness guard.");
 assert(announcementRoute.includes("isPublic: z.boolean().optional().default(false)"), "Announcement API does not default public visibility to false.");
 assert(announcementRoute.includes("isPublic: input.isPublic"), "Announcement API does not persist explicit public visibility.");
 assert(announcementManager.includes('name="isPublic"'), "Announcement Admin UI lacks explicit public publication control.");
