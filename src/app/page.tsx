@@ -24,60 +24,59 @@ function excerpt(value: string, max = 220) {
 
 async function loadPublicFeed() {
   const now = new Date();
-  try {
-    const [announcements, events] = await Promise.all([
-      prisma.announcement.findMany({
-        where: {
-          isPublic: true,
-          AND: [
-            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-            { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-          ],
-        },
-        orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
-        take: 8,
-        select: {
-          id: true,
-          title: true,
-          body: true,
-          audience: true,
-          startsAt: true,
-          createdAt: true,
-          chapter: { select: { name: true, code: true } },
-        },
-      }),
-      prisma.event.findMany({
-        where: {
-          isPublished: true,
-          status: "PUBLISHED",
-          startsAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
-        },
-        orderBy: { startsAt: "asc" },
-        take: 8,
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          venue: true,
-          startsAt: true,
-          endsAt: true,
-          audience: true,
-          chapter: { select: { name: true, code: true } },
-        },
-      }),
-    ]);
-    return { announcements, events };
-  } catch (error) {
-    console.error("Public chapter feed unavailable", error instanceof Error ? error.name : "UnknownError");
-    return { announcements: [], events: [] };
-  }
+  const announcements = await prisma.announcement.findMany({
+    where: {
+      isPublic: true,
+      AND: [
+        { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      ],
+    },
+    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+    take: 8,
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      audience: true,
+      startsAt: true,
+      createdAt: true,
+      chapter: { select: { name: true, code: true } },
+    },
+  }).catch((error) => {
+    console.error("Public announcement feed unavailable", error instanceof Error ? error.name : "UnknownError");
+    return [];
+  });
+  const events = await prisma.event.findMany({
+    where: {
+      isPublished: true,
+      status: "PUBLISHED",
+      startsAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+    },
+    orderBy: { startsAt: "asc" },
+    take: 8,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      venue: true,
+      startsAt: true,
+      endsAt: true,
+      audience: true,
+      chapter: { select: { name: true, code: true } },
+    },
+  }).catch((error) => {
+    console.error("Public event feed unavailable", error instanceof Error ? error.name : "UnknownError");
+    return [];
+  });
+  return { announcements, events };
 }
 
 export default async function HomePage() {
   const { announcements, events } = await loadPublicFeed();
 
   return (
-    <main className="site-shell" data-public-chapter-feed-version="global-chapter-feed-v1">
+    <main className="site-shell" data-public-chapter-feed-version="global-chapter-feed-v2">
       <header className="topbar">
         <div className="container nav">
           <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
