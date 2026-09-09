@@ -23,6 +23,14 @@ function excerpt(value: string, max = 220) {
   return normalized.length <= max ? normalized : `${normalized.slice(0, max - 1).trimEnd()}…`;
 }
 
+function sourceLabel(item: { audience: string; chapter: { name: string; code?: string | null } | null }) {
+  return item.audience === "NATIONAL" || !item.chapter ? "National Office" : `${item.chapter.name}${item.chapter.code ? ` · ${item.chapter.code}` : ""}`;
+}
+
+function expiresLabel(value: Date | null | undefined) {
+  return value ? `Visible until ${publicDate(value)}` : "No expiration set";
+}
+
 async function loadPublicFeed() {
   const now = new Date();
   const announcements = await prisma.announcement.findMany({
@@ -41,6 +49,7 @@ async function loadPublicFeed() {
       body: true,
       audience: true,
       startsAt: true,
+      expiresAt: true,
       createdAt: true,
       chapter: { select: { name: true, code: true } },
     },
@@ -52,7 +61,10 @@ async function loadPublicFeed() {
     where: {
       isPublished: true,
       status: "PUBLISHED",
-      startsAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+      OR: [
+        { endsAt: null, startsAt: { gte: now } },
+        { endsAt: { gt: now } },
+      ],
     },
     orderBy: { startsAt: "asc" },
     take: 8,
@@ -75,6 +87,28 @@ async function loadPublicFeed() {
 
 export default async function HomePage() {
   const { announcements, events } = await loadPublicFeed();
+  const spotlightItems = [
+    ...announcements.map((item) => ({
+      id: item.id,
+      kind: "Announcement",
+      title: item.title,
+      body: item.body,
+      date: item.startsAt ?? item.createdAt,
+      meta: expiresLabel(item.expiresAt),
+      href: "/announcements",
+      source: sourceLabel(item),
+    })),
+    ...events.map((item) => ({
+      id: item.id,
+      kind: "Event",
+      title: item.title,
+      body: item.description,
+      date: item.startsAt,
+      meta: item.venue ? `${publicDate(item.startsAt)} · ${item.venue}` : publicDate(item.startsAt),
+      href: "/events",
+      source: sourceLabel(item),
+    })),
+  ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 6);
 
   return (
     <main className="site-shell" data-public-chapter-feed-version="global-chapter-feed-v2">
@@ -90,6 +124,43 @@ export default async function HomePage() {
           <div className="nav-actions"><Link className="btn btn-secondary" href="/member">Member Login</Link><Link className="btn btn-primary" href="/register">Register</Link></div>
         </div>
       </header>
+
+      <section className="updates-spotlight" id="updates" data-public-feed-design-version="homepage-cards-v1" data-public-feed-spotlight-version="nationwide-expiring-v1">
+        <div className="container updates-shell">
+          <div className="updates-lead">
+            <div className="eyebrow">Public PSP Updates</div>
+            <h1>Official announcements and events, visible nationwide.</h1>
+            <p>Public posts from National and Chapter administrators appear here automatically, then disappear when their expiration or event end date passes.</p>
+            <div className="updates-actions">
+              <Link className="btn btn-primary" href="/announcements">View Announcements</Link>
+              <Link className="btn btn-secondary" href="/events">View Events</Link>
+            </div>
+          </div>
+          <div className="updates-board" aria-label="Latest public announcements and events">
+            <div className="updates-stats">
+              <span><strong>{announcements.length}</strong> active public announcements</span>
+              <span><strong>{events.length}</strong> upcoming public events</span>
+            </div>
+            {spotlightItems.length ? (
+              <div className="updates-card-grid">
+                {spotlightItems.map((item) => (
+                  <Link href={item.href} className="updates-card" key={`${item.kind}-${item.id}`}>
+                    <small>{item.kind} · {item.source}</small>
+                    <h2>{item.title}</h2>
+                    <p>{excerpt(item.body, 145)}</p>
+                    <span>{item.meta}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="updates-empty">
+                <h2>No current public updates</h2>
+                <p>Published public announcements and events from National or Chapter admins will show here.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       <section className="hero">
         <div className="container hero-grid">
@@ -108,7 +179,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="public-feed-band" id="updates" data-public-feed-design-version="homepage-cards-v1">
+      <section className="public-feed-band" id="public-updates-list">
         <div className="container">
           <div className="section-header">
             <div>
@@ -125,10 +196,10 @@ export default async function HomePage() {
               </div>
               {announcements.length ? announcements.slice(0, 3).map((announcement) => (
                 <div className="public-feed-card" key={announcement.id}>
-                  <small>{announcement.chapter ? `${announcement.chapter.name} · ${announcement.chapter.code}` : "National"}</small>
+                  <small>{sourceLabel(announcement)}</small>
                   <h3>{announcement.title}</h3>
                   <p>{excerpt(announcement.body, 150)}</p>
-                  <span>{publicDate(announcement.startsAt ?? announcement.createdAt)}</span>
+                  <span>{publicDate(announcement.startsAt ?? announcement.createdAt)} · {expiresLabel(announcement.expiresAt)}</span>
                 </div>
               )) : <p className="public-feed-empty">No public announcements yet.</p>}
             </article>
@@ -139,7 +210,7 @@ export default async function HomePage() {
               </div>
               {events.length ? events.slice(0, 3).map((event) => (
                 <div className="public-feed-card" key={event.id}>
-                  <small>{event.chapter ? `${event.chapter.name} · ${event.chapter.code}` : "National"}</small>
+                  <small>{sourceLabel(event)}</small>
                   <h3>{event.title}</h3>
                   <p>{excerpt(event.description, 150)}</p>
                   <span>{publicDate(event.startsAt)}{event.venue ? ` · ${event.venue}` : ""}</span>

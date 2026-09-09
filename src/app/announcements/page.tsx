@@ -1,22 +1,14 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { contentMediaUrl } from "@/lib/content/media";
 import { prisma } from "@/lib/prisma";
-import { requireCurrentMember } from "@/lib/member/current-member";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnnouncementsPage() {
-  let current;
-  try {
-    current = await requireCurrentMember();
-  } catch {
-    redirect("/login");
-  }
-  const { member } = current;
   const now = new Date();
   const announcements = await prisma.announcement.findMany({
     where: {
-      OR: [{ audience: "NATIONAL" }, { audience: "CHAPTER", chapterId: member.chapterId }],
+      isPublic: true,
       AND: [
         { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
         { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
@@ -29,6 +21,15 @@ export default async function AnnouncementsPage() {
 
   return (
     <main className="app-shell">
+      <header className="topbar">
+        <div className="container nav">
+          <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
+            <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi Philippines Inc. seal" />
+            <span className="brand-copy"><small>Ψ Σ Φ</small><span>Psi Sigma Phi Philippines Inc.</span></span>
+          </Link>
+          <div className="nav-actions"><Link className="btn btn-secondary" href="/member">Member Login</Link><Link className="btn btn-primary" href="/register">Register</Link></div>
+        </div>
+      </header>
       <div className="container app-main">
         <div className="app-greeting"><p>Official Updates</p><h1>Announcements</h1></div>
         <section style={{ display: "grid", gap: 14, maxWidth: 820, margin: "0 auto" }}>
