@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { PaymentCategory, PaymentStatus, Prisma } from "@prisma/client";
+import { PaymentCategory, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { authorizedChapterIds, getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +16,6 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
 type RegisterView = "assessments" | "create" | "payments" | "balances" | "rates" | "setup";
-const PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "PROCESSING", "PAID", "FAILED", "CANCELLED", "REFUNDED", "PARTIALLY_REFUNDED"];
 const PAYMENT_CATEGORIES: PaymentCategory[] = ["DUES", "CONTRIBUTION", "OTHER"];
 
 type SearchParams = Promise<{
@@ -87,20 +86,36 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   const view = registerView(single(params.view));
   const q = (single(params.q) ?? "").trim().slice(0, 120);
   const requestedChapter = (single(params.chapter) ?? "").trim();
-  const requestedStatus = (single(params.status) ?? "").trim().toUpperCase();
   const requestedCategory = (single(params.category) ?? "").trim().toUpperCase();
   const requestedPage = parsePage(single(params.page));
   const chapterFilter = chapters.some((chapter) => chapter.id === requestedChapter) ? requestedChapter : "";
-  const statusFilter = PAYMENT_STATUSES.includes(requestedStatus as PaymentStatus) ? requestedStatus as PaymentStatus : null;
   const categoryFilter = PAYMENT_CATEGORIES.includes(requestedCategory as PaymentCategory) ? requestedCategory as PaymentCategory : null;
   const authorizedWhere = accessibleIds === null ? {} : { chapterId: { in: accessibleIds } };
 
-  const [paidAggregate, pendingAggregate, failedAggregate, paymentCount] = await Promise.all([
-    prisma.payment.aggregate({ where: { ...authorizedWhere, status: "PAID" }, _sum: { amount: true } }),
-    prisma.payment.aggregate({ where: { ...authorizedWhere, status: { in: ["PENDING", "PROCESSING"] } }, _sum: { amount: true } }),
-    prisma.payment.aggregate({ where: { ...authorizedWhere, status: "FAILED" }, _sum: { amount: true } }),
-    prisma.payment.count({ where: authorizedWhere }),
-  ]);
+  const paidPaymentsForTotals = await prisma.payment.findMany({ where: { ...authorizedWhere, status: "PAID" }, select: { id: true, amount: true } });
+  const paidSplitAudits = paidPaymentsForTotals.length ? await prisma.auditLog.findMany({
+    where: {
+      action: SPLIT_PAYMENT_AUDIT_ACTION,
+      entityType: "Payment",
+      entityId: { in: paidPaymentsForTotals.map((payment) => payment.id) },
+    },
+    select: { entityId: true, metadataJson: true },
+    orderBy: { createdAt: "desc" },
+  }) : [];
+  const paidSplitByPaymentId = new Map<string, unknown>();
+  for (const audit of paidSplitAudits) {
+    if (audit.entityId && !paidSplitByPaymentId.has(audit.entityId)) paidSplitByPaymentId.set(audit.entityId, audit.metadataJson);
+  }
+  const successfulPaymentCount = paidPaymentsForTotals.length;
+  let chapterCollected = new Prisma.Decimal(0);
+  let convenienceFeeCollected = new Prisma.Decimal(0);
+  let grossCollected = new Prisma.Decimal(0);
+  for (const payment of paidPaymentsForTotals) {
+    const split = splitAmountsFromMetadata(paidSplitByPaymentId.get(payment.id), payment.amount);
+    chapterCollected = chapterCollected.plus(split.chapterAmount);
+    convenienceFeeCollected = convenienceFeeCollected.plus(split.platformFee);
+    grossCollected = grossCollected.plus(split.totalAmount);
+  }
 
   let totalItems = 0;
   let totalPages = 1;
@@ -114,8 +129,8 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   if (view === "payments") {
     const paymentWhere: Prisma.PaymentWhereInput = {
       ...authorizedWhere,
+      status: "PAID",
       ...(chapterFilter ? { chapterId: chapterFilter } : {}),
-      ...(statusFilter ? { status: statusFilter } : {}),
       ...(categoryFilter ? { category: categoryFilter } : {}),
       ...(q ? {
         OR: [
@@ -183,6 +198,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   if (view === "assessments") {
     const assessmentWhere: Prisma.AssessmentWhereInput = {
       ...authorizedWhere,
+      status: { not: "CANCELLED" },
       ...(chapterFilter ? { chapterId: chapterFilter } : {}),
       ...(q ? { OR: [{ title: { contains: q } }, { description: { contains: q } }, { chapter: { name: { contains: q } } }, { chapter: { code: { contains: q } } }, { assessmentType: { name: { contains: q } } }] } : {}),
     };
@@ -254,7 +270,6 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
     view,
     q: q || undefined,
     chapter: chapterFilter || undefined,
-    status: view === "payments" ? statusFilter ?? undefined : undefined,
     category: view === "payments" ? categoryFilter ?? undefined : undefined,
   };
 
@@ -270,10 +285,10 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
         </div>
 
         <section className="admin-stat-grid" style={{ marginBottom: 18 }}>
-          <Metric label="Paid Chapter Collections" value={php(paidAggregate._sum.amount ?? new Prisma.Decimal(0))} />
-          <Metric label="Pending / Processing Chapter Amount" value={php(pendingAggregate._sum.amount ?? new Prisma.Decimal(0))} />
-          <Metric label="Failed Chapter Amount" value={php(failedAggregate._sum.amount ?? new Prisma.Decimal(0))} />
-          <Metric label="Payment Records" value={paymentCount.toLocaleString("en-PH")} />
+          <Metric label="Successful Payments" value={successfulPaymentCount.toLocaleString("en-PH")} />
+          <Metric label="Total Collected" value={php(chapterCollected)} />
+          <Metric label="Convenience Fees Collected" value={php(convenienceFeeCollected)} />
+          <Metric label="Gross Successful Payments" value={php(grossCollected)} />
         </section>
 
         <nav className="app-panel" aria-label="Finance views" style={{ marginTop: 18, padding: 14 }}>
@@ -306,14 +321,14 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
               <h2 style={{ margin: "5px 0 0" }}>{viewTitle(view)}</h2>
             </div>
             <Link className="btn btn-primary" href="/admin/finance?view=create">Create New Bill</Link>
-            {view === "payments" ? <p style={{ margin: 0, maxWidth: 520, color: "#6b665c", fontSize: ".84rem", lineHeight: 1.5 }}>Chapter amount is what PSP credits to the Chapter/member ledger. Platform fee and gross total are read from the persisted PayMongo split audit for each transaction.</p> : null}
+            {view === "payments" ? <p style={{ margin: 0, maxWidth: 520, color: "#6b665c", fontSize: ".84rem", lineHeight: 1.5 }}>This register shows successful paid payments only. Total collected is credited to the Chapter ledger; convenience fee is the PSP platform split.</p> : null}
           </div>
 
           <form className="admin-list-toolbar" method="get" action="/admin/finance">
             <label>View<select name="view" defaultValue={view}><option value="assessments">Created Bills</option><option value="payments">Payments / Receipts</option><option value="balances">Member Balances</option><option value="rates">Rates</option></select></label>
             <label className="admin-search-field">Search<input name="q" defaultValue={q} placeholder={view === "payments" ? "Member, receipt, reference, assessment or Chapter…" : "Member, Chapter, rate or assessment…"} /></label>
             <label>Chapter<select name="chapter" defaultValue={chapterFilter}><option value="">All authorized Chapters</option>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name} · {chapter.code}</option>)}</select></label>
-            {view === "payments" ? <><label>Status<select name="status" defaultValue={statusFilter ?? ""}><option value="">All statuses</option>{PAYMENT_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label><label>Category<select name="category" defaultValue={categoryFilter ?? ""}><option value="">All categories</option>{PAYMENT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label></> : null}
+            {view === "payments" ? <label>Category<select name="category" defaultValue={categoryFilter ?? ""}><option value="">All categories</option>{PAYMENT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label> : null}
             <button className="btn btn-primary" type="submit">Search / Filter</button>
             <Link className="btn" href={`/admin/finance?view=${view}`} style={{ border: "1px solid #ddd5c1", background: "#fff", minHeight: 44 }}>Clear</Link>
           </form>
