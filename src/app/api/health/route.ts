@@ -22,6 +22,8 @@ export async function GET() {
       paymentAssignmentVersion: "chapter-selected-member-v1",
       financeLayoutVersion: "full-bill-editor-balance-actions-v1",
       publicFeedVersion: "global-chapter-feed-v2",
+      publicFeedMediaVersion: "image-archive-v1",
+      chapterFundsVersion: "month-year-expense-ledger-v1",
       timestamp: new Date().toISOString(),
     },
     {

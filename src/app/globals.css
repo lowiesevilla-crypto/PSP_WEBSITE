@@ -851,6 +851,55 @@ img {
   font-size: 1.05rem;
 }
 
+.chapter-funds-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.chapter-fund-metric {
+  min-height: 118px;
+}
+
+.chapter-fund-metric small {
+  color: #746b5b;
+  font-weight: 900;
+}
+
+.chapter-fund-metric strong {
+  display: block;
+  margin-top: 10px;
+  color: #151515;
+  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  letter-spacing: -0.03em;
+}
+
+.chapter-funds-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fund-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fund-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eee7d8;
+}
+
+.fund-list-row small {
+  display: block;
+  margin-top: 4px;
+  color: #746b5b;
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -985,6 +1034,8 @@ img {
   .feature-grid,
   .updates-card-grid,
   .updates-stats,
+  .chapter-funds-grid,
+  .chapter-funds-sections,
   .member-dashboard {
     grid-template-columns: 1fr;
   }

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminPagination } from "@/components/admin/admin-pagination";
 import { AssessmentActions } from "@/components/admin/assessment-actions";
 import { BalanceActions } from "@/components/admin/balance-actions";
+import { ChapterExpenseForm } from "@/components/admin/chapter-expense-form";
 import { FinanceManager } from "@/components/admin/finance-manager";
 import { ChapterPaymentConfig } from "@/components/admin/chapter-payment-config";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
@@ -15,7 +16,7 @@ import { SPLIT_PAYMENT_AUDIT_ACTION, splitAmountsFromMetadata } from "@/lib/paym
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-type RegisterView = "assessments" | "create" | "payments" | "balances" | "rates" | "setup";
+type RegisterView = "assessments" | "create" | "payments" | "balances" | "expenses" | "rates" | "setup";
 const PAYMENT_CATEGORIES: PaymentCategory[] = ["DUES", "CONTRIBUTION", "OTHER"];
 
 type SearchParams = Promise<{
@@ -37,7 +38,7 @@ function parsePage(value: string | undefined) {
 }
 
 function registerView(value: string | undefined): RegisterView {
-  if (value === "create" || value === "payments" || value === "balances" || value === "rates" || value === "setup" || value === "assessments") return value;
+  if (value === "create" || value === "payments" || value === "balances" || value === "expenses" || value === "rates" || value === "setup" || value === "assessments") return value;
   return "assessments";
 }
 
@@ -45,6 +46,7 @@ function viewTitle(view: RegisterView) {
   if (view === "create") return "Create Bill";
   if (view === "payments") return "Payments / Receipts";
   if (view === "balances") return "Member Balances";
+  if (view === "expenses") return "Chapter Expenses";
   if (view === "rates") return "Rates";
   if (view === "setup") return "PayMongo Setup";
   return "Created Bills";
@@ -124,6 +126,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
   let splitByPaymentId = new Map<string, unknown>();
   let rates: Awaited<ReturnType<typeof prisma.assessmentRate.findMany>> = [];
   let assessments: Awaited<ReturnType<typeof prisma.assessment.findMany>> = [];
+  let expenses: Awaited<ReturnType<typeof prisma.chapterExpense.findMany>> = [];
   let balanceRows: Array<{ memberId: string; membershipNo: string; memberName: string; chapterName: string; chapterCode: string; balance: Prisma.Decimal }> = [];
 
   if (view === "payments") {
@@ -193,6 +196,34 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
       take: PAGE_SIZE,
       include: { chapter: { select: { name: true, code: true } }, assessmentType: { select: { name: true, code: true } } },
     }) as typeof rates;
+  }
+
+  if (view === "expenses") {
+    const expenseWhere: Prisma.ChapterExpenseWhereInput = {
+      ...authorizedWhere,
+      ...(chapterFilter ? { chapterId: chapterFilter } : {}),
+      ...(q ? {
+        OR: [
+          { title: { contains: q } },
+          { category: { contains: q } },
+          { vendor: { contains: q } },
+          { receiptReference: { contains: q } },
+          { notes: { contains: q } },
+          { chapter: { name: { contains: q } } },
+          { chapter: { code: { contains: q } } },
+        ],
+      } : {}),
+    };
+    totalItems = await prisma.chapterExpense.count({ where: expenseWhere });
+    totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    page = Math.min(requestedPage, totalPages);
+    expenses = await prisma.chapterExpense.findMany({
+      where: expenseWhere,
+      orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { chapter: { select: { name: true, code: true } } },
+    }) as typeof expenses;
   }
 
   if (view === "assessments") {
@@ -297,6 +328,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
             <FinanceViewLink href="/admin/finance?view=create" active={view === "create"}>Create Bill</FinanceViewLink>
             <FinanceViewLink href="/admin/finance?view=payments" active={view === "payments"}>Payments / Receipts</FinanceViewLink>
             <FinanceViewLink href="/admin/finance?view=balances" active={view === "balances"}>Balances</FinanceViewLink>
+            <FinanceViewLink href="/admin/finance?view=expenses" active={view === "expenses"}>Expenses</FinanceViewLink>
             <FinanceViewLink href="/admin/finance?view=rates" active={view === "rates"}>Rates</FinanceViewLink>
             <FinanceViewLink href="/admin/finance?view=setup" active={view === "setup"}>PayMongo Setup</FinanceViewLink>
           </div>
@@ -314,6 +346,12 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
           </section>
         ) : null}
 
+        {view === "expenses" && manageableChapters.length > 0 ? (
+          <section style={{ marginTop: 18 }} data-finance-simple-layout-version="separate-expenses-v1">
+            <ChapterExpenseForm chapters={manageableChapters} />
+          </section>
+        ) : null}
+
         {view !== "create" && view !== "setup" ? <section className="app-panel" style={{ marginTop: 18 }} data-finance-simple-layout-version="separate-registers-v1">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
@@ -325,7 +363,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
           </div>
 
           <form className="admin-list-toolbar" method="get" action="/admin/finance">
-            <label>View<select name="view" defaultValue={view}><option value="assessments">Created Bills</option><option value="payments">Payments / Receipts</option><option value="balances">Member Balances</option><option value="rates">Rates</option></select></label>
+            <label>View<select name="view" defaultValue={view}><option value="assessments">Created Bills</option><option value="payments">Payments / Receipts</option><option value="balances">Member Balances</option><option value="expenses">Chapter Expenses</option><option value="rates">Rates</option></select></label>
             <label className="admin-search-field">Search<input name="q" defaultValue={q} placeholder={view === "payments" ? "Member, receipt, reference, assessment or Chapter…" : "Member, Chapter, rate or assessment…"} /></label>
             <label>Chapter<select name="chapter" defaultValue={chapterFilter}><option value="">All authorized Chapters</option>{chapters.map((chapter) => <option key={chapter.id} value={chapter.id}>{chapter.name} · {chapter.code}</option>)}</select></label>
             {view === "payments" ? <label>Category<select name="category" defaultValue={categoryFilter ?? ""}><option value="">All categories</option>{PAYMENT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label> : null}
@@ -335,6 +373,7 @@ export default async function AdminFinancePage({ searchParams }: { searchParams:
 
           {view === "payments" ? <PaymentRegister payments={payments} splitByPaymentId={splitByPaymentId} /> : null}
           {view === "balances" ? <BalanceRegister rows={balanceRows} /> : null}
+          {view === "expenses" ? <ExpenseRegister rows={expenses} /> : null}
           {view === "rates" ? <RateRegister rows={rates} /> : null}
           {view === "assessments" ? <AssessmentRegister rows={assessments} /> : null}
 
@@ -369,6 +408,11 @@ function PaymentRegister({ payments, splitByPaymentId }: { payments: Array<any>;
 function BalanceRegister({ rows }: { rows: Array<{ memberId: string; membershipNo: string; memberName: string; chapterName: string; chapterCode: string; balance: Prisma.Decimal }> }) {
   if (!rows.length) return <p style={{ color: "#6b665c" }}>No non-zero member balances match the current search and filters.</p>;
   return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Member</th><th>Chapter</th><th>Current Balance</th><th>Position</th><th>Actions</th></tr></thead><tbody>{rows.map((row) => <tr key={row.memberId}><td data-label="Member"><strong>{row.memberName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.membershipNo}</small></td><td data-label="Chapter"><strong>{row.chapterName}</strong><small style={{ display: "block", color: "#746b5b" }}>{row.chapterCode}</small></td><td data-label="Current Balance"><strong>{php(row.balance)}</strong></td><td data-label="Position">{row.balance.gt(0) ? "Outstanding" : "Credit"}</td><td data-label="Actions"><BalanceActions memberId={row.memberId} memberName={row.memberName} balance={php(row.balance)} /></td></tr>)}</tbody></table></div>;
+}
+
+function ExpenseRegister({ rows }: { rows: Array<any> }) {
+  if (!rows.length) return <p style={{ color: "#6b665c" }}>No Chapter expenses match the current search and filters.</p>;
+  return <div className="admin-table-wrap"><table className="admin-responsive-table"><thead><tr><th>Date</th><th>Chapter</th><th>Expense</th><th>Category</th><th>Amount</th><th>Reference</th></tr></thead><tbody>{rows.map((expense) => <tr key={expense.id}><td data-label="Date">{expense.expenseDate.toLocaleDateString("en-PH", { timeZone: "Asia/Manila" })}</td><td data-label="Chapter"><strong>{expense.chapter.name}</strong><small style={{ display: "block", color: "#746b5b" }}>{expense.chapter.code}</small></td><td data-label="Expense"><strong>{expense.title}</strong>{expense.vendor ? <small style={{ display: "block", color: "#746b5b" }}>{expense.vendor}</small> : null}{expense.notes ? <small style={{ display: "block", color: "#746b5b" }}>{expense.notes}</small> : null}</td><td data-label="Category">{expense.category}</td><td data-label="Amount"><strong>{php(expense.amount)}</strong></td><td data-label="Reference">{expense.receiptReference ?? "—"}</td></tr>)}</tbody></table></div>;
 }
 
 function RateRegister({ rows }: { rows: Array<any> }) {
