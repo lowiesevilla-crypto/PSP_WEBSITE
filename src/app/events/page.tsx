@@ -1,23 +1,19 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { contentMediaUrl } from "@/lib/content/media";
-import { requireCurrentMember } from "@/lib/member/current-member";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function EventsPage() {
-  let member;
-  try {
-    ({ member } = await requireCurrentMember());
-  } catch {
-    redirect("/login");
-  }
-
+  const now = new Date();
   const events = await prisma.event.findMany({
     where: {
+      isPublished: true,
       status: "PUBLISHED",
-      OR: [{ audience: "NATIONAL" }, { audience: "CHAPTER", chapterId: member.chapterId }],
+      OR: [
+        { endsAt: null, startsAt: { gte: now } },
+        { endsAt: { gt: now } },
+      ],
     },
     orderBy: { startsAt: "asc" },
     take: 100,
@@ -26,13 +22,13 @@ export default async function EventsPage() {
 
   return (
     <main className="app-shell">
-      <header className="app-topbar">
-        <div className="container app-nav">
-          <Link className="app-brand" href="/member">
+      <header className="topbar">
+        <div className="container nav">
+          <Link className="brand" href="/" aria-label="Psi Sigma Phi Philippines Inc. home">
             <img src="/brand/psp-logo.jpg" alt="Psi Sigma Phi seal" />
-            <span>PSP Events</span>
+            <span className="brand-copy"><small>Ψ Σ Φ</small><span>Psi Sigma Phi Philippines Inc.</span></span>
           </Link>
-          <Link href="/member" className="btn" style={{ background: "#fff", border: "1px solid #ddd5c1" }}>Dashboard</Link>
+          <div className="nav-actions"><Link className="btn btn-secondary" href="/member">Member Login</Link><Link className="btn btn-primary" href="/register">Register</Link></div>
         </div>
       </header>
 

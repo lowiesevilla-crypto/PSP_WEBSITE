@@ -34,7 +34,21 @@ export default async function AdminAnnouncementsPage() {
           <h1>Announcements</h1>
         </div>
         <div className="admin-two-column">
-          <AnnouncementManager chapters={chapters} canPublishNational={canPublishNational} />
+          <AnnouncementManager
+            chapters={chapters}
+            canPublishNational={canPublishNational}
+            initialAnnouncements={recent.map((item) => ({
+              id: item.id,
+              title: item.title,
+              body: item.body,
+              audience: item.audience,
+              startsAt: item.startsAt?.toISOString() ?? null,
+              expiresAt: item.expiresAt?.toISOString() ?? null,
+              isPinned: item.isPinned,
+              isPublic: item.isPublic,
+              chapterName: item.chapter?.name ?? null,
+            }))}
+          />
           <section className="app-panel">
             <h2 style={{ marginTop: 0 }}>Recent Announcements</h2>
             <p style={{ color: "#6b665c", lineHeight: 1.5 }}>The visibility badge confirms whether an announcement is member-only or explicitly published to the public PSP website.</p>
