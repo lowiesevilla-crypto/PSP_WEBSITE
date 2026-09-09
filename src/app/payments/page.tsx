@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Prisma, PaymentCategory } from "@prisma/client";
 import { OtherPaymentForm } from "@/components/payments/other-payment-form";
 import { PayButton } from "@/components/payments/pay-button";
+import type { PaymentMethod } from "@/components/payments/split-payment-action";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
 import { requireCurrentMember } from "@/lib/member/current-member";
 import { getChapterPayMongoConfig } from "@/lib/paymongo/chapter-config";
@@ -28,7 +29,7 @@ export default async function PaymentsPage() {
     redirect("/login");
   }
 
-  const [entries, payments, paymentRuntime] = await Promise.all([
+  const [entries, payments, paidByCategory, paymentRuntime] = await Promise.all([
     prisma.memberLedgerEntry.findMany({
       where: { memberId: member.id },
       orderBy: { occurredAt: "desc" },
@@ -40,9 +41,14 @@ export default async function PaymentsPage() {
       take: 75,
       include: { assessment: { select: { title: true } }, receipt: true },
     }),
+    prisma.payment.groupBy({
+      by: ["category"],
+      where: { memberId: member.id, status: "PAID" },
+      _sum: { amount: true },
+    }),
     getChapterPayMongoConfig(member.chapterId).then(
       (config) => ({ ready: true as const, methods: config.paymentMethods }),
-      () => ({ ready: false as const, methods: [] as string[] }),
+      () => ({ ready: false as const, methods: [] as PaymentMethod[] }),
     ),
   ]);
 
@@ -59,12 +65,12 @@ export default async function PaymentsPage() {
     }
   }
 
-  const totalContributions = payments
-    .filter((payment) => payment.status === "PAID" && payment.category === "CONTRIBUTION")
-    .reduce((total, payment) => total.plus(payment.amount), new Prisma.Decimal(0));
-  const totalChapterPaid = payments
-    .filter((payment) => payment.status === "PAID")
-    .reduce((total, payment) => total.plus(payment.amount), new Prisma.Decimal(0));
+  const totalContributions = paidByCategory.find(({ category }) => category === "CONTRIBUTION")?._sum.amount
+    ?? new Prisma.Decimal(0);
+  const totalChapterPaid = paidByCategory.reduce(
+    (total, category) => total.plus(category._sum.amount ?? 0),
+    new Prisma.Decimal(0),
+  );
 
   const assessmentIds = [...outstanding.entries()]
     .filter(([, amount]) => amount.gt(0))
@@ -153,7 +159,7 @@ export default async function PaymentsPage() {
                       Due {new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeZone: "Asia/Manila" }).format(assessment.dueAt)}
                     </small>
                   ) : null}
-                  <PayButton assessmentId={assessment.id} outstanding={amount.toFixed(2)} category={category} disabledReason={paymentUnavailableReason} />
+                  <PayButton assessmentId={assessment.id} outstanding={amount.toFixed(2)} category={category} availableMethods={paymentRuntime.methods} disabledReason={paymentUnavailableReason} />
                 </article>
               );
             })}
@@ -168,7 +174,7 @@ export default async function PaymentsPage() {
           <p style={{ color: "#6b665c", lineHeight: 1.55 }}>
             Enter the Chapter amount and purpose. The platform convenience fee is calculated and displayed separately before payment.
           </p>
-          <OtherPaymentForm disabledReason={paymentUnavailableReason} />
+          <OtherPaymentForm availableMethods={paymentRuntime.methods} disabledReason={paymentUnavailableReason} />
         </section>
 
         <section>
