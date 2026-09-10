@@ -137,6 +137,7 @@ export default async function HomePage() {
             <h1>Official announcements and events, visible nationwide.</h1>
             <p>Public posts from National and Chapter administrators appear here automatically, then disappear when their expiration or event end date passes.</p>
             <div className="updates-actions">
+              <Link className="btn btn-primary" href="/updates">View All Updates</Link>
               <Link className="btn btn-primary" href="/announcements">View Announcements</Link>
               <Link className="btn btn-secondary" href="/events">View Events</Link>
             </div>

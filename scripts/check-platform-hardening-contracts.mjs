@@ -53,6 +53,8 @@ const [
   memberChapterFundsPage,
   chapterExpenseForm,
   chapterExpenseRoute,
+  publicUpdatesPage,
+  globalCss,
 ] = await Promise.all([
   source("prisma/schema.prisma"),
   source("src/app/api/admin/finance/payment-config/route.ts"),
@@ -98,6 +100,8 @@ const [
   source("src/app/member/chapter-funds/page.tsx"),
   source("src/components/admin/chapter-expense-form.tsx"),
   source("src/app/api/admin/finance/expenses/route.ts"),
+  source("src/app/updates/page.tsx"),
+  source("src/app/globals.css"),
 ]);
 
 assert(schema.includes('certificateType   String            @default("MEMBERSHIP")'), "Certificate type metadata is missing from Prisma schema.");
@@ -178,17 +182,20 @@ assert(chapterExpenseRoute.includes('hasPermission(context, "finance.manage", in
 assert(chapterExpenseForm.includes("/api/admin/finance/expenses") && chapterExpenseForm.includes("Record Expense"), "Admin expense form must post to the Chapter expense API.");
 assert(memberChapterFundsPage.includes('data-member-chapter-funds-version="month-year-expense-ledger-v1"') && memberChapterFundsPage.includes("Collected This Month") && memberChapterFundsPage.includes("Expenses This Year") && memberChapterFundsPage.includes("Unpaid Dues & Contributions"), "Member Chapter Funds page must show month/year collections, expenses, and unpaid totals.");
 assert(memberDashboardPage.includes("/member/chapter-funds") && memberDashboardPage.includes("Chapter Funds"), "Member navigation must expose Chapter Funds.");
+assert(memberDashboardPage.includes("/updates") && memberDashboardPage.includes("General Announcement"), "Member navigation must expose the nationwide General Announcement public view.");
 assert(productionBuildInit.includes("CHAPTER_EXPENSE_TABLES") && productionBuildInit.includes("CREATE TABLE `ChapterExpense`"), "Production schema initializer must add the Chapter expense table safely.");
 assert(readinessRoute.includes("chapterExpenseSchemaReady"), "Readiness does not verify the Chapter expense schema.");
-assert(healthRoute.includes('chapterFundsVersion: "month-year-expense-ledger-v1"') && healthRoute.includes('publicFeedMediaVersion: "image-archive-v1"'), "Health markers for Chapter Funds and public media are missing.");
+assert(healthRoute.includes('chapterFundsVersion: "month-year-expense-ledger-v1"') && healthRoute.includes('publicFeedMediaVersion: "image-archive-v1"') && healthRoute.includes('generalUpdatesVersion: "public-archive-member-link-v1"'), "Health markers for Chapter Funds, public media, and General Updates are missing.");
 
 assert(publicPage.includes('data-public-chapter-feed-version="global-chapter-feed-v2"'), "Public global Chapter feed marker is missing.");
 assert(publicPage.includes('data-public-feed-design-version="homepage-cards-v1"') && publicPage.includes("Public PSP Updates") && publicPage.includes("Announcements & Events"), "Public homepage must visibly present public announcements and events near the top.");
 assert(publicPage.includes("prisma.announcement.findMany"), "Public announcement aggregation is missing.");
 assert(publicPage.includes("isPublic: true"), "Public homepage announcements are not explicitly restricted to public records.");
 assert(publicPage.includes("prisma.event.findMany"), "Public event aggregation is missing.");
-assert(publicPage.includes("updates-card-image") && publicPage.includes("View Announcements") && publicPage.includes("View Events"), "Public homepage must show image-forward update cards with archive links.");
+assert(publicPage.includes("updates-card-image") && publicPage.includes("View Announcements") && publicPage.includes("View Events") && publicPage.includes("/updates"), "Public homepage must show image-forward update cards with archive links.");
 assert(contentMediaRoute.includes("publicAllowed") && contentMediaRoute.includes("item.isPublic") && contentMediaRoute.includes("public, max-age=300"), "Public announcement/event images must be readable only for public active content.");
+assert(publicUpdatesPage.includes('data-public-general-updates-version="combined-v1"') && publicUpdatesPage.includes("General Announcement") && publicUpdatesPage.includes("prisma.announcement.findMany") && publicUpdatesPage.includes("isPublic: true") && publicUpdatesPage.includes("prisma.event.findMany") && publicUpdatesPage.includes('status: "PUBLISHED"') && publicUpdatesPage.includes("public-archive-grid"), "Nationwide General Announcement page must combine public announcements and events.");
+assert(globalCss.includes(".public-archive-card img") && globalCss.includes("object-fit: contain") && globalCss.includes("max-height: 520px"), "Public archive images must fit without cropping uploaded announcement or event artwork.");
 assert(publicPage.includes("Public announcement feed unavailable") && publicPage.includes("Public event feed unavailable"), "Public homepage announcements and events must fail independently instead of crashing the whole feed.");
 assert(eventManager.includes("public PSP website"), "Event Admin UI must clearly explain that published events appear on the public PSP website.");
 assert(healthRoute.includes('publicFeedVersion: "global-chapter-feed-v2"'), "Health marker for public feed hardening is missing.");

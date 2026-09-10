@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 const actions = [
   ["₱", "Payments", "/payments"],
   ["CF", "Chapter Funds", "/member/chapter-funds"],
+  ["GA", "General Announcement", "/updates"],
   ["RC", "Receipts", "/payments/receipts"],
   ["ID", "Digital ID", "/member/id"],
   ["QR", "Certificates", "/certificate"],

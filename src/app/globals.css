@@ -616,8 +616,9 @@ img {
 
 .public-archive-card img {
   width: 100%;
-  height: 230px;
-  object-fit: cover;
+  height: auto;
+  max-height: 520px;
+  object-fit: contain;
   border-radius: 16px;
   background: #eee7d8;
 }
