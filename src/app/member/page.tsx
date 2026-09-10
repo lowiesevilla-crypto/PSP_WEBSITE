@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { CSSProperties, ReactNode } from "react";
 import { Prisma } from "@prisma/client";
 import { getAuthContext } from "@/lib/auth/context";
 import { ledgerSignedAmount, php } from "@/lib/finance/ledger";
@@ -11,16 +12,16 @@ export const metadata = { title: "Member Dashboard" };
 export const dynamic = "force-dynamic";
 
 const actions = [
-  ["₱", "Payments", "/payments"],
-  ["CF", "Chapter Funds", "/member/chapter-funds"],
-  ["GA", "General Announcement", "/updates"],
-  ["RC", "Receipts", "/payments/receipts"],
-  ["ID", "Digital ID", "/member/id"],
-  ["QR", "Certificates", "/certificate"],
-  ["CH", "My Chapter", "/chapter"],
-  ["EV", "Events", "/events"],
-  ["PF", "Profile", "/profile"],
-  ["APP", "Install App", "/install"],
+  ["wallet", "Payments", "/payments", "Settle dues and assessments"],
+  ["funds", "Chapter Funds", "/member/chapter-funds", "View collections and expenses"],
+  ["megaphone", "General Announcement", "/updates", "Nationwide public updates"],
+  ["receipt", "Receipts", "/payments/receipts", "Payment history and proof"],
+  ["id", "Digital ID", "/member/id", "Open your PSP member ID"],
+  ["award", "Certificates", "/certificate", "Download verified certificates"],
+  ["chapter", "My Chapter", "/chapter", "Officers and chapter details"],
+  ["calendar", "Events", "/events", "Public and chapter events"],
+  ["profile", "Profile", "/profile", "Manage account information"],
+  ["install", "Install App", "/install", "Add PSP to your phone"],
 ] as const;
 
 export default async function MemberDashboardPage() {
@@ -118,22 +119,22 @@ export default async function MemberDashboardPage() {
           <p style={{ marginTop: 7, color: "#746b5b" }}>{member.chapter.name} · {member.membershipNo}</p>
         </div>
 
-        <section className="app-panel" style={{ marginBottom: 16, padding: 18, border: balance.gt(0) ? "1px solid #e5cd77" : "1px solid #c9dfcc", background: balance.gt(0) ? "linear-gradient(135deg,#fff9e9,#fff)" : "linear-gradient(135deg,#f4fbf5,#fff)" }}>
+        <section className="app-panel member-balance-panel" style={{ marginBottom: 16, border: balance.gt(0) ? "1px solid #e5cd77" : "1px solid #c9dfcc", background: balance.gt(0) ? "linear-gradient(135deg,#fff9e9,#fff)" : "linear-gradient(135deg,#f4fbf5,#fff)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) minmax(220px,.8fr)", gap: 18, alignItems: "center" }} className="member-payment-hero">
-            <div>
-              <small style={{ color: "#746b5b", fontWeight: 900 }}>OUTSTANDING BALANCE</small>
-              <strong style={{ display: "block", marginTop: 4, fontSize: "clamp(2rem,7vw,3.1rem)", lineHeight: 1, letterSpacing: "-.04em", color: balance.gt(0) ? "#8a6500" : "#245b2a" }}>{php(balance)}</strong>
-              <p style={{ color: "#665b47", lineHeight: 1.5, margin: "10px 0 0" }}>
+            <div className="member-balance-copy">
+              <small>OUTSTANDING BALANCE</small>
+              <strong className={balance.gt(0) ? "is-due" : "is-clear"}>{php(balance)}</strong>
+              <p>
                 {balance.gt(0) ? "Review your dues and assessments, then pay securely when your Chapter online-payment setup is enabled." : "Your current PSP ledger has no outstanding balance."}
               </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 11, color: "#6b665c", fontSize: ".82rem" }}>
+              <div className="member-balance-chips">
                 <span style={chipStyle}>{paymentRuntime.ready ? "Online Payment Ready" : "Online Payment Unavailable"}</span>
                 <span style={chipStyle}>{paymentMethods}</span>
               </div>
             </div>
-            <div style={{ display: "grid", gap: 9 }}>
-              <Link className="btn btn-primary" href="/payments" style={{ minHeight: 52, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem" }}>{balance.gt(0) ? "Pay Now / View Dues" : "View Payments"}</Link>
-              <Link className="btn" href="/payments/receipts" style={{ minHeight: 46, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #ddd5c1", background: "#fff" }}>Receipts & History</Link>
+            <div className="member-balance-actions">
+              <Link className="btn btn-primary" href="/payments">{balance.gt(0) ? "Pay Now / View Dues" : "View Payments"}</Link>
+              <Link className="btn" href="/payments/receipts">Receipts & History</Link>
             </div>
           </div>
         </section>
@@ -156,9 +157,10 @@ export default async function MemberDashboardPage() {
         </section>
 
         <section className="quick-actions" aria-label="Member quick actions" style={{ marginBottom: 18 }}>
-          {actions.map(([icon, label, href]) => (
+          {actions.map(([icon, label, href, description]) => (
             <Link className="quick-action" href={href} key={label}>
-              <span>{icon}</span><span>{label}</span>
+              <span className="quick-action-icon" aria-hidden="true"><ActionIcon name={icon} /></span>
+              <span className="quick-action-copy"><strong>{label}</strong><small>{description}</small></span>
             </Link>
           ))}
         </section>
@@ -244,4 +246,22 @@ function StatusRow({ label, value, href, action }: { label: string; value: strin
   );
 }
 
-const chipStyle: React.CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: 30, padding: "5px 8px", borderRadius: 999, border: "1px solid #ddd5c1", background: "#fff", fontWeight: 800 };
+const chipStyle: CSSProperties = { display: "inline-flex", alignItems: "center", minHeight: 30, padding: "5px 8px", borderRadius: 999, border: "1px solid #ddd5c1", background: "#fff", fontWeight: 800 };
+
+function ActionIcon({ name }: { name: (typeof actions)[number][0] }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 2.1, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const paths: Record<(typeof actions)[number][0], ReactNode> = {
+    wallet: <><path {...common} d="M4 7.5h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 17V6a2 2 0 0 1 2-2h12" /><path {...common} d="M16 13h5" /><path {...common} d="M17.5 13.1h.1" /></>,
+    funds: <><path {...common} d="M4 18V9" /><path {...common} d="M10 18V5" /><path {...common} d="M16 18v-7" /><path {...common} d="M22 18H2" /><path {...common} d="M6.5 9h-5L4 5.5 6.5 9Z" /><path {...common} d="M12.5 5h-5L10 1.5 12.5 5Z" /><path {...common} d="M18.5 11h-5L16 7.5 18.5 11Z" /></>,
+    megaphone: <><path {...common} d="M4 14h3l9 4V6l-9 4H4a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2Z" /><path {...common} d="M7 14l1.5 5" /><path {...common} d="M20 9.5a4 4 0 0 1 0 5" /></>,
+    receipt: <><path {...common} d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path {...common} d="M9 8h6" /><path {...common} d="M9 12h6" /><path {...common} d="M9 16h3" /></>,
+    id: <><rect {...common} x="3" y="5" width="18" height="14" rx="3" /><path {...common} d="M8 10h4" /><path {...common} d="M8 14h8" /><circle {...common} cx="16.5" cy="10.5" r="1.8" /></>,
+    award: <><circle {...common} cx="12" cy="8" r="4" /><path {...common} d="M8.8 11.2 7 21l5-3 5 3-1.8-9.8" /></>,
+    chapter: <><path {...common} d="M3 20h18" /><path {...common} d="M5 20V9l7-5 7 5v11" /><path {...common} d="M9 20v-7h6v7" /></>,
+    calendar: <><rect {...common} x="4" y="5" width="16" height="16" rx="3" /><path {...common} d="M8 3v4" /><path {...common} d="M16 3v4" /><path {...common} d="M4 10h16" /><path {...common} d="M8 14h3" /><path {...common} d="M13 14h3" /></>,
+    profile: <><circle {...common} cx="12" cy="8" r="4" /><path {...common} d="M4 21a8 8 0 0 1 16 0" /></>,
+    install: <><rect {...common} x="6" y="3" width="12" height="18" rx="3" /><path {...common} d="M12 7v7" /><path {...common} d="m9 11 3 3 3-3" /><path {...common} d="M10 18h4" /></>,
+  };
+
+  return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>;
+}
