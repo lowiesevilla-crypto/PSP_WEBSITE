@@ -24,6 +24,7 @@ export async function GET() {
       publicFeedVersion: "global-chapter-feed-v2",
       publicFeedMediaVersion: "image-archive-v1",
       chapterFundsVersion: "month-year-expense-ledger-v1",
+      generalUpdatesVersion: "public-archive-member-link-v1",
       timestamp: new Date().toISOString(),
     },
     {
