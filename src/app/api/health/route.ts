@@ -25,6 +25,7 @@ export async function GET() {
       publicFeedMediaVersion: "image-archive-v1",
       chapterFundsVersion: "month-year-expense-ledger-v1",
       generalUpdatesVersion: "public-archive-member-link-v1",
+      memberDashboardUiVersion: "icon-cards-mobile-v1",
       timestamp: new Date().toISOString(),
     },
     {
