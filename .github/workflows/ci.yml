@@ -250,6 +250,7 @@ jobs:
           node scripts/ci-billing-payment-e2e.mjs
           node scripts/ci-billing-concurrency.mjs
           node scripts/ci-isolation-test.mjs
+          node scripts/ci-admin-activation-override-e2e.mjs
 
       - name: Remove development-only packages
         run: npm prune --omit=dev --no-audit --no-fund
