@@ -29,4 +29,10 @@ assert(adminLayout.includes("context.user.member") && adminLayout.includes('href
 assert(memberPage.includes("hasAdminAccess") && memberPage.includes('href="/admin"') && memberPage.includes("Admin Dashboard"), "Members with administrator permissions must have a visible Admin Dashboard switch from the member portal.");
 assert(memberPage.includes('if (!context.user.member) redirect("/admin")'), "Users without a member profile must remain excluded from the member dashboard.");
 
+const memberAdminGuardStart = memberPage.indexOf("const adminPortalPermissions");
+const memberAdminGuardEnd = memberPage.indexOf("export default async function MemberDashboardPage");
+const memberAdminGuard = memberPage.slice(memberAdminGuardStart, memberAdminGuardEnd);
+assert(memberAdminGuard.includes('"chapters.manage"') && memberAdminGuard.includes('"applications.review"') && memberAdminGuard.includes('"members.manage"'), "Member portal admin switch must recognize the same elevated permissions as login routing.");
+assert(!memberAdminGuard.includes('"chapters.view"'), "Ordinary MEMBER chapter-view permission must not expose the Admin Dashboard switch.");
+
 console.log("Admin/member dual-dashboard routing contract passed for National and chapter-scoped administrators.");
