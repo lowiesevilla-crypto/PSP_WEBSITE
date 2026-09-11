@@ -24,21 +24,10 @@ const actions = [
   ["install", "Install App", "/install", "Add PSP to your phone"],
 ] as const;
 
-const adminPermissions = new Set([
+const adminPortalPermissions = new Set([
   "chapters.manage",
-  "chapters.view",
-  "applications.view",
   "applications.review",
-  "members.view",
   "members.manage",
-  "roles.manage",
-  "finance.view",
-  "finance.manage",
-  "content.manage",
-  "events.manage",
-  "reports.view",
-  "audit.view",
-  "certificates.manage",
 ]);
 
 export default async function MemberDashboardPage() {
@@ -47,7 +36,7 @@ export default async function MemberDashboardPage() {
   if (!context.user.member) redirect("/admin");
 
   const permissionSet = new Set(context.assignments.flatMap((assignment) => assignment.permissions));
-  const hasAdminAccess = Array.from(permissionSet).some((permission) => adminPermissions.has(permission));
+  const hasAdminAccess = Array.from(permissionSet).some((permission) => adminPortalPermissions.has(permission));
 
   const now = new Date();
   const member = await prisma.member.findUnique({
