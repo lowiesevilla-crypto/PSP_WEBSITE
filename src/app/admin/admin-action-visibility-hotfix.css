@@ -1,0 +1,30 @@
+/* Keep critical chapter/member management actions visible after the searchable-table refactor.
+ * This is presentation-only: RBAC, APIs, chapter scoping, and finance/payment data are unchanged.
+ */
+@media (min-width: 768px) {
+  .admin-table-wrap:has(.admin-table-actions) {
+    position: relative;
+  }
+
+  .admin-table-wrap:has(.admin-table-actions) .admin-responsive-table th:last-child,
+  .admin-table-wrap:has(.admin-table-actions) .admin-responsive-table td:last-child {
+    position: sticky;
+    right: 0;
+    min-width: 260px;
+    box-shadow: -12px 0 18px -18px rgba(32, 24, 5, 0.4);
+  }
+
+  .admin-table-wrap:has(.admin-table-actions) .admin-responsive-table th:last-child {
+    z-index: 4;
+    background: #f7f4ec;
+  }
+
+  .admin-table-wrap:has(.admin-table-actions) .admin-responsive-table td:last-child {
+    z-index: 2;
+    background: #fff;
+  }
+
+  .admin-table-wrap:has(.admin-table-actions) .admin-responsive-table tbody tr:hover td:last-child {
+    background: #fffdf7;
+  }
+}
