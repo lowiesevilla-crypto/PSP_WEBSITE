@@ -24,10 +24,30 @@ const actions = [
   ["install", "Install App", "/install", "Add PSP to your phone"],
 ] as const;
 
+const adminPermissions = new Set([
+  "chapters.manage",
+  "chapters.view",
+  "applications.view",
+  "applications.review",
+  "members.view",
+  "members.manage",
+  "roles.manage",
+  "finance.view",
+  "finance.manage",
+  "content.manage",
+  "events.manage",
+  "reports.view",
+  "audit.view",
+  "certificates.manage",
+]);
+
 export default async function MemberDashboardPage() {
   const context = await getAuthContext();
   if (!context) redirect("/login");
   if (!context.user.member) redirect("/admin");
+
+  const permissionSet = new Set(context.assignments.flatMap((assignment) => assignment.permissions));
+  const hasAdminAccess = Array.from(permissionSet).some((permission) => adminPermissions.has(permission));
 
   const now = new Date();
   const member = await prisma.member.findUnique({
@@ -103,6 +123,11 @@ export default async function MemberDashboardPage() {
             <span>PSP Philippines</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            {hasAdminAccess ? (
+              <Link href="/admin" aria-label="Open administration dashboard" style={{ fontWeight: 900, color: "#806000", fontSize: ".78rem", textDecoration: "none" }}>
+                Admin
+              </Link>
+            ) : null}
             <Link href="/notifications" aria-label={`${unreadNotifications} unread notifications`} style={{ fontWeight: 900, color: "#151515", textDecoration: "none" }}>
               🔔{unreadNotifications ? ` ${unreadNotifications}` : ""}
             </Link>
@@ -157,6 +182,12 @@ export default async function MemberDashboardPage() {
         </section>
 
         <section className="quick-actions" aria-label="Member quick actions" style={{ marginBottom: 18 }}>
+          {hasAdminAccess ? (
+            <Link className="quick-action" href="/admin">
+              <span className="quick-action-icon" aria-hidden="true"><ActionIcon name="chapter" /></span>
+              <span className="quick-action-copy"><strong>Admin Dashboard</strong><small>Switch to your authorized National or Chapter administration.</small></span>
+            </Link>
+          ) : null}
           {actions.map(([icon, label, href, description]) => (
             <Link className="quick-action" href={href} key={label}>
               <span className="quick-action-icon" aria-hidden="true"><ActionIcon name={icon} /></span>
