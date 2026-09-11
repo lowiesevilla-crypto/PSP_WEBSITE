@@ -10,6 +10,7 @@ async function source(path) {
 
 const [
   registrationPage,
+  registrationWizard,
   applicationReview,
   activationRoute,
   invitationHelper,
@@ -24,6 +25,7 @@ const [
   passkeyRoute,
 ] = await Promise.all([
   source("src/app/register/page.tsx"),
+  source("src/components/registration/registration-wizard.tsx"),
   source("src/app/api/admin/applications/[id]/review/route.ts"),
   source("src/app/api/auth/activate/route.ts"),
   source("src/lib/member/invitation.ts"),
@@ -39,10 +41,11 @@ const [
 ]);
 
 // Existing online registration and signed email activation remain the primary workflow.
-assert(registrationPage.includes("/api/applications"), "Online registration submission must remain available.");
-assert(applicationReview.includes("sendMemberActivationEmail") && applicationReview.includes('status: "INVITED"'), "Application approval must retain the existing email activation workflow.");
+assert(registrationPage.includes("RegistrationWizard") && registrationPage.includes("Online Membership Registration"), "Online registration page must remain available.");
+assert(registrationWizard.includes('fetch("/api/registration"') && registrationWizard.includes("Application Submitted"), "Online membership application submission must remain available.");
+assert(applicationReview.includes("sendMemberInvitationEmail") && applicationReview.includes('status: "INVITED"'), "Application approval must retain the existing email activation workflow.");
 assert(activationRoute.includes("verifyActivationToken") && activationRoute.includes('status: "ACTIVE"'), "Signed email activation must remain valid.");
-assert(invitationHelper.includes("createActivationToken") && invitationHelper.includes("sendMemberActivationEmail"), "Activation invitation delivery contract is missing.");
+assert(invitationHelper.includes("createActivationToken") && invitationHelper.includes("sendMemberInvitationEmail"), "Activation invitation delivery contract is missing.");
 
 // Admin override is exact-Chapter scoped and never bypasses approved membership.
 assert(overrideRoute.includes('requirePermission("members.manage", member.chapterId)'), "Activation override must enforce server-side exact-Chapter members.manage permission.");
@@ -50,7 +53,7 @@ assert(overrideRoute.includes('member.membershipStatus !== "ACTIVE"'), "Activati
 assert(overrideRoute.includes("member.user.id === context.user.id"), "Administrator self credential override must remain blocked.");
 assert(overrideRoute.includes("targetHasAdminAuthority") && overrideRoute.includes("actorHasNationalMemberAuthority"), "Chapter Admin must not be able to take over another administrator account.");
 assert(overrideRoute.includes("MEMBER_ADMIN_TEMPORARY_PASSWORD_SET") && overrideRoute.includes("MEMBER_ADMIN_ACTIVATION_RESET"), "Activation override actions must be audited.");
-assert(!overrideRoute.includes("sendEmail(") && !overrideRoute.includes("sendMemberActivationEmail("), "Admin temporary passwords must never be emailed by the system.");
+assert(!overrideRoute.includes("sendEmail(") && !overrideRoute.includes("sendMemberInvitationEmail("), "Admin temporary passwords must never be emailed by the system.");
 assert(overrideRoute.includes("hashPassword(parsed.data.temporaryPassword)"), "Temporary passwords must be stored only as password hashes.");
 assert(overrideRoute.includes("passwordHash: null") && overrideRoute.includes("emailVerifiedAt: null"), "Activation reset must invalidate the current password and email activation state.");
 
