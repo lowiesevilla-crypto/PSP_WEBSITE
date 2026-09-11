@@ -34,6 +34,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const now = new Date();
   const member = await prisma.member.findUnique({
     where: { id },
     include: {
@@ -47,8 +48,8 @@ export async function POST(
           emailVerifiedAt: true,
           roleAssignments: {
             where: {
-              startsAt: { lte: new Date() },
-              OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }],
+              startsAt: { lte: now },
+              OR: [{ endsAt: null }, { endsAt: { gt: now } }],
             },
             select: {
               chapterId: true,
@@ -130,6 +131,7 @@ export async function POST(
             status: "INVITED",
           },
         }),
+        prisma.passkeyCredential.deleteMany({ where: { userId: member.user.id } }),
         prisma.auditLog.create({
           data: {
             actorUserId: context.user.id,
@@ -146,6 +148,7 @@ export async function POST(
               accountStatus: "INVITED",
               temporaryPasswordRequired: true,
               forcePermanentPasswordOnLogin: true,
+              passkeysRevoked: true,
             },
           },
         }),
@@ -153,7 +156,7 @@ export async function POST(
 
       return NextResponse.json(
         {
-          message: `Temporary password set for ${member.user.displayName}. Give it to the member manually. PSP will require a different permanent password at first sign-in.`,
+          message: `Temporary password set for ${member.user.displayName}. Give it to the member manually. PSP will require a different permanent password at first sign-in. Existing passkeys were revoked for account safety.`,
           accountStatus: "INVITED",
           passwordChangeRequired: true,
         },
@@ -170,6 +173,7 @@ export async function POST(
           status: "INVITED",
         },
       }),
+      prisma.passkeyCredential.deleteMany({ where: { userId: member.user.id } }),
       prisma.auditLog.create({
         data: {
           actorUserId: context.user.id,
@@ -186,6 +190,7 @@ export async function POST(
             accountStatus: "INVITED",
             hasPassword: false,
             emailVerified: false,
+            passkeysRevoked: true,
           },
         },
       }),
@@ -193,7 +198,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        message: `Activation reset for ${member.user.displayName}. You can resend the normal activation invitation or set a new temporary password.`,
+        message: `Activation reset for ${member.user.displayName}. You can resend the normal activation invitation or set a new temporary password. Existing passkeys were revoked for account safety.`,
         accountStatus: "INVITED",
         passwordChangeRequired: false,
       },
