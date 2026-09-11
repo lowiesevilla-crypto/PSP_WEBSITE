@@ -101,6 +101,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
               <span className="admin-scope-dot" aria-hidden="true" />
               <span>{scopeLabel}</span>
             </div>
+            {context.user.member ? (
+              <Link
+                href="/member"
+                aria-label="Open member dashboard"
+                style={{ color: "#fec009", fontSize: ".78rem", fontWeight: 900, whiteSpace: "nowrap" }}
+              >
+                Member Dashboard
+              </Link>
+            ) : null}
             <span className="admin-user-name">{context.user.displayName}</span>
             <LogoutButton />
           </div>
@@ -116,6 +125,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                 {visibleNavigation.map((item) => (
                   <Link key={item.href} href={item.href}>{item.label}</Link>
                 ))}
+                {context.user.member ? <Link href="/member">Member Dashboard</Link> : null}
               </nav>
               <div className="admin-mobile-account">
                 <span>{context.user.displayName}</span>
