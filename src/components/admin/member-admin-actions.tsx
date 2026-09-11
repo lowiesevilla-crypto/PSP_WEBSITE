@@ -78,7 +78,7 @@ export function MemberAdminActions({
 
   async function resetActivation() {
     const confirmed = window.confirm(
-      `Reset account activation for ${memberName}?\n\nThis invalidates the current password and returns the user to the activation process. Membership, finance, certificates, roles, and history are not deleted.`,
+      `Reset account activation for ${memberName}?\n\nThis invalidates the current password, revokes existing passkeys, and returns the user to the activation process. Membership, finance, certificates, roles, Digital ID, and history are not deleted.`,
     );
     if (!confirmed) return;
 
@@ -175,7 +175,7 @@ export function MemberAdminActions({
           <summary style={{ cursor: "pointer", fontWeight: 900 }}>Admin Activate / Set Temporary Password</summary>
           <form onSubmit={setAdminTemporaryPassword} style={{ display: "grid", gap: 9, marginTop: 12 }}>
             <small style={{ color: "#746b5b", lineHeight: 1.5 }}>
-              Use only when the approved member cannot complete email activation. Type a temporary password and give it to the member manually. PSP never emails or stores the plaintext password. First sign-in forces the member to create a different permanent password.
+              Use only when the approved member cannot complete email activation. Type a temporary password and give it to the member manually. PSP never emails or stores the plaintext password. First sign-in forces the member to create a different permanent password. Existing passkeys are revoked when this administrator override is used.
             </small>
             <input
               type="password"
@@ -212,7 +212,7 @@ export function MemberAdminActions({
         <small style={{ color: "#746b5b" }}>Self credential override and self-deletion are blocked to prevent administrator lockout. Use normal password recovery for your own account.</small>
       ) : null}
       <small style={{ color: "#746b5b", lineHeight: 1.5 }}>
-        Activation override changes account credentials only. Membership, Chapter assignment, roles, finance, certificates, Digital ID, and audit history are retained.
+        Activation override changes account credentials only and revokes existing passkeys for account safety. Membership, Chapter assignment, roles, finance, certificates, Digital ID, and audit history are retained.
       </small>
       {message ? <div role="status" style={{ padding: 10, borderRadius: 10, background: "#eff9ea", color: "#355625" }}>{message}</div> : null}
       {error ? <div role="alert" style={{ padding: 10, borderRadius: 10, background: "#fff1f1", color: "#7b2424" }}>{error}</div> : null}
