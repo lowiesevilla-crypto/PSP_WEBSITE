@@ -20,11 +20,12 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-09-r18
-      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-09-finance-full-editor-public-feed-v1
+      EXPECTED_RELEASE: 2026-09-11-r22
+      EXPECTED_DEPLOYMENT_GENERATION: 2026-09-11-admin-activation-override-v1
       EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION: chapter-draft-ux-v2
       EXPECTED_BILLING_DUES_VERSION: chapter-national-v1
       EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION: linked-split-e2e-v1
+      EXPECTED_ADMIN_ACTIVATION_OVERRIDE_VERSION: temporary-password-forced-change-v1
 
     steps:
       - name: Wait for exact deployed main release
@@ -53,6 +54,7 @@ jobs:
               && grep -q "\"financePaymentConfigVersion\":\"$EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"billingDuesVersion\":\"$EXPECTED_BILLING_DUES_VERSION\"" /tmp/psp-health.json \
               && grep -q "\"splitPaymentContractVersion\":\"$EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION\"" /tmp/psp-health.json \
+              && grep -q "\"adminActivationOverrideVersion\":\"$EXPECTED_ADMIN_ACTIVATION_OVERRIDE_VERSION\"" /tmp/psp-health.json \
               && grep -q '"paymentAssignmentVersion":"chapter-selected-member-v1"' /tmp/psp-health.json \
               && grep -q '"publicFeedVersion":"global-chapter-feed-v2"' /tmp/psp-health.json; then
               deployed=true
@@ -226,4 +228,4 @@ jobs:
 
       - name: Production smoke summary
         run: |
-          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE generation $EXPECTED_DEPLOYMENT_GENERATION finance-config $EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION billing $EXPECTED_BILLING_DUES_VERSION split $EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION"
+          echo "PSP public production smoke passed for $PROD_URL release $EXPECTED_RELEASE generation $EXPECTED_DEPLOYMENT_GENERATION activation-override $EXPECTED_ADMIN_ACTIVATION_OVERRIDE_VERSION finance-config $EXPECTED_FINANCE_PAYMENT_CONFIG_VERSION billing $EXPECTED_BILLING_DUES_VERSION split $EXPECTED_SPLIT_PAYMENT_CONTRACT_VERSION"
