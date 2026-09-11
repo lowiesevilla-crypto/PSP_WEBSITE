@@ -26,6 +26,7 @@ export async function GET() {
       chapterFundsVersion: "month-year-expense-ledger-v1",
       generalUpdatesVersion: "public-archive-member-link-v1",
       memberDashboardUiVersion: "icon-cards-mobile-v1",
+      adminActivationOverrideVersion: "temporary-password-forced-change-v1",
       timestamp: new Date().toISOString(),
     },
     {

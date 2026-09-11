@@ -5,6 +5,7 @@ export interface SignedTokenPayload {
     | "session"
     | "email-verification"
     | "password-reset"
+    | "temporary-password-change"
     | "passkey-registration"
     | "passkey-authentication";
   userId: string;

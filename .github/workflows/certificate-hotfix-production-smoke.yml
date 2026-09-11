@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     env:
       PROD_URL: https://psp.hoahub.tech
-      EXPECTED_RELEASE: 2026-09-06-r14
+      EXPECTED_RELEASE: 2026-09-11-r22
       EXPECTED_CERTIFICATE_HOTFIX_VERSION: chapter-logo-email-invalidation-v1
 
     steps:
@@ -71,4 +71,4 @@ jobs:
 
       - name: Certificate hotfix production summary
         run: |
-          echo "Certificate hotfix is deployed and PSP readiness remains green."
+          echo "Certificate hotfix is deployed on $EXPECTED_RELEASE and PSP readiness remains green."

@@ -14,6 +14,11 @@ import {
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
 } from "@/lib/auth/session";
+import {
+  createTemporaryPasswordToken,
+  TEMPORARY_PASSWORD_COOKIE_NAME,
+  temporaryPasswordCookieOptions,
+} from "@/lib/auth/temporary-password";
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
@@ -124,6 +129,12 @@ export async function POST(request: Request) {
         status: true,
         passwordHash: true,
         emailVerifiedAt: true,
+        member: {
+          select: {
+            chapterId: true,
+            membershipStatus: true,
+          },
+        },
       },
     });
 
@@ -131,17 +142,54 @@ export async function POST(request: Request) {
       user?.passwordHash && (await verifyPassword(password, user.passwordHash)),
     );
 
-    if (
-      !user ||
-      !passwordValid ||
-      user.status !== "ACTIVE" ||
-      !user.emailVerifiedAt ||
-      !user.passwordHash
-    ) {
+    if (!user || !passwordValid || !user.passwordHash) {
       await recordRateLimitAttempt("AUTH_LOGIN_FAILED", identifier, {
         reason: "INVALID_OR_INACTIVE_CREDENTIALS",
       });
+      return NextResponse.json(
+        { message: "Invalid email or password." },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
+    const temporaryPasswordLogin =
+      user.status === "INVITED" && user.member?.membershipStatus === "ACTIVE";
+
+    if (temporaryPasswordLogin) {
+      const now = new Date();
+      await prisma.$transaction([
+        prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: now } }),
+        prisma.auditLog.create({
+          data: {
+            actorUserId: user.id,
+            chapterId: user.member?.chapterId ?? null,
+            action: "AUTH_TEMPORARY_PASSWORD_LOGIN_SUCCEEDED",
+            entityType: "User",
+            entityId: user.id,
+          },
+        }),
+      ]);
+
+      const response = NextResponse.json(
+        {
+          user: { id: user.id, displayName: user.displayName },
+          passwordChangeRequired: true,
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+      response.cookies.set(
+        TEMPORARY_PASSWORD_COOKIE_NAME,
+        createTemporaryPasswordToken(user.id, user.passwordHash),
+        temporaryPasswordCookieOptions(),
+      );
+      response.cookies.set(SESSION_COOKIE_NAME, "", { ...sessionCookieOptions(), maxAge: 0 });
+      return response;
+    }
+
+    if (user.status !== "ACTIVE" || !user.emailVerifiedAt) {
+      await recordRateLimitAttempt("AUTH_LOGIN_FAILED", identifier, {
+        reason: "INVALID_OR_INACTIVE_CREDENTIALS",
+      });
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401, headers: { "Cache-Control": "no-store" } },
@@ -171,11 +219,16 @@ export async function POST(request: Request) {
           id: user.id,
           displayName: user.displayName,
         },
+        passwordChangeRequired: false,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
 
     response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+    response.cookies.set(TEMPORARY_PASSWORD_COOKIE_NAME, "", {
+      ...temporaryPasswordCookieOptions(),
+      maxAge: 0,
+    });
     return response;
   } catch (error) {
     console.error(

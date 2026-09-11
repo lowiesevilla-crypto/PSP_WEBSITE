@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "@/app/login/login.module.css";
 
-type JsonPayload = { message?: string };
+type JsonPayload = { message?: string; passwordChangeRequired?: boolean };
 type AuthMethod = "password" | "passkey";
 
 async function readJsonPayload(response: Response): Promise<JsonPayload | null> {
@@ -120,6 +120,12 @@ export function LoginForm() {
       const payload = await readJsonPayload(response);
       if (!response.ok) {
         throw new Error(payload?.message ?? "Unable to sign in. Please try again.");
+      }
+
+      if (payload?.passwordChangeRequired) {
+        router.replace("/change-password");
+        router.refresh();
+        return;
       }
 
       await routeAfterLogin();

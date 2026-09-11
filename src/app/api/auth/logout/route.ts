@@ -4,6 +4,10 @@ import {
   sessionCookieOptions,
 } from "@/lib/auth/session";
 import { getSessionUser } from "@/lib/auth/session";
+import {
+  TEMPORARY_PASSWORD_COOKIE_NAME,
+  temporaryPasswordCookieOptions,
+} from "@/lib/auth/temporary-password";
 import { prisma } from "@/lib/prisma";
 
 export async function POST() {
@@ -26,6 +30,10 @@ export async function POST() {
   );
   response.cookies.set(SESSION_COOKIE_NAME, "", {
     ...sessionCookieOptions(),
+    maxAge: 0,
+  });
+  response.cookies.set(TEMPORARY_PASSWORD_COOKIE_NAME, "", {
+    ...temporaryPasswordCookieOptions(),
     maxAge: 0,
   });
   return response;

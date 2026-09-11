@@ -2,11 +2,15 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { getAuthContext } from "@/lib/auth/context";
+import { getTemporaryPasswordUser } from "@/lib/auth/temporary-password";
 import styles from "./login.module.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
+  const temporaryPasswordUser = await getTemporaryPasswordUser();
+  if (temporaryPasswordUser) redirect("/change-password");
+
   const context = await getAuthContext();
   if (context) {
     const hasAdminAccess = context.assignments.some(
