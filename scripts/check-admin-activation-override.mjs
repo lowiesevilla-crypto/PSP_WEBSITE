@@ -56,12 +56,14 @@ assert(overrideRoute.includes("MEMBER_ADMIN_TEMPORARY_PASSWORD_SET") && override
 assert(!overrideRoute.includes("sendEmail(") && !overrideRoute.includes("sendMemberInvitationEmail("), "Admin temporary passwords must never be emailed by the system.");
 assert(overrideRoute.includes("hashPassword(parsed.data.temporaryPassword)"), "Temporary passwords must be stored only as password hashes.");
 assert(overrideRoute.includes("passwordHash: null") && overrideRoute.includes("emailVerifiedAt: null"), "Activation reset must invalidate the current password and email activation state.");
+assert(overrideRoute.includes("prisma.passkeyCredential.deleteMany"), "Administrator credential override must revoke existing passkeys.");
 
 // UI exposes the support control only within the existing scoped member-management surface.
 assert(memberPage.includes("canOverrideActivation") && memberActions.includes("Admin Activate / Set Temporary Password"), "Member Administration must expose the activation override control.");
 assert(memberActions.includes("Resend Invitation"), "Existing resend-invitation control must remain available.");
 assert(memberActions.includes("Reset Activation"), "Activation reset control is missing.");
 assert(memberActions.includes("Activate with Temporary Password"), "Temporary-password activation control is missing.");
+assert(memberActions.includes("Existing passkeys are revoked"), "Admin UI must disclose passkey revocation before the override is used.");
 
 // Temporary credentials receive a restricted cookie, not a normal authenticated PSP session.
 assert(loginRoute.includes('user.status === "INVITED"') && loginRoute.includes("passwordChangeRequired: true"), "Temporary-password login must be recognized explicitly.");
