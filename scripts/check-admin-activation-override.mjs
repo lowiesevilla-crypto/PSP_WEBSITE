@@ -45,6 +45,7 @@ assert(registrationPage.includes("RegistrationWizard") && registrationPage.inclu
 assert(registrationWizard.includes('fetch("/api/registration"') && registrationWizard.includes("Application Submitted"), "Online membership application submission must remain available.");
 assert(applicationReview.includes("sendMemberInvitationEmail") && applicationReview.includes('status: "INVITED"'), "Application approval must retain the existing email activation workflow.");
 assert(activationRoute.includes("verifyActivationToken") && activationRoute.includes('status: "ACTIVE"'), "Signed email activation must remain valid.");
+assert(activationRoute.includes('user.status !== "INVITED"') && activationRoute.includes("payload.issuedAt < user.updatedAt.getTime()"), "Signed activation links must be single-state and invalid after an administrator credential reset/override or completed activation.");
 assert(invitationHelper.includes("createActivationToken") && invitationHelper.includes("sendMemberInvitationEmail"), "Activation invitation delivery contract is missing.");
 
 // Admin override is exact-Chapter scoped and never bypasses approved membership.
