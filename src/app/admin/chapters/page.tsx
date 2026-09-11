@@ -40,7 +40,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Sea
 
   const scope = authorizedChapterIds(context, "chapters.view");
   if (scope !== null && scope.length === 0) redirect("/admin");
-  const canManage = hasPermission(context, "chapters.manage", null);
+  const canCreateChapter = hasPermission(context, "chapters.manage", null);
 
   const params = await searchParams;
   const q = (single(params.q) ?? "").trim().slice(0, 120);
@@ -98,7 +98,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Sea
           <Link href="/admin" className="btn" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Back to Admin</Link>
         </div>
 
-        {canManage ? <div style={{ marginBottom: 20 }}><ChapterCreateForm /></div> : null}
+        {canCreateChapter ? <div style={{ marginBottom: 20 }}><ChapterCreateForm /></div> : null}
 
         <form className="admin-list-toolbar" method="get" action="/admin/chapters">
           <label className="admin-search-field">Search Chapters<input name="q" defaultValue={q} placeholder="Chapter name, code, admin, email or address…" /></label>
@@ -128,7 +128,7 @@ export default async function ChaptersPage({ searchParams }: { searchParams: Sea
                     <td data-label="Management">
                       <div className="admin-table-actions">
                         {hasPermission(context, "content.manage", chapter.id) ? <ChapterLogoControl chapterId={chapter.id} chapterName={chapter.name} logoUrl={chapterLogoPublicPath(chapter.id, chapter.logoUrl)} /> : null}
-                        {canManage ? <><ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} /><ChapterAdminAssignmentForm chapterId={chapter.id} chapterStatus={chapter.status} /></> : <span style={{ color: "#746b5b" }}>View only</span>}
+                        {hasPermission(context, "chapters.manage", chapter.id) ? <><ChapterStatusControl chapterId={chapter.id} chapterName={chapter.name} status={chapter.status} /><ChapterAdminAssignmentForm chapterId={chapter.id} chapterStatus={chapter.status} /></> : <span style={{ color: "#746b5b" }}>View only</span>}
                         {hasPermission(context, "finance.manage", chapter.id) ? <Link className="btn" href="/admin/finance" style={{ border: "1px solid #ddd5c1", background: "#fff" }}>Finance & Payment Setup</Link> : null}
                         {hasPermission(context, "members.manage", chapter.id) ? <Link className="btn" href={`/admin/members?chapter=${encodeURIComponent(chapter.id)}`} style={{ border: "1px solid #ddd5c1", background: "#fff" }}>View Members</Link> : null}
                       </div>

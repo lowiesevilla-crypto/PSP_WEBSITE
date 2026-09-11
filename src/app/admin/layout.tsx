@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import "./admin-responsive.css";
+import "./admin-action-visibility-hotfix.css";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { getAuthContext } from "@/lib/auth/context";
 import { prisma } from "@/lib/prisma";
