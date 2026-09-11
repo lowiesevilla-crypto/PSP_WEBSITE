@@ -7,7 +7,7 @@
     "build": "node scripts/production-build-init.mjs && next build",
     "start": "node scripts/production-init.mjs && next start",
     "lint": "eslint .",
-    "pretypecheck": "node scripts/check-platform-hardening-contracts.mjs && node scripts/check-admin-login-routing.mjs",
+    "pretypecheck": "node scripts/check-platform-hardening-contracts.mjs && node scripts/check-admin-login-routing.mjs && node scripts/check-admin-activation-override.mjs",
     "typecheck": "tsc --noEmit",
     "seed": "node prisma/seed.mjs",
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs"
