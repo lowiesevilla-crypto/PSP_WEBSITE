@@ -58,12 +58,20 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({
     where: { id: payload.userId },
-    select: { id: true, email: true, status: true, emailVerifiedAt: true },
+    select: { id: true, email: true, status: true, emailVerifiedAt: true, updatedAt: true },
   });
 
-  if (!user || user.email !== payload.email || user.status === "DISABLED" || user.status === "SUSPENDED") {
+  const tokenPredatesCurrentActivationState = Boolean(
+    user && payload.issuedAt < user.updatedAt.getTime(),
+  );
+  if (
+    !user ||
+    user.email !== payload.email ||
+    user.status !== "INVITED" ||
+    tokenPredatesCurrentActivationState
+  ) {
     await recordRateLimitAttempt("AUTH_ACTIVATION_FAILED", identifier, {
-      reason: "USER_UNAVAILABLE",
+      reason: "USER_UNAVAILABLE_OR_TOKEN_SUPERSEDED",
     });
     return NextResponse.json({ message: "Invalid or expired activation link." }, { status: 400 });
   }
