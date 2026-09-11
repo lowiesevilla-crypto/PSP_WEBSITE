@@ -174,6 +174,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
                 {members.map((member) => {
                   const memberName = [member.firstName, member.middleInitial, member.lastName].filter(Boolean).join(" ");
                   const canManage = hasPermission(context, "members.manage", member.chapterId);
+                  const temporaryPasswordPending = member.user.status === "INVITED" && Boolean(member.user.passwordHash);
                   const activationRequired =
                     member.user.status !== "ACTIVE" ||
                     !member.user.emailVerifiedAt ||
@@ -184,6 +185,11 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
                     member.user.status !== "SUSPENDED" &&
                     member.user.status !== "DISABLED" &&
                     activationRequired;
+                  const canOverrideActivation =
+                    canManage &&
+                    member.membershipStatus === "ACTIVE" &&
+                    member.user.status !== "SUSPENDED" &&
+                    member.user.status !== "DISABLED";
 
                   return (
                     <tr key={member.id}>
@@ -197,7 +203,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
                       </td>
                       <td data-label="Status">
                         <strong>{member.membershipStatus}</strong>
-                        <small style={{ display: "block", color: "#746b5b", marginTop: 3 }}>Account: {member.user.status}</small>
+                        <small style={{ display: "block", color: temporaryPasswordPending ? "#806000" : "#746b5b", marginTop: 3, fontWeight: temporaryPasswordPending ? 800 : 400 }}>
+                          Account: {temporaryPasswordPending ? "TEMP PASSWORD / CHANGE REQUIRED" : member.user.status}
+                        </small>
                       </td>
                       <td data-label="Contact">
                         <div style={{ overflowWrap: "anywhere" }}>{member.user.email}</div>
@@ -232,6 +240,9 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
                               memberId={member.id}
                               memberName={memberName}
                               canResendInvitation={canResendInvitation}
+                              canOverrideActivation={canOverrideActivation}
+                              temporaryPasswordPending={temporaryPasswordPending}
+                              accountStatus={member.user.status}
                               isSelf={context.user.id === member.user.id}
                             />
                           </div>
