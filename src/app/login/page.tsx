@@ -9,14 +9,13 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage() {
   const context = await getAuthContext();
   if (context) {
-    const hasNationalAdminAccess = context.assignments.some(
+    const hasAdminAccess = context.assignments.some(
       (assignment) =>
-        assignment.chapterId === null &&
         assignment.permissions.some((permission) =>
           ["chapters.manage", "applications.review", "members.manage"].includes(permission),
         ),
     );
-    redirect(hasNationalAdminAccess ? "/admin" : "/member");
+    redirect(hasAdminAccess ? "/admin" : "/member");
   }
 
   return (

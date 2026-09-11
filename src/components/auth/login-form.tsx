@@ -51,17 +51,16 @@ export function LoginForm() {
         })
       : null;
 
-    const hasNationalAdminAccess = Boolean(
+    const hasAdminAccess = Boolean(
       context?.assignments?.some(
         (assignment) =>
-          assignment.chapterId === null &&
           assignment.permissions.some((permission) =>
             ["chapters.manage", "applications.review", "members.manage"].includes(permission),
           ),
       ),
     );
 
-    router.replace(hasNationalAdminAccess ? "/admin" : "/member");
+    router.replace(hasAdminAccess ? "/admin" : "/member");
     router.refresh();
   }
 
